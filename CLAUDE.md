@@ -55,7 +55,7 @@ Personal side-venture of the user, not client work.
 | Cart, coupon, totals | **Built.** `money.pl` green, including the size delta |
 | Checkout, address, pay options | **Built**, still DEVI's: it saves to this browser and hands off on WhatsApp |
 | Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED |
-| Size charts | **Data built and checked.** Not yet ON the product page — step 2 |
+| Size charts | **Built.** A Size guide panel on the product page, plus a no-tap fit hint under the picker |
 | Delivery range | `deliveryEstimate()` works and the shipping page uses it. **NOT yet frozen into an order** — step 5 |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
 | Database, accounts, seller view | **Not started** — steps 6, 7, 8 |
@@ -172,13 +172,28 @@ the table, which a customer reads as "no measurement needed for XXL"
 rather than as a missing number — and the return that follows costs more
 than the check does.
 
-⚠️ Measurements are **body** measurements in inches, not garment
-measurements. The two differ by the ease allowance and a customer who
-assumes the wrong one orders the wrong size. **The numbers are invented**
-— a realistic Indian grading, not this manufacturer's spec sheet.
+⚠️ **Every column declares whether it is the body or the garment**, and
+the table prints that word under the heading. This is not decoration:
+"To fit chest 40" means the shirt fits a 40 in chest, while the shirt
+itself measures more, because it needs ease to be wearable. Somebody who
+measures a shirt they already own against a body column reads every size
+as too small and orders one up — a return caused by the chart that was
+supposed to prevent it.
 
-⚠️ **The chart is not on the product page yet.** That is step 2, and it
-is the cheapest return prevention there is.
+The wording lives in `shop.json` → `measureNotes`, keyed by the column
+heading exactly as `sizeCharts` spells it, so renaming a column **fails
+`data.pl`** rather than quietly dropping that column's guidance out of
+the table. `data.pl` also fails on an `on` that is not `body` or
+`garment`, and on an orphaned note.
+
+**The numbers are invented** — a realistic Indian grading, not this
+manufacturer's spec sheet.
+
+The chart is on the product page as a **Size guide** panel, with the
+selected size highlighted. ⚠️ More important than the panel is the ONE
+LINE under the size picker — "Fits a 40 in chest" — which costs no taps
+at all. Most people never open a size guide; the number that changes a
+decision is the one already on screen beside the size they just tapped.
 
 ---
 
@@ -256,8 +271,7 @@ there as well. Fixed here. Worth telling that project.
 Steps 1–5 are the demo. 6–10 make it a shop.
 
 1. ✅ **Copy DEVI, strip to a skeleton, serve it.**
-2. ⬜ **The size chart on the product page.** *This is the screenshot
-   that sells it*, and the cheapest return prevention there is.
+2. ✅ **The size chart on the product page.**
 3. ✅ Cart, coupon, totals — `money.pl` green.
 4. ⬜ **Checkout and a real order**, still in local storage.
 5. ⬜ **Freeze the delivery range into the order at placement.**

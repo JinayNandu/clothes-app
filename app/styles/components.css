@@ -553,3 +553,163 @@
                justify-content:space-between; width:100%; }
 }
 @media (max-width:379px){ .grid-products{ gap:var(--s3) var(--s2); } }
+
+/* ---------------------------------------------------------------------------
+   THE SHEET — a modal panel owned by the page, not by the router.
+
+   A BOTTOM SHEET ON A PHONE, A CENTRED DIALOG ON A DESKTOP. Not one shape
+   scaled: a centred box on a 375px screen either floats with dead margin all
+   round it or fills the screen and stops reading as a panel, and a bottom
+   sheet on a 1440px monitor is a strip pinned to the floor a long way from
+   where the eye is. The two layouts are 15 lines.
+
+   max-height is 85svh, not vh: on iOS Safari vh counts the area BEHIND the
+   address bar, so a sheet sized to it hides its own last row under the
+   browser chrome -- and the last row of a size chart is XXL.
+   ------------------------------------------------------------------------ */
+.sheet{
+  position:fixed; z-index:60;
+  left:0; right:0; bottom:0;
+  /* vh first, svh second: a browser too old for svh keeps the vh value
+     instead of dropping the declaration and letting the sheet run off the
+     screen. The sheet's last row is XXL, which is exactly the row somebody
+     opening a size guide on a phone is most likely to be looking for. */
+  max-height:85vh;
+  max-height:85svh;
+  display:flex; flex-direction:column;
+  background:var(--card);
+  border-top:1px solid var(--edge);
+  box-shadow:var(--sh-drawer);
+  transform:translateY(100%);
+  transition:transform var(--t-drawer) var(--e-exit);
+}
+.sheet.open{ transform:translateY(0); }
+.sheet-head{
+  flex:none;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:var(--s3);
+  padding:var(--s4) var(--s5);
+  border-bottom:1px solid var(--edge);
+}
+.sheet-body{ flex:1; overflow-y:auto; padding:var(--s5); }
+
+@media (min-width:700px){
+  .sheet{
+    left:50%; right:auto; bottom:auto; top:50%;
+    width:min(620px, calc(100vw - var(--s6)));
+    max-height:min(82vh, 760px);
+    max-height:min(82svh, 760px);
+    border:1px solid var(--edge); border-radius:var(--r2);
+    /* translate(-50%,-50%) is the OPEN state, so the closed state has to
+       carry the same -50% on X or the panel slides in from the left as well
+       as the bottom. Easy to miss, and it looks like a bug in the easing. */
+    transform:translate(-50%, calc(-50% + 16px));
+    opacity:0;
+    transition:transform var(--t-move) var(--e-exit),
+               opacity var(--t-move) var(--e-exit);
+  }
+  .sheet.open{ transform:translate(-50%, -50%); opacity:1; }
+}
+
+/* ---------------------------------------------------------------------------
+   THE SIZE CHART
+   ------------------------------------------------------------------------ */
+/* The eyebrow becomes a row so the Size guide link can sit opposite the
+   label, which is where every shop puts it and therefore where people look. */
+.sc-row{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); }
+.sc-link{
+  border:0; background:none; cursor:pointer;
+  display:inline-flex; align-items:center; gap:4px;
+  font-family:var(--f-ui); font-size:11px; font-weight:600;
+  letter-spacing:.08em; text-transform:uppercase;
+  color:var(--gold-ink);
+  text-decoration:underline; text-underline-offset:3px;
+  padding:var(--s1) 0;
+}
+.sc-link:hover{ color:var(--ink); }
+
+/* The hint under the picker. min-height reserves its line, so switching to a
+   size whose hint is shorter does not make the Add to bag button jump. */
+.sc-hint{
+  margin-top:var(--s2); min-height:1.2em;
+  font-family:var(--f-ui); font-size:13px; color:var(--ink-soft);
+}
+.sc-hint b{ color:var(--ink); font-weight:600; }
+
+.sc-wrap{ overflow-x:auto; }
+.sc{ width:100%; border-collapse:collapse; font-family:var(--f-ui); font-size:13px; }
+.sc-cap{
+  caption-side:top; text-align:left; padding-bottom:var(--s3);
+  font-size:12px; color:var(--ink-dim);
+}
+.sc th, .sc td{
+  padding:var(--s3) var(--s2);
+  border-bottom:1px solid var(--edge);
+  text-align:right; white-space:nowrap;
+}
+.sc thead th{
+  text-align:right; vertical-align:bottom;
+  font-size:11px; font-weight:600; letter-spacing:.04em;
+  color:var(--ink-soft);
+}
+.sc thead th:first-child, .sc tbody th{ text-align:left; }
+.sc tbody th{ font-weight:600; color:var(--ink); }
+/* body / garment, under its own column heading. See measureNotes in
+   shop.json: this one word is what stops a customer measuring a shirt they
+   own against a column that describes their chest. */
+.sc-on{
+  display:block; margin-top:2px;
+  font-size:10px; font-weight:500; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--gold-ink);
+}
+/* The row the customer has already chosen. A wash AND a left bar: the wash
+   finds the row across the full width of the table, the bar anchors where it
+   starts, and on a narrow screen where the table scrolls sideways the bar is
+   what survives being scrolled off.
+
+   MEASURED on --gold-wash #F8F0DC: --ink 14.76, --ink-soft 7.27, --ink-dim
+   5.66, --gold-ink 5.42. Every piece of text that lands on this row clears
+   4.5:1, so the fill is doing no harm -- which is the thing to check before
+   tinting a row of numbers people are about to trust. */
+.sc tbody tr.on{ background:var(--gold-wash); }
+.sc tbody tr.on th{ box-shadow:inset 2px 0 0 var(--gold); }
+.sc-you{
+  font-size:10px; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--gold-ink);
+}
+
+.sc-fit, .sc-warn{
+  display:flex; gap:var(--s2); align-items:flex-start;
+  margin-top:var(--s4);
+  font-family:var(--f-ui); font-size:13px; line-height:1.55;
+  color:var(--ink-soft);
+}
+.sc-fit svg, .sc-warn svg{ flex:none; margin-top:2px; }
+.sc-fit{ color:var(--ink); }
+.sc-warn{ font-size:12px; color:var(--ink-dim); }
+.sc-h{ margin:var(--s5) 0 var(--s2); }
+.sc-how{ margin:0; padding-left:var(--s5); font-family:var(--f-ui);
+  font-size:13px; line-height:1.6; color:var(--ink-soft); }
+.sc-how li{ margin-bottom:var(--s2); }
+.sc-how b{ color:var(--ink); font-weight:600; }
+
+/* ⚠️ THE CHART MUST FIT A 375px PHONE WITHOUT SIDEWAYS SCROLLING.
+   Measured: the men's shirt chart — the widest of the three, four columns
+   plus the size — came to 378px inside a 327px panel, so the Length column
+   sat off-screen behind a horizontal scrollbar. A column somebody cannot see
+   is a column that does not exist, and on this table that was the garment
+   length.
+
+   Three small changes bring it to exactly 327: cell padding 8px -> 4px, the
+   headings allowed to wrap, and the body/garment marker dropped to 9px with
+   its tracking removed. The marker was the real culprit — "GARMENT" set at
+   10px with .06em tracking is wider than "Sleeve", so the label under a
+   column was setting that column's width.
+
+   It is deliberately tight. A chart with longer headings than these will
+   scroll again, which is a graceful failure rather than a broken one. */
+@media (max-width:599px){
+  .sc th, .sc td{ padding:10px 4px; }
+  .sc thead th{ white-space:normal; }
+  .sc-on{ font-size:9px; letter-spacing:0; }
+}

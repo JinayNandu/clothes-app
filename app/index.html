@@ -161,6 +161,28 @@
   </div>
 </aside>
 
+<!-- THE SHEET — a modal panel for content that belongs to the PAGE rather
+     than to a screen: the size guide today, and whatever follows it.
+
+     ⚠️ Deliberately NOT a <section data-screen>. A screen joins the router's
+     stack, so Back would navigate away from the product the customer is
+     standing on instead of closing the panel — and on a phone, Back is how
+     people close things. Same reasoning as kirana's gate overlay.
+
+     ⚠️ It has its OWN scrim. #scrim is wired in app.js straight to the
+     drawer's shut(), so sharing it would give a click that closes nothing.
+     Two elements is cheaper than one element with two owners. -->
+<div class="scrim" id="sheet-scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"
+     aria-labelledby="sheet-title" aria-hidden="true" hidden>
+  <div class="sheet-head">
+    <h2 class="t-h3" id="sheet-title"></h2>
+    <button class="icon-btn" id="sheet-close" aria-label="Close">
+      <span id="i-sheet-close"></span></button>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
 <noscript>
   <div style="padding:2rem;text-align:center">
     Vastra Apparel needs JavaScript to show the catalogue.

@@ -9,8 +9,9 @@
 
 import * as store from '../store.js';
 import * as router from '../router.js';
-import { esc, crumbs, toast, emptyState, notice } from '../ui.js';
-import { priceBlock, swatchRow, qtyStepper, productCard } from '../components.js';
+import { esc, crumbs, toast, emptyState, notice, openSheet } from '../ui.js';
+import { priceBlock, swatchRow, qtyStepper, productCard,
+         sizeChart, fitHint, chartFor } from '../components.js';
 import { art, viewCount } from '../art.js';
 import { seal } from '../brand.js';
 import { icon } from '../icons.js';
@@ -58,6 +59,11 @@ router.registerScreen('product', async (host, r) => {
   // is how a customer's delivery date quietly slides a day every day.
   const est = D.deliveryEstimate(shop.shipping);
 
+  // No chart means no link, rather than a link onto an empty panel. data.pl
+  // already fails on a product that sells sizes with no chart behind them, so
+  // this branch only fires on a tree where the checks were never run.
+  const chart = chartFor(p, shop);
+
   host.innerHTML = `
   ${crumbs([
     { label: 'Home', href: '#/' },
@@ -94,12 +100,19 @@ router.registerScreen('product', async (host, r) => {
 
       ${p.variants && p.variants.size && p.variants.size.length > 1 ? `
         <div class="pdp-opt">
-          <div class="t-eyebrow">Size</div>
+          <div class="t-eyebrow sc-row">
+            <span>Size</span>
+            ${chart ? `<button type="button" class="sc-link" data-sizeguide>
+              ${icon('info', 14)} Size guide</button>` : ''}
+          </div>
           <div class="pdp-sizes" data-sizes>
             ${p.variants.size.map((s) => `
               <button type="button" class="chip${s.id === sel.size ? ' on' : ''}"
                 data-size="${esc(s.id)}">${esc(s.label)}</button>`).join('')}
           </div>
+          <!-- ⚠️ The fit hint, not the table, is the thing most people read.
+               It costs no taps and sits beside the size they just chose. -->
+          <p class="sc-hint" data-fithint>${fitHint(p, shop, sel.size)}</p>
         </div>` : ''}
 
       ${out ? notice('bad', '<b>Sold out.</b> We buy in small batches, so this '
@@ -209,6 +222,22 @@ router.registerScreen('product', async (host, r) => {
       }
       // The price moves with the size, so it has to re-render.
       $('[data-price]').innerHTML = priceBlock(p, sel, true);
+      // ⚠️ So does the fit hint. A hint left reading "fits a 38 in chest"
+      // under a highlighted XXL is worse than no hint: it is a wrong
+      // measurement shown at the exact moment of the decision.
+      const fh = host.querySelector('[data-fithint]');
+      if (fh) fh.innerHTML = fitHint(p, shop, sel.size);
+    });
+  }
+
+  // The size guide. Built on OPEN, not with the page, so the row it
+  // highlights is the size selected now rather than the one selected when
+  // the screen rendered.
+  const guide = host.querySelector('[data-sizeguide]');
+  if (guide) {
+    guide.addEventListener('click', () => {
+      openSheet(`Size guide — ${chart.label || p.name}`,
+                sizeChart(p, shop, sel.size));
     });
   }
 

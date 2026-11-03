@@ -94,6 +94,84 @@ export function closeDrawer() {
 }
 
 // ---------------------------------------------------------------------------
+// THE SHEET — a modal panel that belongs to the page, not to the router.
+//
+// Same discipline as the drawer above, and for the same reasons: `inert` on
+// everything behind it, the scrim, the body scroll lock, and focus put back
+// where it came from. A modal that leaves focus loose behind its own scrim is
+// a modal a keyboard or a screen reader walks straight out of, invisibly.
+//
+// ⚠️ The close handlers are wired ONCE, on first open, not in app.js. app.js
+// is the only module that knows every screen exists; the sheet is reached
+// from a page, and a page cannot reach into app.js to ask for wiring. Binding
+// them here keeps the sheet self-contained — and the `wired` flag is what
+// stops a second open from stacking a second Escape listener, which would
+// close the sheet, then immediately try to close it again.
+// ---------------------------------------------------------------------------
+let sheetFocus = null;
+let sheetWired = false;
+
+export function openSheet(title, html) {
+  const sh = $('#sheet'), sc = $('#sheet-scrim');
+  if (!sh) return;
+
+  if (!sheetWired) {
+    sheetWired = true;
+    $('#sheet-close').addEventListener('click', closeSheet);
+    sc.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !sh.hidden) closeSheet();
+    });
+  }
+
+  sheetFocus = document.activeElement;
+  $('#sheet-title').textContent = title;
+  $('#sheet-body').innerHTML = html;
+
+  // `hidden` off first, then a FORCED REFLOW, then the class — all in this
+  // tick. The reflow is what makes the transition animate: it flushes the
+  // closed state to the style system, so adding `.open` immediately after is
+  // a change the browser has something to interpolate from. Without it the
+  // element goes display:none -> open in one paint and simply appears.
+  //
+  // ⚠️ This was requestAnimationFrame, which is the usual advice and is
+  // WRONG HERE. rAF callbacks are suspended whenever a document is not being
+  // painted — a background tab, an offscreen frame, some embedded webviews —
+  // and the failure is the worst kind available: `hidden` is already off and
+  // the shell is already inert, so the page freezes behind a modal that never
+  // becomes visible. Nothing to click, nothing to scroll, nothing to see.
+  // Measured in this project's own browser pane, where rAF never fires at
+  // all: the sheet opened at opacity 0 and locked the page behind it.
+  sh.hidden = false; sc.hidden = false;
+  void sh.offsetHeight;
+  sh.classList.add('open'); sc.classList.add('open');
+
+  sh.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  $('#shell').inert = true;
+  $('#site-header').inert = true;
+  $('#sheet-close').focus();
+}
+
+export function closeSheet() {
+  const sh = $('#sheet'), sc = $('#sheet-scrim');
+  if (!sh || sh.hidden) return;
+  sh.classList.remove('open'); sc.classList.remove('open');
+  sh.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  $('#shell').inert = false;
+  $('#site-header').inert = false;
+  if (sheetFocus && sheetFocus.focus) sheetFocus.focus();
+
+  // ⚠️ `hidden` goes back on only after the transition, or the panel vanishes
+  // instead of sliding away. Guarded on the class, because a reopen during
+  // those 320ms would otherwise be hidden by its own predecessor's timer.
+  setTimeout(() => {
+    if (!sh.classList.contains('open')) { sh.hidden = true; sc.hidden = true; }
+  }, 320);
+}
+
+// ---------------------------------------------------------------------------
 // SHARED FRAGMENTS
 // ---------------------------------------------------------------------------
 export const h1 = (title, eyebrow, sub) => `
@@ -138,7 +216,8 @@ export function drawChrome(shop) {
 
   for (const [sel, name] of [['#i-search', 'search'], ['#i-wish', 'heart'],
                              ['#i-bag', 'bag'], ['#i-burger', 'menu'],
-                             ['#i-search-m', 'search'], ['#i-close', 'close']]) {
+                             ['#i-search-m', 'search'], ['#i-close', 'close'],
+                             ['#i-sheet-close', 'close']]) {
     const el = $(sel);
     if (el) el.innerHTML = icon(name, 20);
   }

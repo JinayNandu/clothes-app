@@ -57,6 +57,37 @@
     "serverBase": ""
   },
   "lowStockAt": 3,
+  "measureNotes": {
+    "Hip": {
+      "how": "Around the fullest part of your hips, roughly 8 in below your waist, with your feet together.",
+      "on": "body"
+    },
+    "Length": {
+      "how": "Measured on the garment, from the highest point of the shoulder straight down to the hem.",
+      "on": "garment"
+    },
+    "Shoulder": {
+      "how": "Measured on the garment, seam to seam across the back.",
+      "on": "garment"
+    },
+    "Sleeve": {
+      "how": "Measured on the garment, from the shoulder seam to the end of the cuff.",
+      "on": "garment"
+    },
+    "To fit bust": {
+      "how": "Around the fullest part of your bust, keeping the tape level across your back and not pulled tight.",
+      "on": "body"
+    },
+    "To fit chest": {
+      "how": "Around the fullest part of your chest, under the arms, keeping the tape level and not pulled tight.",
+      "on": "body"
+    },
+    "Waist": {
+      "how": "Around your natural waist — the narrowest part, roughly level with your navel.",
+      "on": "body"
+    }
+  },
+  "measureNotesNote": "⚠️ SOME COLUMNS ARE YOUR BODY AND SOME ARE THE GARMENT, and confusing the two is the single most common way a customer orders the wrong size. A 'To fit chest' of 40 means the shirt is cut to fit a 40 in CHEST; the garment itself measures more than that, because it needs ease to be wearable. A customer who measures a shirt they already own against a body column reads every size as too small and orders up. So every column declares `on`, the chart prints that next to the heading, and data.pl FAILS if a column in any chart has no note here or if a note is orphaned. Keyed by the column heading exactly as sizeCharts spells it -- rename a column and the check tells you immediately rather than the table quietly losing its guidance.",
   "newDays": 45,
   "placeholder": true,
   "placeholderNote": "WHILE THIS IS TRUE, data.pl FAILS. The brand name, the brand story, the year, every contact field and all three prices are INVENTED -- realistic, not real. The owner has not chosen a name yet. A phone number that does not dial and a GSTIN that is not yours are the worst things to ship by accident on a real business site, so this flag makes shipping them impossible rather than merely inadvisable. Set it to false only when every field in `contact` is real and the prices have been checked. data.pl then checks every contact field is non-empty -- including returnsAddr, which a shop selling to strangers must publish and a kirana delivering down the lane never needed.",
@@ -212,7 +243,7 @@
       "unit": "in"
     }
   },
-  "sizeChartsNote": "⚠️ THE CHEAPEST RETURN PREVENTION THERE IS. Most clothing returns are fit, so this table is not decoration. Measurements are BODY measurements in inches -- what the customer measures on themselves -- not garment measurements, and the product page says so, because the two differ by the ease allowance and a customer who assumes the wrong one orders the wrong size. One chart per garment type rather than per product, because a shirt in M is the same M across every shirt on this floor; repeating five rows on every product is how the numbers drift apart. A product names its chart with `sizeChart`, and data.pl FAILS if the chart is missing or does not carry a row for every size that product sells -- a size with no row renders a blank line in the table, which is worse than no table. Row keys are the size ids from the catalogue, not the labels. ⚠️ THESE NUMBERS ARE INVENTED, like the prices. They are a realistic Indian grading, not this manufacturer's own spec sheet. Get the real grading before anybody orders from it.",
+  "sizeChartsNote": "⚠️ THE CHEAPEST RETURN PREVENTION THERE IS. Most clothing returns are fit, so this table is not decoration. Measurements are in inches, and EACH COLUMN DECLARES whether it is the body or the garment -- see measureNotes, which is where that is said and checked. One chart per garment type rather than per product, because a shirt in M is the same M across every shirt on this floor; repeating five rows on every product is how the numbers drift apart. A product names its chart with `sizeChart`, and data.pl FAILS if the chart is missing or does not carry a row for every size that product sells -- a size with no row renders a blank line in the table, which a customer reads as 'no measurement needed for XXL' rather than as a missing number. Row keys are the size ids from the catalogue, not the labels, so renaming a label never silently detaches the measurements from the size. `fit` is the one-line advice under the table; it is where the between-sizes rule goes, because that is the sentence people actually read. ⚠️ THESE NUMBERS ARE INVENTED, like the prices. They are a realistic Indian grading, not this manufacturer's own spec sheet. Get the real grading before anybody orders from it.",
   "social": {
     "facebook": "",
     "instagram": ""

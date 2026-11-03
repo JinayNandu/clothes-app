@@ -327,6 +327,47 @@ ok("returns: $rt->{days} days from delivery"
    . (($rt->{free} // 0) ? ', free' : ', customer pays'))
   if ($rt->{from} // '') eq 'delivery';
 
+# ---------------------------------------------------------------------------
+# EVERY SIZE-CHART COLUMN HAS A HOW-TO-MEASURE NOTE, AND SAYS WHETHER IT
+# DESCRIBES THE BODY OR THE GARMENT.
+#
+# ⚠️ The body/garment distinction is the single most common way a customer
+# orders the wrong size. "To fit chest 40" means the shirt fits a 40 in
+# chest; the shirt itself measures more, because it needs ease. Somebody who
+# measures a shirt they already own against a body column reads every size as
+# too small and orders one up -- a return caused by the chart that was
+# supposed to prevent it.
+#
+# Keyed on the column heading as sizeCharts spells it, so renaming a column
+# fails here rather than quietly dropping its guidance out of the table.
+# ---------------------------------------------------------------------------
+{
+  my $notes = $shop->{measureNotes} || {};
+  my %used;
+  for my $cn (sort keys %$charts) {
+    for my $col (@{ $charts->{$cn}{cols} || [] }) {
+      $used{$col} = 1;
+      my $n = $notes->{$col};
+      if (!$n) {
+        fail("sizeChart '$cn': column '$col' has no entry in measureNotes");
+        next;
+      }
+      fail("measureNotes '$col': `on` is '" . ($n->{on} // '')
+         . "', not 'body' or 'garment'")
+        unless ($n->{on} // '') =~ /^(body|garment)$/;
+      fail("measureNotes '$col': no `how`")
+        unless defined $n->{how} && length $n->{how};
+    }
+  }
+  for my $col (sort keys %$notes) {
+    fail("measureNotes '$col' is not a column in any size chart -- delete it "
+       . "or check the spelling against sizeCharts")
+      unless $used{$col};
+  }
+  ok(scalar(keys %$notes) . " measure notes, one per size-chart column")
+    if %$notes;
+}
+
 # Every chart is reachable from at least one product, and no chart is orphaned.
 # An orphaned chart is measurements nobody maintains, which is how a chart
 # that no longer matches the grading survives to be attached to a new product.

@@ -1,0 +1,548 @@
+/* ============================================================================
+   DEVI Collections — components.
+
+   The governing decision: PRODUCTS FLOAT, NOTHING IS BOXED. The product card
+   has no border, no fill and no shadow; only the image tile has an edge.
+   Boxing every tile in a bordered white rectangle is the single most
+   recognisable template signature, and avoiding it costs nothing.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   THE LOGO LOCKUP
+   COLLECTIONS is 0.34x the DEVI cap height and tracked to optically match its
+   width. Match by adjusting TRACKING, never by scaling -- scaling breaks the
+   stroke-weight relationship between the two lines.
+   ------------------------------------------------------------------------ */
+.logo-lock{ display:flex; align-items:center; gap:var(--s3); color:var(--ink); }
+.logo-mark{ display:flex; flex:none; }
+.logo-words{ display:flex; flex-direction:column; gap:2px; line-height:1; }
+.logo-devi{
+  font-family:var(--f-display); font-weight:500;
+  font-size:24px; line-height:1;
+  letter-spacing:.18em;
+  /* Wide tracking visually detaches a narrow terminal letter, so the final I
+     needs the extra sidebar back. Done with padding, not a negative margin,
+     so the box still contains it. */
+  padding-right:.02em;
+}
+.logo-rule{ display:block; height:1px; background:var(--gold); margin:1px 15% 2px; }
+.logo-coll{
+  font-family:var(--f-ui); font-weight:600;
+  font-size:8px; line-height:1;
+  letter-spacing:.30em;
+  color:var(--ink-soft);
+}
+/* The band sits between 'sm' and 'lg': stacked and centred like the large
+   lockup, but at a size that leaves the page its fold. */
+.logo-band{ flex-direction:column; gap:var(--s3); text-align:center; }
+.logo-band .logo-words{ align-items:center; }
+.logo-band .logo-devi{ font-size:34px; letter-spacing:.22em; }
+.logo-band .logo-rule{ width:100%; margin:var(--s1) 0; }
+.logo-band .logo-coll{ font-size:10px; letter-spacing:.38em; }
+
+ (max-width:1023px){
+  .logo-band{ gap:var(--s2); }
+  .logo-band .logo-devi{ font-size:26px; letter-spacing:.2em; }
+  .logo-band .logo-coll{ font-size:8px; letter-spacing:.32em; }
+}
+
+.logo-lg{ flex-direction:column; gap:var(--s5); text-align:center; }
+.logo-lg .logo-words{ align-items:center; }
+.logo-lg .logo-devi{ font-size:44px; letter-spacing:.2em; }
+.logo-lg .logo-rule{ width:100%; margin:var(--s1) 0; }
+.logo-lg .logo-coll{ font-size:13px; letter-spacing:.42em; }
+
+@media (max-width:599px){
+  .logo-devi{ font-size:20px; }
+  .logo-coll{ font-size:7px; letter-spacing:.26em; }
+}
+
+/* ---------------------------------------------------------------------------
+   BUTTONS
+   The ink -> gold hover is the brand's one moment of warmth, and it costs
+   nothing because the measurement already cleared: --on-gold on --gold is 4.95.
+   ------------------------------------------------------------------------ */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  gap:var(--s2);
+  height:46px; padding:0 var(--s5);
+  border-radius:var(--r1);
+  font-size:13px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.08em;
+  white-space:nowrap;
+  transition:background var(--t-micro) var(--e-enter),
+             color var(--t-micro) var(--e-enter),
+             border-color var(--t-micro) var(--e-enter),
+             transform var(--t-micro) var(--e-enter);
+}
+.btn:active{ transform:translateY(1px); }
+
+.btn-primary{ background:var(--ink); color:var(--on-ink); }
+.btn-primary:hover:not(:disabled){ background:var(--gold); color:var(--on-gold); }
+
+.btn-secondary{
+  background:transparent; color:var(--ink);
+  border:1px solid var(--edge-2);
+}
+.btn-secondary:hover:not(:disabled){ border-color:var(--ink); }
+
+.btn-ghost{
+  height:auto; padding:0;
+  background:none; color:var(--gold-ink);
+  text-transform:none; letter-spacing:.02em; font-size:13px;
+}
+.btn-ghost:hover:not(:disabled){
+  text-decoration:underline; text-underline-offset:4px;
+}
+
+/* ⚠️ Disabled text clears 5.47 deliberately. Most disabled states fail
+   contrast, and a greyed-out control that cannot be read cannot explain why
+   it is disabled -- which on this site is the whole point, because the card
+   payment option ships disabled WITH ITS REASON ON IT. */
+.btn:disabled{
+  background:var(--sunk); color:var(--ink-dim);
+  border-color:var(--edge);
+}
+.btn-sm{ height:38px; padding:0 var(--s4); font-size:12px; }
+.btn-block{ width:100%; }
+
+/* ---------------------------------------------------------------------------
+   SIDEBAR CATEGORY TREE
+   ------------------------------------------------------------------------ */
+.tree-head{
+  font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.14em; color:var(--ink-dim);
+  padding:0 var(--s2) var(--s3);
+}
+
+.tree-group + .tree-group{ margin-top:var(--s1); }
+
+.tree-top{
+  width:100%;
+  display:flex; align-items:center; gap:var(--s2);
+  min-height:36px; padding:var(--s2);
+  text-align:left;
+  font-size:13px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.06em;
+  color:var(--ink);
+  border-radius:var(--r1);
+  transition:color var(--t-micro) var(--e-enter);
+}
+.tree-top:hover{ color:var(--gold-ink); }
+.tree-top .chev{
+  margin-left:auto; flex:none;
+  transition:transform var(--t-move) var(--e-enter);
+  color:var(--ink-dim);
+}
+.tree-top[aria-expanded="true"] .chev{ transform:rotate(90deg); }
+
+/* A single-child group renders as a PLAIN LINK, not a disclosure.
+   ⚠️ Ethnic Wear -> Kurtis is the only one, which is exactly why it gets
+   missed: an expand arrow that reveals one row reads as a broken menu. */
+.tree-top.is-leaf .chev{ display:none; }
+
+/* ⚠️ Animating to height:auto is impossible. grid-template-rows 0fr -> 1fr
+   transitions cleanly with no JS measurement and no scrollHeight read. */
+.tree-wrap{
+  display:grid; grid-template-rows:0fr;
+  transition:grid-template-rows var(--t-move) var(--e-enter);
+}
+.tree-wrap.open{ grid-template-rows:1fr; }
+.tree-sub{ overflow:hidden; }
+
+.tree-sub li{
+  /* The vertical guide at the indent is a jaali hairline doing structural
+     work -- the brand motif as furniture. */
+  border-left:1px solid var(--edge);
+  margin-left:var(--s3);
+}
+.tree-sub a{
+  display:flex; align-items:center; gap:var(--s2);
+  min-height:32px; padding:var(--s1) var(--s2) var(--s1) var(--s3);
+  font-size:14px; color:var(--ink-soft);
+  transition:color var(--t-micro) var(--e-enter);
+}
+.tree-sub a:hover{ color:var(--ink); }
+
+/* Active is a 2px gold bar on the left edge, never a filled pill.
+   Filled pills in a sidebar are the template look again. */
+.tree-sub li.active{ border-left:2px solid var(--gold); margin-left:calc(var(--s3) - 1px); }
+.tree-sub li.active a{ color:var(--ink); font-weight:600; }
+
+.tree-count{
+  margin-left:auto;
+  font-size:12px; color:var(--ink-dim);
+  font-variant-numeric:tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   PRODUCT CARD
+   ------------------------------------------------------------------------ */
+.grid-products{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:var(--s5) var(--s5);
+}
+
+.card{ position:relative; display:flex; flex-direction:column; }
+
+/* 4:5 locked in CSS so swapping generated SVG for a photograph causes ZERO
+   layout shift. The SVG uses preserveAspectRatio="xMidYMid slice" and the
+   <img> uses object-fit:cover -- both crop identically. */
+.card-tile{
+  position:relative;
+  aspect-ratio:4/5;
+  background:var(--sunk);
+  border:1px solid var(--edge);
+  border-radius:var(--r1);
+  overflow:hidden;
+  transition:border-color var(--t-micro) var(--e-enter),
+             box-shadow var(--t-micro) var(--e-enter);
+}
+/* ⚠️ The transform goes on the INNER image inside overflow:hidden, never on
+   the card. Scaling the card blurs its text during the transition and nudges
+   its neighbours. */
+.card-art{
+  width:100%; height:100%;
+  object-fit:cover;
+  transition:transform var(--t-zoom) var(--e-enter);
+}
+.card-art > svg{ width:100%; height:100%; display:block; }
+
+@media (hover:hover){
+  .card:hover .card-tile{ border-color:var(--gold); box-shadow:var(--sh-lift); }
+  .card:hover .card-art{ transform:scale(1.03); }
+  .card:hover .quick{ transform:translateY(0); }
+  .card .wish{ opacity:0; }
+  .card:hover .wish,.card .wish:focus-visible,.card .wish.on{ opacity:1; }
+}
+
+/* ⚠️ Under reduced motion the hover zoom above is deleted by base.css, which
+   would silently remove ALL hover feedback. Restore it as a ring. */
+@media (prefers-reduced-motion: reduce){
+  .card:hover .card-tile{ box-shadow:inset 0 0 0 1px var(--gold); }
+}
+
+.quick{
+  position:absolute; left:0; right:0; bottom:0;
+  padding:var(--s3);
+  background:var(--veil); color:var(--on-veil);
+  font-size:12px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.08em;
+  text-align:center;
+  transform:translateY(100%);
+  transition:transform var(--t-move) var(--e-enter);
+}
+
+/* Sale badge sits top-LEFT because top-right belongs to the wishlist heart. */
+.badge-sale{
+  position:absolute; top:var(--s2); left:var(--s2); z-index:2;
+  padding:4px 8px;
+  background:var(--rose); color:var(--on-rose);
+  font-size:11px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.08em;
+  font-variant-numeric:tabular-nums;
+  border-radius:var(--r1);
+}
+.badge-soft{
+  position:absolute; top:var(--s2); left:var(--s2); z-index:2;
+  padding:4px 8px;
+  background:var(--card); color:var(--ink);
+  border:1px solid var(--edge-2);
+  font-size:11px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.08em;
+  border-radius:var(--r1);
+}
+.badge-out{
+  position:absolute; inset:0; z-index:3;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--veil); color:var(--on-veil);
+  font-size:12px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.1em;
+}
+
+.wish{
+  position:absolute; top:var(--s2); right:var(--s2); z-index:2;
+  width:32px; height:32px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--ink-soft);
+  background:var(--card);
+  border-radius:50%;
+  transition:opacity var(--t-micro) var(--e-enter),
+             color var(--t-micro) var(--e-enter);
+}
+.wish.on{ color:var(--rose); }
+.wish:hover{ color:var(--rose); }
+
+.card-body{ padding-top:var(--s3); display:flex; flex-direction:column; gap:var(--s2); }
+
+.card-name{
+  font-size:15px; font-weight:500; line-height:1.35; color:var(--ink);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.card-desc{
+  font-size:12px; line-height:1.45; color:var(--ink-dim);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   SWATCHES
+   ------------------------------------------------------------------------ */
+.swatches{ display:flex; align-items:center; gap:3px; }
+.sw{
+  width:12px; height:12px; border-radius:50%;
+  border:1px solid var(--edge-2);
+  padding:0; flex:none;
+  transition:transform var(--t-micro) var(--e-enter);
+}
+.sw:hover,.sw.on{ transform:scale(1.25); }
+.sw.on{ box-shadow:0 0 0 1px var(--paper),0 0 0 2px var(--ink); }
+.sw-more{ font-size:12px; color:var(--ink-dim); margin-left:2px; }
+
+.sw-lg{ width:28px; height:28px; border-radius:50%; }
+
+/* ---------------------------------------------------------------------------
+   PRICE BLOCK
+   ⚠️ The discount % is COMPUTED, never stored -- a stored value disagrees with
+   the prices the moment anyone edits one. And if price === mrp the block
+   renders the price alone: no "-0%", no empty strikethrough, no badge.
+   ------------------------------------------------------------------------ */
+.price{ display:flex; align-items:baseline; gap:var(--s2); flex-wrap:wrap; }
+.price-now{
+  font-size:15px; font-weight:600; color:var(--ink);
+  font-variant-numeric:tabular-nums;
+}
+/* The browser's default strike is too heavy at this weight and reads as a
+   redaction rather than a former price. */
+.price-mrp{
+  font-size:13px; font-weight:400; color:var(--ink-dim);
+  font-variant-numeric:tabular-nums;
+  text-decoration:line-through;
+  text-decoration-thickness:1px;
+  text-decoration-color:var(--ink-dim);
+}
+/* Plain text, not a filled chip -- the filled badge is already on the image
+   tile and repeating it is noise. */
+.price-off{
+  font-size:12px; font-weight:600; color:var(--rose-ink);
+  font-variant-numeric:tabular-nums;
+}
+.price-lg .price-now{ font-size:26px; }
+.price-lg .price-mrp{ font-size:16px; }
+.price-lg .price-off{ font-size:14px; }
+
+/* ---------------------------------------------------------------------------
+   QUANTITY STEPPER
+   ------------------------------------------------------------------------ */
+.qty{
+  display:inline-flex; align-items:center;
+  border:1px solid var(--edge-2);
+  border-radius:var(--r1);
+  overflow:hidden;
+}
+.qty button{
+  width:32px; height:32px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--ink);
+  transition:background var(--t-micro) var(--e-enter);
+}
+.qty button:hover:not(:disabled){ background:var(--sunk); }
+.qty button:disabled{ color:var(--ink-dim); }
+.qty-val{
+  min-width:36px; text-align:center;
+  font-size:14px; font-weight:600;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   FORM FIELDS
+   ------------------------------------------------------------------------ */
+.field{ display:flex; flex-direction:column; gap:6px; }
+.field label{
+  font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.12em; color:var(--ink-soft);
+}
+/* Every field states whether it is required. A form where some fields are
+   marked and others are silent makes the reader guess. */
+.field .req{ color:var(--alert-ink); }
+.field .opt{ font-size:12px; color:var(--ink-dim); text-transform:none; letter-spacing:0; }
+
+.field input,.field select,.field textarea{
+  height:46px; padding:0 14px;
+  background:var(--card);
+  border:1px solid var(--edge-2);
+  border-radius:var(--r1);
+  /* ⚠️ 16px is not a design choice. Under 16px iOS zooms the viewport on focus
+     and the whole checkout visibly lurches sideways. Carried from kirana. */
+  font-size:16px;
+  color:var(--ink);
+  transition:border-color var(--t-micro) var(--e-enter);
+}
+.field textarea{ height:auto; min-height:92px; padding:12px 14px; line-height:1.5; resize:vertical; }
+.field input:focus-visible,.field select:focus-visible,.field textarea:focus-visible{
+  outline:2px solid var(--ink); outline-offset:-1px;
+  border-color:var(--ink);
+}
+.field input::placeholder,.field textarea::placeholder{ color:var(--ink-dim); }
+
+.field.bad input,.field.bad select,.field.bad textarea{ border-color:var(--alert); }
+.field-err{
+  display:flex; align-items:flex-start; gap:6px;
+  font-size:12px; color:var(--alert-ink);
+}
+.field-err svg{ flex:none; margin-top:1px; }
+
+/* ⚠️ The select chevron is a real inline <svg> positioned here, never a
+   data-URI background. A data-URI needs a literal colour inside a component
+   rule, which tokens.pl fails on -- and rightly, since it could never follow
+   the theme. */
+.select-wrap{ position:relative; }
+.select-wrap select{ width:100%; appearance:none; padding-right:40px; }
+.select-wrap .chev{
+  position:absolute; right:12px; top:50%;
+  transform:translateY(-50%);
+  pointer-events:none; color:var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------------------
+   NOTICES -- the honesty strips.
+   These are not decoration. They are the mechanism by which this site says
+   what it cannot do.
+   ------------------------------------------------------------------------ */
+.notice{
+  display:flex; align-items:flex-start; gap:var(--s3);
+  padding:var(--s4);
+  border-radius:var(--r1);
+  font-size:14px; line-height:1.55;
+}
+.notice svg{ flex:none; margin-top:2px; }
+.notice b{ font-weight:700; }
+.notice-warn{ background:var(--warn-wash); color:var(--warn-ink); border:1px solid var(--warn); }
+.notice-info{ background:var(--sunk); color:var(--ink-soft); border:1px solid var(--edge); }
+.notice-good{ background:var(--good-wash); color:var(--good-ink); border:1px solid var(--good); }
+.notice-bad{ background:var(--alert-wash); color:var(--alert-ink); border:1px solid var(--alert); }
+
+/* ---------------------------------------------------------------------------
+   CART LINE -- no card boxes, separated by hairlines.
+   ------------------------------------------------------------------------ */
+.cart-line{
+  display:grid;
+  grid-template-columns:88px minmax(0,1fr) auto;
+  gap:var(--s4);
+  padding:var(--s4) 0;
+  border-bottom:1px solid var(--edge);
+  align-items:start;
+}
+.cart-thumb{
+  width:88px; aspect-ratio:4/5;
+  background:var(--sunk);
+  border:1px solid var(--edge);
+  border-radius:var(--r1);
+  overflow:hidden;
+}
+.cart-thumb svg,.cart-thumb img{ width:100%; height:100%; object-fit:cover; }
+.cart-mid{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+.cart-variant{ font-size:12px; color:var(--ink-dim); }
+.cart-right{ display:flex; flex-direction:column; align-items:flex-end; gap:var(--s3); }
+
+/* Not a red X -- too aggressive for this brand, and it invites misclicks. */
+.cart-remove{
+  font-size:12px; color:var(--ink-dim);
+  transition:color var(--t-micro) var(--e-enter);
+}
+.cart-remove:hover{ color:var(--alert-ink); text-decoration:underline; text-underline-offset:3px; }
+
+/* ---------------------------------------------------------------------------
+   TOTALS
+   ------------------------------------------------------------------------ */
+.totals{ display:flex; flex-direction:column; gap:var(--s3); }
+.total-row{
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:var(--s4); font-size:14px;
+}
+.total-row span:last-child{ font-variant-numeric:tabular-nums; }
+.total-row.muted{ color:var(--ink-soft); }
+.total-row.save{ color:var(--good-ink); font-weight:600; }
+.total-row.grand{
+  padding-top:var(--s3);
+  border-top:1px solid var(--edge);
+  font-size:17px; font-weight:700; color:var(--ink);
+}
+.total-row.grand span:last-child{ font-size:20px; }
+
+/* ---------------------------------------------------------------------------
+   EMPTY STATES
+   The copy is specific every time. This is the direct answer to "do not fill
+   the website with random placeholder text" -- an empty state that says
+   "Nothing here" IS placeholder text that shipped.
+   ------------------------------------------------------------------------ */
+.empty{
+  display:flex; flex-direction:column; align-items:center;
+  gap:var(--s4); text-align:center;
+  padding:var(--s7) var(--s4);
+  max-width:420px; margin:0 auto;
+}
+.empty .seal{ color:var(--edge-2); }
+.empty p{ color:var(--ink-soft); font-size:14px; line-height:1.6; }
+
+/* ---------------------------------------------------------------------------
+   CHIPS, PILLS, TOAST
+   ------------------------------------------------------------------------ */
+.chip{
+  display:inline-flex; align-items:center; gap:6px;
+  height:32px; padding:0 var(--s3);
+  border:1px solid var(--edge-2); border-radius:var(--r1);
+  font-size:12px; font-weight:500; color:var(--ink-soft);
+  transition:border-color var(--t-micro) var(--e-enter),
+             color var(--t-micro) var(--e-enter);
+}
+.chip:hover{ border-color:var(--ink); color:var(--ink); }
+.chip.on{ background:var(--ink); color:var(--on-ink); border-color:var(--ink); }
+
+.pill{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:3px 10px; border-radius:12px;
+  font-size:11px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.08em;
+}
+.pill-draft{ background:var(--sunk); color:var(--ink-soft); }
+.pill-sent{ background:var(--gold-wash); color:var(--gold-ink); }
+.pill-good{ background:var(--good-wash); color:var(--good-ink); }
+.pill-bad{ background:var(--alert-wash); color:var(--alert-ink); }
+.pill-test{ background:var(--warn-wash); color:var(--warn-ink); }
+
+.toast{
+  position:fixed; z-index:80;
+  left:50%; bottom:var(--s5);
+  transform:translate(-50%,calc(100% + var(--s6)));
+  max-width:min(420px,92vw);
+  padding:var(--s3) var(--s5);
+  background:var(--ink); color:var(--on-ink);
+  border-radius:var(--r1);
+  box-shadow:var(--sh-lift);
+  font-size:14px; text-align:center;
+  transition:transform var(--t-move) var(--e-enter);
+}
+.toast.show{ transform:translate(-50%,0); }
+
+/* ---------------------------------------------------------------------------
+   PRODUCT GRID BREAKPOINTS
+   ⚠️ The grid never drops to one column. Two at 360px gives ~164px cards,
+   enough for a 4:5 tile, a two-line name and a price. A single-column mobile
+   grid wastes the fold and signals a thin catalogue -- the opposite of what a
+   curated brand wants to say.
+   ------------------------------------------------------------------------ */
+@media (max-width:1439px){ .grid-products{ gap:var(--s5) var(--s4); } }
+@media (max-width:1279px){ .grid-products{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width:1023px){ .grid-products{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--s4); } }
+@media (max-width:899px){ .grid-products{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:599px){
+  .grid-products{ gap:var(--s4) var(--s3); }
+  .cart-line{ grid-template-columns:64px minmax(0,1fr); }
+  .cart-thumb{ width:64px; }
+  .cart-right{ grid-column:2; align-items:flex-start; flex-direction:row;
+               justify-content:space-between; width:100%; }
+}
+@media (max-width:379px){ .grid-products{ gap:var(--s3) var(--s2); } }

@@ -1,0 +1,74 @@
+{
+  "categories": [
+    {
+      "blurb": "Hand-blocked and woven cotton sheets, cut for Indian bed sizes and washed soft before they ship.",
+      "icon": "bed",
+      "id": "bedsheets",
+      "name": "Bedsheets",
+      "order": 1,
+      "slug": "bedsheets",
+      "sub": [
+        {
+          "id": "bedsheets-single",
+          "name": "Single Bedsheets",
+          "order": 1,
+          "slug": "single-bedsheets"
+        },
+        {
+          "id": "bedsheets-double",
+          "name": "Double Bedsheets",
+          "order": 2,
+          "slug": "double-bedsheets"
+        }
+      ]
+    },
+    {
+      "blurb": "Block-printed covers and cotton-filled razais -- the layer that decides what a room looks like.",
+      "icon": "quilt",
+      "id": "bedcovers-quilts",
+      "name": "Bedcovers & Quilts",
+      "order": 2,
+      "slug": "bedcovers-quilts",
+      "sub": []
+    },
+    {
+      "blurb": "Two and three layers of mulmul, light enough to keep out all year and warm enough for a north Indian October.",
+      "icon": "dohar",
+      "id": "dohars",
+      "name": "Dohars",
+      "order": 3,
+      "slug": "dohars",
+      "sub": [
+        {
+          "id": "dohars-single",
+          "name": "Single Dohars",
+          "order": 1,
+          "slug": "single-dohars"
+        },
+        {
+          "id": "dohars-double",
+          "name": "Double Dohars",
+          "order": 2,
+          "slug": "double-dohars"
+        },
+        {
+          "id": "dohars-sets",
+          "name": "Dohar Sets",
+          "order": 3,
+          "slug": "dohar-sets"
+        }
+      ]
+    },
+    {
+      "blurb": "The narrow piece that finishes a table. Printed and stitched by the same hands as the bed linen.",
+      "icon": "runner",
+      "id": "table-runners",
+      "name": "Table Runners",
+      "order": 4,
+      "slug": "table-runners",
+      "sub": []
+    }
+  ],
+  "note": "The sidebar tree. `order` is display order; `icon` names a glyph in icons.js. Nested two levels because the tree IS two levels. A category may have NO subcategories at all -- Bedcovers & Quilts and Table Runners both hold products directly, and such a product carries no `sub` key. sidebar.js must render a zero-child AND a one-child group as a plain link, never as a disclosure: an expand arrow that reveals one row (or none) reads as a broken menu.",
+  "rev": 2
+}

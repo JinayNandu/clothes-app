@@ -1,0 +1,83 @@
+{
+  "brand": {
+    "about": "DEVI Collections began with a single block-printed bed cover carried home from Bagru, and the slow realisation that almost nothing sold online was made the way that one was.",
+    "logo": "",
+    "logoNote": "The brand band at the top of every page. EMPTY means the drawn lockup in brand.js is used, which is what ships. To use a real logo: put the file in app/img/ and set this to its path relative to app/ -- \"img/devi-logo.svg\". SVG is strongly preferred; a PNG needs to be about 3x the displayed height (so ~170px tall) or it will look soft on a phone. data.pl FAILS if this names a file that is not on disk, so a typo is a check failure and not a broken image a customer finds. The band sets the height and leaves the width free, so any aspect ratio drops in without moving the page.",
+    "name": "DEVI Collections",
+    "since": 2023,
+    "tagline": "Thoughtfully Curated. Beautifully Yours."
+  },
+  "contact": {
+    "addr": "",
+    "city": "",
+    "email": "",
+    "gstin": "",
+    "hours": "Monday to Saturday, 10am to 7pm IST",
+    "phone": "",
+    "pin": "",
+    "state": "",
+    "whatsapp": ""
+  },
+  "coupons": {
+    "codes": [
+      {
+        "active": true,
+        "code": "DEVI10",
+        "flat": 0,
+        "maxOff": 1000,
+        "minItems": 1500,
+        "percent": 10
+      },
+      {
+        "active": true,
+        "code": "FIRST500",
+        "flat": 500,
+        "maxOff": 500,
+        "minItems": 2500,
+        "percent": 0
+      },
+      {
+        "active": true,
+        "code": "FESTIVE15",
+        "flat": 0,
+        "maxOff": 2000,
+        "minItems": 4000,
+        "percent": 15
+      }
+    ],
+    "note": "Exactly ONE of percent / flat per code -- data.pl fails on both or neither. minItems is measured on the ITEMS total BEFORE any discount, because a discount code must not be able to unlock itself. Matched case-insensitively with spaces stripped, since nobody types a code carefully. Set active:false to withdraw a code without losing the record of it."
+  },
+  "gateway": {
+    "currency": "INR",
+    "keyId": "",
+    "live": false,
+    "note": "SEE CLAUDE.md. While keyId is empty, card and net banking stay DISABLED WITH THE REASON ON THE CONTROL -- never hidden. A hidden option reads as a shop that does not take cards; a disabled one with its reason reads as a shop still setting up. data.pl FAILS if live is true while serverBase is empty: a gateway without a server cannot verify a payment, and flipping one boolean must not be able to make this site claim otherwise. It also FAILS on an rzp_test_ key with live true.",
+    "provider": "razorpay",
+    "serverBase": ""
+  },
+  "lowStockAt": 3,
+  "newDays": 45,
+  "placeholder": true,
+  "placeholderNote": "WHILE THIS IS TRUE, data.pl FAILS. The brand story, every phone number, the address, the GSTIN and all 54 prices are invented. They are realistic, not real. A phone number that does not dial and a GSTIN that is not yours are the worst things to ship by accident on a real business's site -- so this flag makes shipping them impossible rather than merely inadvisable. Set it to false only when every field in `contact` is real and the prices have been checked.",
+  "shipping": {
+    "bulkySurcharge": 250,
+    "codAvailable": true,
+    "codFee": 0,
+    "fee": 99,
+    "freeOver": 1999,
+    "freeOverBasis": "items",
+    "minOrder": 0,
+    "note": "freeOver is measured on the ITEMS total, BEFORE any coupon. A discount code must not win free shipping a basket had not earned. money.pl asserts exactly this case, because kirana's domain.js and money.pl currently disagree about it and it is dormant there only because both numbers are zero. bulkySurcharge applies once per BULKY LINE, not per unit.",
+    "shipsIn": "3 to 5 working days"
+  },
+  "social": {
+    "facebook": "",
+    "instagram": ""
+  },
+  "upi": {
+    "demo": true,
+    "note": "A DELIBERATELY UNRESOLVABLE id. `example` is not a real UPI handle, so no payment app can find a payee and money physically cannot move. While demo is true the pay block wears a visible amber strip saying so. data.pl FAILS if demo is true and the handle after the @ is a real one (ybl, okaxis, paytm, ...), because a demo id on a live handle could send a customer's money to whoever owns it. To go live: put the real id in and set demo to false -- the strip disappears by itself.",
+    "payeeName": "DEVI Collections (demo)",
+    "vpa": "demo.not.real@example"
+  }
+}

@@ -1,0 +1,296 @@
+/* ============================================================================
+   DEVI Collections — the shell: strip, header, sidebar rail, drawer, footer.
+
+   The sidebar collapses to a drawer at 1024px. That is the real constraint
+   point: below it, 240px of rail plus three 240px cards plus gutters stops
+   fitting, and shrinking the cards instead is what makes a grid look cramped.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   ANNOUNCEMENT STRIP -- kept at every width. One line, and it is where free
+   shipping and festive dates live.
+   ------------------------------------------------------------------------ */
+.strip{
+  height:var(--strip);
+  display:flex; align-items:center; justify-content:center;
+  background:var(--sunk);
+  border-bottom:1px solid var(--edge);
+  padding:0 var(--gutter);
+  font-size:12px; font-weight:500; letter-spacing:.02em;
+  color:var(--ink-soft);
+  text-align:center;
+  overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+}
+.strip b{ color:var(--gold-ink); font-weight:600; }
+
+/* ---------------------------------------------------------------------------
+   BRAND BAND -- the logo, above the navigation.
+
+   Deliberately NOT sticky. It scrolls away and the header below keeps the
+   monogram, which is why the page can afford to give the lockup this much
+   room in the first place.
+
+   ⚠️ The <img> height is FIXED and its width is free. A real logo file of
+   any aspect ratio therefore drops in without the row changing height --
+   otherwise swapping the lockup for a file shifts every page down.
+   ------------------------------------------------------------------------ */
+.brand-band{
+  display:flex; align-items:center; justify-content:center;
+  padding:var(--s5) var(--gutter) var(--s4);
+  background:var(--paper);
+  color:var(--ink); text-decoration:none;
+}
+.brand-band img{ display:block; height:56px; width:auto; max-width:100%; }
+
+ (max-width:1023px){
+  .brand-band{ padding:var(--s4) var(--gutter) var(--s3); }
+  .brand-band img{ height:40px; }
+}
+
+/* ---------------------------------------------------------------------------
+   HEADER
+   ⚠️ The mark stays LEFT at every width. Centring it on mobile is conventional
+   and wrong here: it costs the row its most stable anchor and forces the
+   hamburger and the cart into a symmetry that breaks the moment the cart badge
+   gains a second digit. The CENTRED lockup is a different row -- the brand
+   band above -- which has no controls in it to throw out of balance.
+   ------------------------------------------------------------------------ */
+.hdr{
+  position:sticky; top:0; z-index:40;
+  height:var(--hh);
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center; gap:var(--s4);
+  padding:0 var(--gutter);
+  background:var(--paper);
+  border-bottom:1px solid var(--edge);
+}
+.hdr-left{ display:flex; align-items:center; gap:var(--s3); }
+
+.burger{
+  display:none;
+  width:40px; height:40px;
+  align-items:center; justify-content:center;
+  color:var(--ink); border-radius:var(--r1);
+}
+
+.logo{ display:flex; align-items:center; gap:var(--s3); color:var(--ink); }
+.logo svg{ flex:none; }
+
+.nav{ display:flex; align-items:center; justify-content:center; gap:var(--s5); }
+.nav a{
+  font-size:13px; font-weight:500; letter-spacing:.06em;
+  color:var(--ink-soft);
+  padding:var(--s2) 0;
+  position:relative;
+  transition:color var(--t-micro) var(--e-enter);
+}
+.nav a:hover{ color:var(--ink); }
+.nav a[aria-current="page"]{ color:var(--ink); }
+/* The active nav link's underline is gold and sits below the baseline --
+   a rule, not a pill. */
+.nav a[aria-current="page"]::after{
+  content:''; position:absolute; left:0; right:0; bottom:0;
+  height:1px; background:var(--gold);
+}
+
+.hdr-right{ display:flex; align-items:center; gap:var(--s2); }
+
+.icon-btn{
+  position:relative;
+  width:40px; height:40px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--ink); border-radius:var(--r1);
+  transition:color var(--t-micro) var(--e-enter);
+}
+.icon-btn:hover{ color:var(--gold-ink); }
+
+/* The count badge. tabular-nums so 9 and 11 do not shift the layout. */
+.badge-count{
+  position:absolute; top:3px; right:2px;
+  min-width:17px; height:17px; padding:0 4px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--ink); color:var(--on-ink);
+  font-size:10px; font-weight:700; line-height:1;
+  font-variant-numeric:tabular-nums;
+  border-radius:9px;
+  border:1.5px solid var(--paper);
+}
+
+/* Desktop search -- an inline field. Below 1024 it becomes an icon that opens
+   a full-width row BENEATH the header rather than squeezing inline. */
+.search-wrap{ display:flex; justify-content:center; }
+.search{
+  display:flex; align-items:center; gap:var(--s2);
+  width:min(320px,100%); height:38px;
+  padding:0 var(--s3);
+  background:var(--card);
+  border:1px solid var(--edge-2);
+  border-radius:var(--r1);
+  color:var(--ink-dim);
+}
+.search:focus-within{ border-color:var(--ink); }
+.search input{
+  flex:1; min-width:0; border:0; background:none;
+  font-size:14px; color:var(--ink);
+}
+.search input::placeholder{ color:var(--ink-dim); }
+.search input:focus-visible{ outline:none; box-shadow:none; }
+
+.search-row{
+  display:none;
+  padding:var(--s3) var(--gutter);
+  border-bottom:1px solid var(--edge);
+  background:var(--paper);
+}
+.search-row.open{ display:block; }
+.search-row .search{ width:100%; height:44px; }
+
+/* ---------------------------------------------------------------------------
+   THE BODY GRID: rail + main
+   ------------------------------------------------------------------------ */
+.shell{
+  display:grid;
+  grid-template-columns:var(--rail) minmax(0,1fr);
+  align-items:start;
+}
+
+.rail{
+  position:sticky;
+  top:calc(var(--strip) + var(--hh));
+  max-height:calc(100vh - var(--strip) - var(--hh));
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:var(--s5) var(--s4) var(--s6) var(--gutter);
+  border-right:1px solid var(--edge);
+  /* ⚠️ Background is --paper, the SAME as the page. It is a column of type,
+     not a panel. A filled sidebar with its own tint is the template look. */
+  background:var(--paper);
+}
+.rail::-webkit-scrollbar{ width:6px; }
+.rail::-webkit-scrollbar-thumb{ background:var(--edge); border-radius:3px; }
+
+.main{
+  min-width:0;
+  padding:var(--s6) var(--gutter) var(--s7);
+}
+.main-wide{ max-width:1180px; }
+
+/* ---------------------------------------------------------------------------
+   MOBILE DRAWER
+   ------------------------------------------------------------------------ */
+.scrim{
+  position:fixed; inset:0; z-index:50;
+  background:var(--scrim);
+  opacity:0; pointer-events:none;
+  transition:opacity var(--t-drawer) var(--e-exit);
+}
+.scrim.open{ opacity:1; pointer-events:auto; }
+
+.drawer{
+  position:fixed; z-index:60;
+  top:0; left:0; bottom:0;
+  width:min(320px,86vw);
+  background:var(--card);
+  box-shadow:var(--sh-drawer);
+  transform:translateX(-100%);
+  transition:transform var(--t-drawer) var(--e-exit);
+  display:flex; flex-direction:column;
+  overscroll-behavior:contain;
+}
+.drawer.open{
+  transform:translateX(0);
+  transition-timing-function:var(--e-enter);
+}
+.drawer-head{
+  flex:none;
+  height:var(--hh);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 var(--s4);
+  border-bottom:1px solid var(--edge);
+}
+.drawer-body{ flex:1; overflow-y:auto; padding:var(--s4); }
+/* The nav links move into the drawer above the category tree, separated by
+   the gold rule ornament. */
+.drawer-nav{ display:flex; flex-direction:column; gap:var(--s1); margin-bottom:var(--s4); }
+.drawer-nav a{
+  padding:var(--s3) var(--s2);
+  font-size:14px; font-weight:500; letter-spacing:.04em;
+  color:var(--ink);
+  border-radius:var(--r1);
+}
+.drawer-nav a:hover{ background:var(--sunk); }
+
+/* ---------------------------------------------------------------------------
+   FOOTER
+   ------------------------------------------------------------------------ */
+.ftr{
+  grid-column:1 / -1;
+  border-top:1px solid var(--edge);
+  background:var(--sunk);
+  padding:var(--s7) var(--gutter) var(--s5);
+}
+.ftr-grid{
+  max-width:1180px; margin:0 auto;
+  display:grid; gap:var(--s6);
+  grid-template-columns:1.4fr repeat(3,1fr);
+}
+.ftr h4{
+  font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.14em; color:var(--ink-soft);
+  margin-bottom:var(--s3);
+}
+.ftr li + li{ margin-top:var(--s2); }
+.ftr li a{
+  font-size:13px; color:var(--ink-soft);
+  transition:color var(--t-micro) var(--e-enter);
+}
+.ftr li a:hover{ color:var(--ink); text-decoration:underline; text-underline-offset:3px; }
+.ftr-base{
+  max-width:1180px; margin:var(--s6) auto 0;
+  padding-top:var(--s4);
+  border-top:1px solid var(--edge);
+  display:flex; flex-wrap:wrap; gap:var(--s3) var(--s5);
+  align-items:center; justify-content:space-between;
+  font-size:12px; color:var(--ink-dim);
+}
+
+/* ---------------------------------------------------------------------------
+   SECTION TRANSITION
+   Entering section only. A cross-fade needs both sections mounted, which
+   doubles the document height mid-transition and jumps the scroll position.
+   ------------------------------------------------------------------------ */
+@keyframes enter{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+.screen{ animation:enter 180ms var(--e-enter) both; }
+
+/* ---------------------------------------------------------------------------
+   BREAKPOINTS
+   ------------------------------------------------------------------------ */
+@media (max-width:1279px){
+  :root{ --rail:240px; }
+  .search{ width:min(220px,100%); }
+}
+
+/* The rail becomes a drawer. */
+@media (max-width:1023px){
+  .shell{ grid-template-columns:minmax(0,1fr); }
+  .rail{ display:none; }
+  .burger{ display:flex; }
+  .nav{ display:none; }
+  .search-wrap{ display:none; }
+  .main{ padding-top:var(--s5); }
+  .ftr-grid{ grid-template-columns:1fr 1fr; gap:var(--s5); }
+}
+
+@media (max-width:599px){
+  :root{ --gutter:max(16px, env(safe-area-inset-left, 0px)); }
+  .hdr{ gap:var(--s2); }
+  .ftr-grid{ grid-template-columns:1fr; }
+  .ftr-base{ justify-content:flex-start; }
+}
+
+@media (max-width:379px){
+  :root{ --gutter:max(12px, env(safe-area-inset-left, 0px)); }
+  /* The wishlist icon moves into the drawer; the cart stays. */
+  .hdr-right .icon-btn[data-opt]{ display:none; }
+}

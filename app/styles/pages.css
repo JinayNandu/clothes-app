@@ -1,0 +1,490 @@
+/* ============================================================================
+   DEVI Collections — per-screen rules: hero, rails, tiles, PDP, checkout.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   SECTION HEADINGS
+   ------------------------------------------------------------------------ */
+.sec{ margin-bottom:var(--s7); }
+.sec-head{
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:var(--s4); margin-bottom:var(--s5);
+}
+.sec-head .btn-ghost{
+  font-size:13px; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+.page-head{ margin-bottom:var(--s6); }
+.page-head .t-eyebrow{ color:var(--gold-ink); margin-bottom:var(--s2); }
+.page-head p{ color:var(--ink-soft); margin-top:var(--s3); max-width:60ch; }
+
+.crumbs{
+  display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2);
+  font-size:12px; color:var(--ink-dim); margin-bottom:var(--s4);
+}
+.crumbs a:hover{ color:var(--ink); text-decoration:underline; text-underline-offset:3px; }
+.crumbs .sep{ color:var(--edge-2); }
+
+/* ---------------------------------------------------------------------------
+   HERO
+   No carousel. Auto-rotating heroes measurably lose clicks, and on a static
+   site every unseen slide is dead weight. One hero, one message -- the rails
+   are what carry merchandising breadth.
+   ------------------------------------------------------------------------ */
+.hero{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:var(--s7);
+  align-items:center;
+  margin-bottom:var(--s7);
+}
+.hero-copy{ display:flex; flex-direction:column; gap:var(--s4); max-width:30ch; }
+.hero-copy .t-eyebrow{ color:var(--gold-ink); }
+.hero-cta{ display:flex; flex-wrap:wrap; gap:var(--s3); margin-top:var(--s2); }
+.hero-art{
+  height:56vh; min-height:440px; max-height:620px;
+  border-radius:var(--r2);
+  overflow:hidden;
+  border:1px solid var(--edge);
+}
+.hero-art svg{ width:100%; height:100%; display:block; }
+
+/* ---------------------------------------------------------------------------
+   CATEGORY TILES
+   Text sits in the lower 40% where the gradient's alpha is >= 0.80,
+   measured at 8.98.
+   ------------------------------------------------------------------------ */
+.tiles{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--s4); }
+.tile{
+  position:relative; display:block;
+  aspect-ratio:3/4;
+  border-radius:var(--r1);
+  overflow:hidden;
+  border:1px solid var(--edge);
+}
+.tile-art{
+  width:100%; height:100%;
+  transition:transform var(--t-zoom) var(--e-enter);
+}
+.tile-art svg{ width:100%; height:100%; display:block; }
+.tile-grad{
+  position:absolute; inset:auto 0 0 0; height:55%;
+  background:linear-gradient(to bottom,transparent,var(--veil));
+  pointer-events:none;
+}
+.tile-name{
+  position:absolute; left:0; right:0; bottom:0;
+  padding:var(--s4);
+  color:var(--on-veil);
+  font-family:var(--f-display); font-weight:500; font-size:24px; line-height:1.2;
+  transition:transform var(--t-move) var(--e-enter);
+}
+.tile-name small{
+  display:block; margin-top:4px;
+  font-family:var(--f-ui); font-size:11px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.12em;
+  opacity:.85;
+}
+@media (hover:hover){
+  .tile:hover .tile-art{ transform:scale(1.04); }
+  .tile:hover .tile-name{ transform:translateY(-2px); }
+}
+
+/* ---------------------------------------------------------------------------
+   MERCHANDISING RAILS
+   ------------------------------------------------------------------------ */
+.rail-wrap{ position:relative; }
+.rail-scroll{
+  display:flex; gap:var(--s4);
+  overflow-x:auto;
+  scroll-snap-type:x mandatory;
+  scroll-padding-inline:0;
+  padding-bottom:var(--s2);
+  scrollbar-width:none;
+}
+.rail-scroll::-webkit-scrollbar{ display:none; }
+.rail-scroll > *{
+  scroll-snap-align:start;
+  flex:0 0 clamp(180px,22vw,240px);
+}
+/* The cards must not be guillotined mid-motif at the edge. */
+.rail-wrap::after{
+  content:''; position:absolute; top:0; right:0; bottom:var(--s2); width:32px;
+  background:linear-gradient(to right,transparent,var(--paper));
+  pointer-events:none;
+}
+.rail-nav{ display:none; gap:var(--s2); }
+.rail-nav button{
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--card); border:1px solid var(--edge-2);
+  color:var(--ink);
+  transition:border-color var(--t-micro) var(--e-enter);
+}
+.rail-nav button:hover{ border-color:var(--ink); }
+@media (hover:hover) and (min-width:1024px){ .rail-nav{ display:flex; } }
+
+/* ---------------------------------------------------------------------------
+   LISTING TOOLBAR -- sorts and filters
+   ------------------------------------------------------------------------ */
+.toolbar{
+  display:flex; flex-wrap:wrap; align-items:center; gap:var(--s3);
+  padding-bottom:var(--s4); margin-bottom:var(--s5);
+  border-bottom:1px solid var(--edge);
+}
+.toolbar .count{ font-size:13px; color:var(--ink-dim); font-variant-numeric:tabular-nums; }
+.toolbar .spacer{ flex:1; }
+.toolbar .select-wrap{ min-width:190px; }
+.toolbar .select-wrap select{ height:38px; font-size:13px; }
+
+.filters{
+  display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2);
+  margin-bottom:var(--s5);
+}
+.filters .t-eyebrow{ color:var(--ink-dim); margin-right:var(--s2); }
+
+/* ---------------------------------------------------------------------------
+   PRODUCT DETAIL
+   ------------------------------------------------------------------------ */
+.pdp{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:var(--s7); }
+
+.pdp-gallery{ display:flex; flex-direction:column; gap:var(--s3); }
+.pdp-main{
+  aspect-ratio:4/5;
+  background:var(--sunk);
+  border:1px solid var(--edge);
+  border-radius:var(--r2);
+  overflow:hidden;
+}
+.pdp-main svg,.pdp-main img{ width:100%; height:100%; object-fit:cover; display:block; }
+.pdp-thumbs{ display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s2); }
+.pdp-thumb{
+  aspect-ratio:4/5;
+  background:var(--sunk);
+  border:1px solid var(--edge);
+  border-radius:var(--r1);
+  overflow:hidden; padding:0;
+  transition:border-color var(--t-micro) var(--e-enter);
+}
+.pdp-thumb svg,.pdp-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.pdp-thumb.on{ border-color:var(--ink); }
+
+.pdp-info{ display:flex; flex-direction:column; gap:var(--s4); }
+.pdp-info .t-h1{ margin-bottom:var(--s1); }
+.pdp-opt{ display:flex; flex-direction:column; gap:var(--s2); }
+.pdp-opt .t-eyebrow{ color:var(--ink-soft); }
+.pdp-opt .val{ font-weight:600; color:var(--ink); text-transform:none; letter-spacing:0; }
+.pdp-sizes{ display:flex; flex-wrap:wrap; gap:var(--s2); }
+.pdp-actions{ display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; }
+.pdp-actions .btn-primary{ flex:1; min-width:180px; }
+
+.spec{ border-top:1px solid var(--edge); }
+.spec-row{
+  display:grid; grid-template-columns:160px minmax(0,1fr);
+  gap:var(--s4);
+  padding:var(--s3) 0;
+  border-bottom:1px solid var(--edge);
+  font-size:14px;
+}
+.spec-row dt{ color:var(--ink-dim); }
+.spec-row dd{ margin:0; color:var(--ink); }
+
+/* ---------------------------------------------------------------------------
+   CART + CHECKOUT
+   ------------------------------------------------------------------------ */
+.two-col{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:var(--s7); align-items:start; }
+
+.panel{
+  background:var(--card);
+  border:1px solid var(--edge);
+  border-radius:var(--r2);
+  padding:var(--s5);
+}
+.panel-sticky{ position:sticky; top:calc(var(--strip) + var(--hh) + var(--s4)); }
+.panel h3{ margin-bottom:var(--s4); }
+
+.coupon{ display:flex; gap:var(--s2); }
+.coupon input{
+  flex:1; min-width:0; height:42px; padding:0 12px;
+  background:var(--paper);
+  border:1px solid var(--edge-2); border-radius:var(--r1);
+  font-size:15px; text-transform:uppercase; letter-spacing:.06em;
+}
+.coupon input:focus-visible{ outline:2px solid var(--ink); outline-offset:-1px; }
+
+.form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); }
+.form-grid .span2{ grid-column:1 / -1; }
+
+/* Payment options. The disabled one keeps its REASON visible -- a hidden
+   option reads as a shop that does not take cards; a disabled one with its
+   reason reads as a shop still setting up. */
+.pay-opt{
+  display:flex; align-items:flex-start; gap:var(--s3);
+  padding:var(--s4);
+  border:1px solid var(--edge-2); border-radius:var(--r1);
+  cursor:pointer;
+  transition:border-color var(--t-micro) var(--e-enter),
+             background var(--t-micro) var(--e-enter);
+}
+.pay-opt + .pay-opt{ margin-top:var(--s2); }
+.pay-opt:hover:not(.off){ border-color:var(--ink); }
+.pay-opt.on{ border-color:var(--ink); background:var(--sunk); }
+.pay-opt.off{ cursor:not-allowed; background:var(--sunk); border-color:var(--edge); }
+.pay-opt.off .pay-name{ color:var(--ink-dim); }
+.pay-opt input{ margin-top:3px; flex:none; accent-color:var(--ink); }
+.pay-name{ font-weight:600; font-size:14px; color:var(--ink); }
+.pay-why{ font-size:12px; color:var(--ink-dim); margin-top:3px; line-height:1.5; }
+
+.qr-tile{
+  width:200px; height:200px; padding:var(--s3);
+  /* The QR is black on white in every theme via --art-paper/--art-ink, which
+     are non-varying tokens. A QR themed to the page loses the contrast a
+     scanner needs. */
+  background:var(--art-paper);
+  border:1px solid var(--edge-2); border-radius:var(--r1);
+  display:flex; align-items:center; justify-content:center;
+}
+
+.handoff{ display:flex; flex-wrap:wrap; gap:var(--s3); }
+
+/* ---------------------------------------------------------------------------
+   ORDER / ACCOUNT LISTS
+   ------------------------------------------------------------------------ */
+.ord{
+  padding:var(--s4) 0;
+  border-bottom:1px solid var(--edge);
+  display:flex; flex-wrap:wrap; gap:var(--s3) var(--s4);
+  align-items:center; justify-content:space-between;
+}
+.ord-code{ font-weight:700; font-variant-numeric:tabular-nums; }
+.ord-meta{ font-size:12px; color:var(--ink-dim); }
+
+/* ---------------------------------------------------------------------------
+   NEWSLETTER
+   ------------------------------------------------------------------------ */
+.news{
+  background:var(--sunk);
+  border:1px solid var(--edge);
+  border-radius:var(--r2);
+  padding:var(--s7) var(--s5);
+  text-align:center;
+}
+.news-inner{ max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:var(--s4); align-items:center; }
+.news-form{ display:flex; gap:var(--s2); width:100%; max-width:420px; }
+.news-form input{
+  flex:1; min-width:0; height:46px; padding:0 14px;
+  background:var(--card);
+  border:1px solid var(--edge-2); border-radius:var(--r1);
+  font-size:16px;
+}
+.news-form input:focus-visible{ outline:2px solid var(--ink); outline-offset:-1px; }
+
+/* ---------------------------------------------------------------------------
+   LONG-FORM CONTENT (about, policies)
+   ------------------------------------------------------------------------ */
+.prose{ max-width:68ch; }
+.prose h2{
+  font-family:var(--f-display); font-weight:500; font-size:26px; line-height:1.22;
+  margin:var(--s6) 0 var(--s3);
+}
+.prose h2:first-child{ margin-top:0; }
+.prose p{ font-size:17px; line-height:1.70; color:var(--ink-soft); margin-bottom:var(--s3); }
+.prose ul{ margin:0 0 var(--s4); padding-left:var(--s5); list-style:disc; }
+.prose li{ font-size:17px; line-height:1.70; color:var(--ink-soft); margin-bottom:var(--s2); }
+.prose strong{ color:var(--ink); font-weight:600; }
+.prose a{ color:var(--gold-ink); text-decoration:underline; text-underline-offset:3px; }
+
+.contact-grid{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--s7); align-items:start; }
+
+/* ---------------------------------------------------------------------------
+   RESPONSIVE
+   ------------------------------------------------------------------------ */
+@media (max-width:1279px){
+  .tiles{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--s3); }
+}
+@media (max-width:1023px){
+  .hero{ grid-template-columns:1fr; gap:var(--s5); }
+  .hero-copy{ max-width:none; }
+  .hero-art{ height:280px; min-height:0; }
+  .pdp{ grid-template-columns:1fr; gap:var(--s6); }
+  /* ⚠️ minmax(0,1fr), not a bare 1fr. A 1fr track still refuses to shrink
+     below its content's min-content width, so one long <select> option in the
+     admin editor ("Home Decor & Furnishings → Bed Covers") pushed this column
+     to 414px inside a 375px phone and scrolled the whole page sideways. The
+     desktop rule above already uses minmax; this override had dropped it. */
+  .two-col{ grid-template-columns:minmax(0,1fr); gap:var(--s6); }
+  .panel-sticky{ position:static; }
+  .contact-grid{ grid-template-columns:1fr; gap:var(--s6); }
+}
+@media (max-width:899px){
+  .tiles{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--s4); }
+}
+@media (max-width:599px){
+  .sec{ margin-bottom:var(--s6); }
+  .form-grid{ grid-template-columns:1fr; gap:var(--s3); }
+  .spec-row{ grid-template-columns:1fr; gap:2px; padding:var(--s3) 0; }
+  .spec-row dt{ font-size:12px; }
+  .pdp-actions .btn-primary{ min-width:0; width:100%; }
+  .panel{ padding:var(--s4); }
+  .news{ padding:var(--s6) var(--s4); }
+  .news-form{ flex-direction:column; }
+  .news-form .btn{ width:100%; }
+}
+
+/* ---------------------------------------------------------------------------
+   ADMIN
+   Dense on purpose. The shop is airy because a shopper is browsing; the admin
+   is a work surface and an owner wants to see thirty rows at once.
+   ------------------------------------------------------------------------ */
+.adm-tabs{
+  display:flex; flex-wrap:wrap; gap:var(--s1);
+  border-bottom:1px solid var(--edge); margin:var(--s5) 0 var(--s4);
+}
+.adm-tab{
+  font-family:var(--f-ui); font-size:13px; font-weight:600; letter-spacing:.02em;
+  color:var(--ink-soft); padding:var(--s3) var(--s4);
+  border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:color var(--t-micro) var(--e-enter), border-color var(--t-micro) var(--e-enter);
+}
+.adm-tab:hover{ color:var(--ink); }
+.adm-tab.is-on{ color:var(--ink); border-bottom-color:var(--gold); }
+
+.adm-stats{
+  display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:var(--s3);
+  margin-top:var(--s5);
+}
+.adm-stat{
+  display:flex; flex-direction:column; gap:var(--s1);
+  padding:var(--s4); background:var(--card); border:1px solid var(--edge);
+  border-radius:var(--r2);
+  transition:border-color var(--t-micro) var(--e-enter);
+}
+.adm-stat:hover{ border-color:var(--edge-2); }
+.adm-stat-n{ font-family:var(--f-ui); font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; }
+.adm-stat-l{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim); }
+
+.adm-bar{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:var(--s3); flex-wrap:wrap; margin-bottom:var(--s3);
+}
+.adm-bar > span{ display:flex; align-items:center; gap:var(--s2); }
+.adm-search{ flex:1; min-width:220px; max-width:460px; }
+
+.adm-table-wrap{
+  /* The one place a horizontal scroll is correct: a wide table inside its own
+     container, rather than the page growing wider than the phone. */
+  overflow-x:auto; border:1px solid var(--edge); border-radius:var(--r2);
+  background:var(--card);
+}
+.adm-table{ width:100%; border-collapse:collapse; font-family:var(--f-ui); font-size:13px; }
+.adm-table th{
+  text-align:left; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-dim); font-weight:600; padding:var(--s3) var(--s3);
+  border-bottom:1px solid var(--edge); white-space:nowrap;
+}
+.adm-table td{ padding:var(--s3); border-bottom:1px solid var(--edge); vertical-align:top; }
+.adm-table tbody tr:last-child td{ border-bottom:0; }
+.adm-table tbody tr:hover{ background:var(--paper); }
+.adm-table .num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.adm-table .was{ color:var(--ink-dim); text-decoration:line-through; }
+.adm-table tr.is-retired td{ opacity:.55; }
+.adm-table input[type=number]{ width:84px; text-align:right; }
+
+.adm-field{ display:flex; flex-direction:column; gap:var(--s1); margin-bottom:var(--s3); }
+.adm-field label{
+  font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-dim); font-weight:600;
+  display:flex; align-items:center; gap:var(--s2);
+}
+.adm-field.has-err input, .adm-field.has-err textarea, .adm-field.has-err select{
+  border-color:var(--alert);
+}
+.adm-err{ font-size:12px; color:var(--alert-ink); }
+.adm-errs{
+  padding:var(--s3); border-radius:var(--r2);
+  background:var(--alert-wash); color:var(--alert-ink); font-size:13px;
+  display:flex; flex-direction:column; gap:var(--s1); width:100%;
+}
+
+.adm-revert{
+  font-family:var(--f-ui); font-size:10px; letter-spacing:.04em;
+  padding:2px var(--s2); border-radius:var(--r1);
+  background:var(--gold-wash); color:var(--gold-ink);
+  border:1px solid transparent; text-transform:none;
+}
+.adm-revert:hover{ border-color:var(--gold); }
+
+.adm-save{
+  display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap;
+  margin-top:var(--s5); padding-top:var(--s4); border-top:1px solid var(--edge);
+}
+
+.adm-spec{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto; gap:var(--s2); margin-bottom:var(--s2); }
+.adm-vars{ display:flex; flex-direction:column; gap:var(--s2); }
+.adm-var{ display:flex; align-items:center; gap:var(--s2); }
+.adm-var .adm-var-label{ flex:1; min-width:0; }
+.adm-var label{ text-transform:none; letter-spacing:0; white-space:nowrap; }
+.adm-swatch{
+  width:22px; height:22px; flex:none; border-radius:var(--r1);
+  border:1px solid var(--edge-2);
+}
+
+.adm-orders{ display:flex; flex-direction:column; gap:var(--s4); }
+.adm-order-head{ display:flex; flex-direction:column; gap:var(--s2); }
+.adm-order-head > div:first-child{ display:flex; align-items:center; gap:var(--s2); flex-wrap:wrap; }
+.adm-order-lines{
+  margin:var(--s4) 0; padding:var(--s3) 0;
+  border-top:1px solid var(--edge); border-bottom:1px solid var(--edge);
+  display:flex; flex-direction:column; gap:var(--s2);
+}
+.adm-order-acts{ display:flex; gap:var(--s2); flex-wrap:wrap; align-items:center; }
+.adm-paid-why{ margin-top:var(--s2); max-width:62ch; }
+
+.adm-cat-head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); flex-wrap:wrap; }
+.adm-cat-grid{
+  display:grid; grid-template-columns:minmax(0,2fr) minmax(0,2fr) minmax(0,1fr);
+  gap:var(--s3); margin-top:var(--s4);
+}
+.adm-cat-grid .span2{ grid-column:1 / -1; }
+.adm-subs{ display:flex; flex-direction:column; gap:var(--s2); margin-top:var(--s3); }
+.adm-sub{
+  display:grid; grid-template-columns:minmax(0,2fr) minmax(0,2fr) 90px 40px;
+  gap:var(--s2); align-items:center;
+}
+.adm-sub span{ text-align:right; }
+/* ⚠️ An <input> has an intrinsic min-content width of about 20 characters, and
+   a grid column will not shrink a child below that however small the fr is.
+   Measured: without this the categories tab was 401px wide inside a 375px
+   phone, pushed out by the subcategory slug box. minmax(0,…) alone does not
+   fix it -- the override has to be on the child. */
+.adm-cat-grid input, .adm-sub input{ min-width:0; }
+/* Same rule, for the editor. A select is the worst offender: its min-content
+   width is its longest option, which here is a full category path. */
+.adm-field input, .adm-field select, .adm-field textarea{ min-width:0; max-width:100%; }
+
+.adm-export{ margin-top:var(--s4); }
+.adm-json{
+  width:100%; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11px; line-height:1.5; background:var(--sunk); color:var(--ink-soft);
+  border:1px solid var(--edge); border-radius:var(--r2); padding:var(--s3);
+  white-space:pre; overflow:auto;
+}
+
+@media (max-width:1023px){
+  .adm-stats{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .adm-cat-grid{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+}
+@media (max-width:599px){
+  .adm-stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .adm-cat-grid{ grid-template-columns:1fr; }
+  /* One column on a phone. Two 160px boxes side by side are legal once the
+     min-width above is set, but a slug and a name are both long strings and
+     neither is readable at that width. */
+  .adm-sub{ grid-template-columns:1fr; gap:var(--s1); padding-bottom:var(--s2); }
+  .adm-sub span{ display:none; }
+  .adm-spec{ grid-template-columns:1fr; }
+  .adm-tabs{ gap:0; }
+  .adm-tab{ padding:var(--s3) var(--s3); font-size:12px; }
+  .adm-save .btn{ width:100%; }
+}

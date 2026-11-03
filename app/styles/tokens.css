@@ -1,0 +1,243 @@
+/* ============================================================================
+   DEVI Collections — design tokens.
+
+   THIS IS THE ONLY FILE IN THE PROJECT THAT MAY CONTAIN A :root BLOCK OR A
+   LITERAL COLOUR. tools/tokens.pl enforces both halves of that: a hex in any
+   other stylesheet fails the check, and so does a token defined in one palette
+   block but missing from another.
+
+   Three blocks, as in kirana: :root, the prefers-color-scheme override, and the
+   forced [data-theme] block. DEVI ships LIGHT-ONLY -- the brand's whole claim is
+   warm ivory, and a dark mode inverts the one thing that is the brand. So all
+   three blocks carry the SAME light values.
+
+   That is not a dodge, and the thing that makes it honest is `color-scheme:light`
+   in all three. Copy light values into the dark block but leave `color-scheme:dark`
+   and the page renders ivory while the browser renders scrollbars, date pickers
+   and form widgets dark on top of it -- a half-themed page, which is worse than
+   either choice made properly.
+
+   To add a real dark palette later: fill in the two dark blocks and flip their
+   color-scheme. Nothing else in the project needs to change, because no component
+   rule anywhere names a colour.
+
+   ⚠️ Every contrast ratio in the comments below was COMPUTED with the WCAG
+   relative-luminance formula, not estimated. Three values were moved after
+   measuring rather than shipped -- each is noted where it sits.
+   ========================================================================= */
+
+:root{
+  /* ---- surfaces ---------------------------------------------------------- */
+  --paper:#FBF8F3;   /* the page. Warm ivory, not white. */
+  --card:#FFFFFF;    /* lifted panels, form fields, the drawer */
+  --sunk:#F2ECE2;    /* the announcement strip, image tiles, disabled fills */
+
+  /* ---- text -------------------------------------------------------------- */
+  /* ink 15.82 on paper / 16.76 on card / 14.27 on sunk
+     ink-soft 8.43 on paper / 8.26 on card / 7.03 on sunk
+     ink-dim 6.07 on paper / 6.43 on card / 5.47 on sunk  -- clears 4.5 at 12px */
+  --ink:#241C16;
+  --ink-soft:#5A4C40;
+  --ink-dim:#6B5C4E;
+  --on-ink:#FBF8F3;  /* text on a filled --ink button. 15.82 */
+
+  /* ---- borders ----------------------------------------------------------- */
+  /* --edge is a DECORATIVE hairline and may be faint.
+     --edge-2 is a CONTROL border -- a text input's border IS its affordance --
+     so it must clear 3:1 on every surface it can sit on.
+     ⚠️ #D3C6B4 was the obvious value and measured 1.68 on --card. A straight
+     fail. Moved to #968468: 3.62 card / 3.42 paper / 3.08 sunk. */
+  --edge:#E8DFD2;
+  --edge-2:#968468;
+
+  /* ---- antique gold ------------------------------------------------------ */
+  /* ⚠️ #AE8936 is PINNED, not chosen. It is the only value in the family where
+     dark ink on filled gold clears 4.5 (4.95) AND gold itself clears 3:1
+     against --paper (3.08) so it can be a hairline rule.
+     #9C7A2E failed BOTH ways at once -- white on it 4.01, dark ink on it 4.18:
+     the classic mid-luminance dead zone. One step lighter (#B9944A) and the
+     3:1 hairline rule fails at 2.68.
+     ⚠️ --on-gold is DARK. This is the "never hardcode #fff on an accent" rule
+     biting in LIGHT mode, which is where nobody expects it. */
+  --gold:#AE8936;
+  --gold-wash:#F8F0DC;
+  --gold-ink:#7A5D1D;   /* 6.16 on card / 5.42 on gold-wash / 5.24 on sunk */
+  --on-gold:#2A1F0C;    /* 4.95 on gold */
+
+  /* ---- terracotta: SALE AND DISCOUNT ONLY -------------------------------- */
+  /* Deliberately not the same hue as --alert. A price that is good news and a
+     field that is wrong must not wear the same colour. */
+  --rose:#B04630;
+  --rose-wash:#FBEBE5;
+  --rose-ink:#8C3521;   /* 7.94 on card / 6.85 on rose-wash */
+  --on-rose:#FFFFFF;    /* 5.58 on rose */
+
+  /* ---- success ----------------------------------------------------------- */
+  --good:#2E6B4F;
+  --good-wash:#E6F1EA;
+  --good-ink:#215540;   /* 8.61 on card / 7.44 on good-wash */
+  --on-good:#FFFFFF;    /* 6.30 on good */
+
+  /* ---- error ------------------------------------------------------------- */
+  --alert:#A8322A;
+  --alert-wash:#FAEAE7;
+  --alert-ink:#8A251E;  /* 8.88 on card / 7.61 on alert-wash */
+  --on-alert:#FFFFFF;   /* 6.66 on alert */
+
+  /* ---- amber: the honesty strip ------------------------------------------ */
+  /* Its own accent, because "this is a demo id and takes no money" is neither
+     an error nor good news, and must not be mistaken for either. */
+  --warn:#8A6514;
+  --warn-wash:#FCF3DF;
+  --warn-ink:#6E5010;   /* 7.26 on card / 6.33 on warn-wash */
+  --on-warn:#FFFFFF;    /* 5.21 on warn */
+
+  /* ---- overlay ----------------------------------------------------------- */
+  /* The category-tile gradient and the quick-view bar. Text sits only where
+     alpha >= 0.80, measured 8.98 at that edge and 10.81 at full strength. */
+  --veil:rgba(36,28,22,.86);
+  --on-veil:#FBF8F3;
+  --scrim:rgba(36,28,22,.44);  /* behind the mobile drawer */
+
+  /* ---- ARTWORK: non-varying by design ------------------------------------
+     Declared IDENTICALLY in all three blocks, exactly as kirana's --qr-paper /
+     --qr-ink pair is. A generated swatch is a piece of cloth under light.
+     Inverting it in dark mode makes every product read as a cut-out, and a real
+     photograph -- the swap path -- is shot on white and cannot invert at all.
+     Declaring these as non-varying is the honest way to say "not themed",
+     rather than hardcoding them in art.js and arguing with the checker.
+
+     art-ink measures 10.01-10.90 on all six pastels.
+     art-ink-2 measures 3.24-3.53 -- LINEWORK ONLY, never text.
+     ⚠️ art-gold on the pastels is 2.43-2.65 and FAILS 3:1. It is not fixed by
+     darkening; it is fixed by a rule: GOLD IS A FILL, NEVER A STROKE. Every
+     gold shape in art.js carries a 0.75-unit --art-ink outline (4.11 on gold),
+     so the shape's edge carries the contrast. That is also how real zari and
+     khari block-printing physically looks -- metallic fill inside a printed
+     outline. The accessibility fix and the craft authenticity are one decision. */
+  --art-paper:#FFFDF8;
+  --art-ink:#3A2C22;
+  --art-ink-2:#8C7560;
+  --art-gold:#AE8936;
+  --p-blush:#F4DFD7;
+  --p-sage:#E2EADD;
+  --p-sky:#DDE7EE;
+  --p-sand:#F1E6D2;
+  --p-lilac:#E7E1EE;
+  --p-clay:#EEDBCD;
+
+  /* ---- shadows ----------------------------------------------------------- */
+  --sh-card:0 1px 2px rgba(36,28,22,.06);
+  --sh-lift:0 6px 24px rgba(36,28,22,.10);
+  --sh-drawer:0 0 40px rgba(36,28,22,.22);
+
+  /* ---- type -------------------------------------------------------------- */
+  /* Cormorant is VOICE: hero, headings, category names, the tagline.
+     Manrope is DATA: product names, prices, labels, buttons, form fields.
+     Applying the serif to everything is what makes a template collapse at 13px.
+     ⚠️ Cormorant is never used below 20px -- its thin strokes hint away on
+     Windows below that and it looks cheap, the opposite of the intent.
+     --f-deva is a SYSTEM stack, loaded for nobody: the brand authors no
+     Devanagari, but a customer's name or address will contain it and must not
+     render as tofu. A webfont for someone else's keystrokes is 180KB wasted. */
+  --f-display:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --f-ui:'Manrope','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-deva:'Noto Sans Devanagari','Nirmala UI','Mangal',sans-serif;
+
+  /* ---- space ------------------------------------------------------------- */
+  /* s6/s7 are 40/64 against kirana's 32/48. This brand's whole claim is white
+     space and the section rhythm has to be visibly slower. */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:40px; --s7:64px;
+
+  /* ---- radii ------------------------------------------------------------- */
+  /* 2/6 against kirana's 6/10. Rounded corners read friendly and app-like;
+     premium textile retail is near-square. */
+  --r1:2px; --r2:6px;
+
+  /* ---- metrics ----------------------------------------------------------- */
+  --hh:64px;      /* header row */
+  --strip:34px;   /* announcement strip above it */
+  --rail:260px;   /* the category sidebar */
+  --gutter:max(20px, env(safe-area-inset-left, 0px));
+
+  /* ---- motion ------------------------------------------------------------
+     Three durations, two easings, nothing else. No bounce, no spring, no
+     overshoot anywhere in this system -- an overshoot curve says "playful".
+     Every value here decelerates into place and stops.
+     --t-zoom is the one deliberate outlier: a slow card zoom reads as
+     considered, a 220ms one reads as a web app. */
+  --t-micro:140ms;
+  --t-move:220ms;
+  --t-drawer:320ms;
+  --t-zoom:480ms;
+  --e-enter:cubic-bezier(.2,.6,.2,1);
+  --e-exit:cubic-bezier(.4,0,.6,1);
+
+  color-scheme:light;
+}
+
+/* DEVI ships light-only. This block exists so that the OS dark preference
+   cannot produce a half-themed page -- NOT because the palette is unfinished.
+   Do not "fill this in" with dark values without also doing the contrast work
+   and flipping color-scheme; see the header of this file. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#FBF8F3; --card:#FFFFFF; --sunk:#F2ECE2;
+    --ink:#241C16; --ink-soft:#5A4C40; --ink-dim:#6B5C4E; --on-ink:#FBF8F3;
+    --edge:#E8DFD2; --edge-2:#968468;
+    --gold:#AE8936; --gold-wash:#F8F0DC; --gold-ink:#7A5D1D; --on-gold:#2A1F0C;
+    --rose:#B04630; --rose-wash:#FBEBE5; --rose-ink:#8C3521; --on-rose:#FFFFFF;
+    --good:#2E6B4F; --good-wash:#E6F1EA; --good-ink:#215540; --on-good:#FFFFFF;
+    --alert:#A8322A; --alert-wash:#FAEAE7; --alert-ink:#8A251E; --on-alert:#FFFFFF;
+    --warn:#8A6514; --warn-wash:#FCF3DF; --warn-ink:#6E5010; --on-warn:#FFFFFF;
+    --veil:rgba(36,28,22,.86); --on-veil:#FBF8F3; --scrim:rgba(36,28,22,.44);
+    --art-paper:#FFFDF8; --art-ink:#3A2C22; --art-ink-2:#8C7560; --art-gold:#AE8936;
+    --p-blush:#F4DFD7; --p-sage:#E2EADD; --p-sky:#DDE7EE;
+    --p-sand:#F1E6D2; --p-lilac:#E7E1EE; --p-clay:#EEDBCD;
+    --sh-card:0 1px 2px rgba(36,28,22,.06);
+    --sh-lift:0 6px 24px rgba(36,28,22,.10);
+    --sh-drawer:0 0 40px rgba(36,28,22,.22);
+    --f-display:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+    --f-ui:'Manrope','Segoe UI',system-ui,-apple-system,sans-serif;
+    --f-deva:'Noto Sans Devanagari','Nirmala UI','Mangal',sans-serif;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:40px; --s7:64px;
+    --r1:2px; --r2:6px;
+    --hh:64px; --strip:34px; --rail:260px;
+    --gutter:max(20px, env(safe-area-inset-left, 0px));
+    --t-micro:140ms; --t-move:220ms; --t-drawer:320ms; --t-zoom:480ms;
+    --e-enter:cubic-bezier(.2,.6,.2,1);
+    --e-exit:cubic-bezier(.4,0,.6,1);
+    color-scheme:light;
+  }
+}
+
+/* The forced-theme block, for a host that sets data-theme explicitly.
+   Byte-identical to the one above, for the same reason. */
+:root[data-theme="dark"]{
+  --paper:#FBF8F3; --card:#FFFFFF; --sunk:#F2ECE2;
+  --ink:#241C16; --ink-soft:#5A4C40; --ink-dim:#6B5C4E; --on-ink:#FBF8F3;
+  --edge:#E8DFD2; --edge-2:#968468;
+  --gold:#AE8936; --gold-wash:#F8F0DC; --gold-ink:#7A5D1D; --on-gold:#2A1F0C;
+  --rose:#B04630; --rose-wash:#FBEBE5; --rose-ink:#8C3521; --on-rose:#FFFFFF;
+  --good:#2E6B4F; --good-wash:#E6F1EA; --good-ink:#215540; --on-good:#FFFFFF;
+  --alert:#A8322A; --alert-wash:#FAEAE7; --alert-ink:#8A251E; --on-alert:#FFFFFF;
+  --warn:#8A6514; --warn-wash:#FCF3DF; --warn-ink:#6E5010; --on-warn:#FFFFFF;
+  --veil:rgba(36,28,22,.86); --on-veil:#FBF8F3; --scrim:rgba(36,28,22,.44);
+  --art-paper:#FFFDF8; --art-ink:#3A2C22; --art-ink-2:#8C7560; --art-gold:#AE8936;
+  --p-blush:#F4DFD7; --p-sage:#E2EADD; --p-sky:#DDE7EE;
+  --p-sand:#F1E6D2; --p-lilac:#E7E1EE; --p-clay:#EEDBCD;
+  --sh-card:0 1px 2px rgba(36,28,22,.06);
+  --sh-lift:0 6px 24px rgba(36,28,22,.10);
+  --sh-drawer:0 0 40px rgba(36,28,22,.22);
+  --f-display:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --f-ui:'Manrope','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-deva:'Noto Sans Devanagari','Nirmala UI','Mangal',sans-serif;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:40px; --s7:64px;
+  --r1:2px; --r2:6px;
+  --hh:64px; --strip:34px; --rail:260px;
+  --gutter:max(20px, env(safe-area-inset-left, 0px));
+  --t-micro:140ms; --t-move:220ms; --t-drawer:320ms; --t-zoom:480ms;
+  --e-enter:cubic-bezier(.2,.6,.2,1);
+  --e-exit:cubic-bezier(.4,0,.6,1);
+  color-scheme:light;
+}

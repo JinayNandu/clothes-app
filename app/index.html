@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DEVI Collections — Thoughtfully Curated. Beautifully Yours.</title>
+<meta name="description" content="Hand-blocked bedsheets, bedcovers and quilts, dohars and table runners. A premium Indian home linen brand.">
+<meta name="theme-color" content="#FBF8F3">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- tokens.css MUST load first: every other sheet reads from it. -->
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/layout.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/pages.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="strip" id="strip"></div>
+
+<!-- The logo, above the navigation. A separate NON-STICKY row: the sticky
+     header below keeps the monogram alone, so the brand survives a scroll
+     without two lockups being on screen at once. Filled by ui.js, because
+     a `brand.logo` path in shop.json swaps the drawn lockup for a file. -->
+<a class="brand-band" id="brand-band" href="#/"
+   aria-label="DEVI Collections, home"></a>
+
+<header class="hdr" id="site-header">
+  <div class="hdr-left">
+    <button class="burger" id="burger" aria-label="Open menu"
+            aria-controls="drawer" aria-expanded="false"><span id="i-burger"></span></button>
+    <a href="#/" id="brand-logo" aria-label="DEVI Collections, home"></a>
+  </div>
+
+  <nav class="nav" aria-label="Main">
+    <a href="#/" data-nav="/">Home</a>
+    <a href="#/shop" data-nav="/shop">Shop</a>
+    <a href="#/about" data-nav="/about">About Us</a>
+    <a href="#/contact" data-nav="/contact">Contact Us</a>
+  </nav>
+
+  <div class="hdr-right">
+    <div class="search-wrap">
+      <form class="search" id="search-form" role="search">
+        <span id="i-search"></span>
+        <input type="search" name="q" placeholder="Search for a dohar, a runner…"
+               aria-label="Search products" autocomplete="off">
+      </form>
+    </div>
+    <button class="icon-btn" id="search-toggle" aria-label="Search"
+            aria-expanded="false"><span id="i-search-m"></span></button>
+    <a class="icon-btn" href="#/wishlist" aria-label="Wishlist" data-opt>
+      <span id="i-wish"></span>
+      <span class="badge-count" data-wish-count hidden>0</span>
+    </a>
+    <a class="icon-btn" href="#/cart" aria-label="Shopping bag">
+      <span id="i-bag"></span>
+      <span class="badge-count" data-cart-count hidden>0</span>
+    </a>
+  </div>
+</header>
+
+<!-- Collapses to an icon below 1024 and expands into its own full-width row
+     rather than squeezing inline. -->
+<div class="search-row" id="search-row">
+  <form class="search" id="search-form-m" role="search">
+    <input type="search" name="q" placeholder="Search for a dohar, a runner…"
+           aria-label="Search products" autocomplete="off">
+  </form>
+</div>
+
+<div class="shell" id="shell">
+  <aside class="rail" id="rail" aria-label="Product categories"></aside>
+
+  <main class="main main-wide" id="main">
+    <!-- ⚠️ Every section carries data-screen. router.js toggles [hidden] on
+         these, and base.css's [hidden]{display:none !important} is what makes
+         that beat the display:grid these pick up from pages.css. -->
+    <section data-screen="home" hidden></section>
+    <section data-screen="listing" hidden></section>
+    <section data-screen="product" hidden></section>
+    <section data-screen="cart" hidden></section>
+    <section data-screen="checkout" hidden></section>
+    <section data-screen="confirm" hidden></section>
+    <section data-screen="wishlist" hidden></section>
+    <section data-screen="account" hidden></section>
+    <section data-screen="info" hidden></section>
+    <section data-screen="admin" hidden></section>
+    <section data-screen="notfound" hidden></section>
+  </main>
+
+  <footer class="ftr">
+    <div class="ftr-grid">
+      <div>
+        <div id="ftr-logo"></div>
+        <p class="t-micro dim" style="margin-top:var(--s3);max-width:34ch">
+          Hand-blocked bed linen, decorative artefacts, kurtis and the useful
+          things. Made in small batches across Rajasthan, Bengal and Kerala.
+        </p>
+      </div>
+      <div>
+        <h4>Shop</h4>
+        <ul>
+          <li><a href="#/shop">Shop All</a></li>
+          <li><a href="#/new">New Arrivals</a></li>
+          <li><a href="#/best">Bestsellers</a></li>
+          <li><a href="#/c/gift-vouchers">Gift Vouchers</a></li>
+          <li><a href="#/wishlist">Wishlist</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Help</h4>
+        <ul>
+          <li><a href="#/contact">Contact Us</a></li>
+          <li><a href="#/shipping">Shipping &amp; Delivery</a></li>
+          <li><a href="#/returns">Returns &amp; Refunds</a></li>
+          <li><a href="#/account">My Account</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>About</h4>
+        <ul>
+          <li><a href="#/about">Our Story</a></li>
+          <li><a href="#/privacy">Privacy Policy</a></li>
+          <li><a href="#/terms">Terms &amp; Conditions</a></li>
+          <li><a href="#/admin">Admin</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="ftr-base">
+      <span id="ftr-legal"></span>
+      <span id="ftr-contact"></span>
+    </div>
+  </footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="drawer" id="drawer" aria-hidden="true" aria-label="Menu">
+  <div class="drawer-head">
+    <span id="drawer-logo"></span>
+    <button class="icon-btn" id="drawer-close" aria-label="Close menu">
+      <span id="i-close"></span></button>
+  </div>
+  <div class="drawer-body">
+    <nav class="drawer-nav" aria-label="Main">
+      <a href="#/">Home</a>
+      <a href="#/shop">Shop All</a>
+      <a href="#/wishlist">Wishlist</a>
+      <a href="#/account">My Account</a>
+      <a href="#/about">About Us</a>
+      <a href="#/contact">Contact Us</a>
+    </nav>
+    <div id="drawer-tree"></div>
+  </div>
+</aside>
+
+<noscript>
+  <div style="padding:2rem;text-align:center">
+    DEVI Collections needs JavaScript to show the catalogue.
+    Please enable it, or write to us and we will take your order by hand.
+  </div>
+</noscript>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

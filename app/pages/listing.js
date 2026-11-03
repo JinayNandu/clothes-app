@@ -64,7 +64,7 @@ function resolve(r, all, cats, shop) {
       defaultSort: 'new',
       crumbs: [{ label: 'Home', href: '#/' }, { label: 'New Arrivals' }],
       emptyHead: 'Nothing new this month.',
-      emptyBody: 'New pieces arrive every few weeks. The bestsellers are a good place to wait.',
+      emptyBody: 'New styles arrive every few weeks. The bestsellers are a good place to wait.',
       emptyCta: 'Browse bestsellers', emptyHref: '#/best',
     };
   }
@@ -73,7 +73,7 @@ function resolve(r, all, cats, shop) {
     return {
       base: all.filter((x) => (x.badges || []).includes('bestseller')),
       title: 'Bestsellers', eyebrow: 'Most loved',
-      sub: 'The pieces that go out of stock first.',
+      sub: 'The styles that go out of stock first.',
       defaultSort: 'popularity',
       crumbs: [{ label: 'Home', href: '#/' }, { label: 'Bestsellers' }],
       emptyHead: 'No bestsellers marked yet.',
@@ -127,7 +127,7 @@ function resolve(r, all, cats, shop) {
               : [{ label: c.name }]),
       ],
       emptyHead: 'This edit is being restocked.',
-      emptyBody: 'We buy in small batches, so a sold-out piece stays out until the next one. New pieces arrive every few weeks.',
+      emptyBody: 'We cut in batches, so a sold-out size stays out until the next one. New styles arrive every few weeks.',
       emptyCta: 'See what is in stock', emptyHref: '#/shop',
     };
   }
@@ -135,7 +135,7 @@ function resolve(r, all, cats, shop) {
   return {
     base: all,
     title: 'Shop All', eyebrow: 'Everything',
-    sub: `All ${all.length} pieces, across ${cats.length} categories.`,
+    sub: `All ${all.length} styles, across ${cats.length} categories.`,
     defaultSort: 'popularity',
     crumbs: [{ label: 'Home', href: '#/' }, { label: 'Shop All' }],
     emptyHead: 'The catalogue is empty.',
@@ -165,7 +165,7 @@ function toolbar(n, sort, bands, bandId) {
     : '';
 
   return `<div class="toolbar">
-    <span class="count">${n} ${n === 1 ? 'piece' : 'pieces'}</span>
+    <span class="count">${n} ${n === 1 ? 'style' : 'styles'}</span>
     <span class="spacer"></span>
     ${field('sort', 'Sort by', { options: D.SORTS.map((s) => s.label),
       value: (D.SORTS.find((s) => s.id === sort) || {}).label || '' })}

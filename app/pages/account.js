@@ -89,7 +89,7 @@ async function paint(host) {
       <section class="panel">
         <h2 class="t-h3">At a glance</h2>
         <div class="totals" style="margin-top:var(--s4)">
-          <div class="total-row muted"><span>Saved pieces</span>
+          <div class="total-row muted"><span>Saved styles</span>
             <span>${wishIds.length}</span></div>
           <div class="total-row muted"><span>Orders here</span>
             <span>${orders.length}</span></div>

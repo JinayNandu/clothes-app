@@ -21,7 +21,7 @@ router.registerScreen('product', async (host, r) => {
   const shop = await store.catalog.shop();
 
   if (!p) {
-    host.innerHTML = emptyState(seal(64), 'We cannot find that piece.',
+    host.innerHTML = emptyState(seal(64), 'We cannot find that style.',
       'It may have sold out and been retired, or the link may be mistyped.',
       'Shop all', '#/shop');
     return;

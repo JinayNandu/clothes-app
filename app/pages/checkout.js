@@ -28,7 +28,7 @@ router.registerScreen('checkout', async (host) => {
   if (!lines.length) {
     host.innerHTML = h1('Checkout', 'Shopping')
       + emptyState(seal(64), 'There is nothing to check out.',
-        'Your bag is empty. Everything we make is in small batches, so it is worth a look before a piece goes.',
+        'Your bag is empty. Everything is cut in batches, so it is worth a look before a size goes.',
         'Shop all', '#/shop');
     return;
   }

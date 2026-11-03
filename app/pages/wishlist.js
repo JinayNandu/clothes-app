@@ -21,13 +21,13 @@ async function paint(host) {
 
   if (!list.length) {
     host.innerHTML = h1('Your wishlist', 'Saved')
-      + emptyState(seal(64), 'No pieces saved yet.',
+      + emptyState(seal(64), 'No styles saved yet.',
         'Tap the heart on anything you would like to keep in mind. It stays in this browser.',
         'Browse new arrivals', '#/new');
     return;
   }
 
   host.innerHTML = h1('Your wishlist', 'Saved',
-      `${list.length} ${list.length === 1 ? 'piece' : 'pieces'} saved in this browser.`)
+      `${list.length} ${list.length === 1 ? 'style' : 'styles'} saved in this browser.`)
     + productGrid(list, shop, ids);
 }

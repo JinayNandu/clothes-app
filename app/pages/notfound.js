@@ -10,7 +10,7 @@ import { seal } from '../brand.js';
 router.registerScreen('notfound', async (host) => {
   host.innerHTML = emptyState(seal(64),
     'There is nothing at that address.',
-    'The link may be mistyped, or it may point at a piece we have retired. '
+    'The link may be mistyped, or it may point at a style we have retired. '
     + 'The catalogue is not long — everything we sell is on one page.',
     'Shop all', '#/shop');
 });

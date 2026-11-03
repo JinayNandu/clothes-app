@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — icons.
+// Vastra Apparel — icons.
 //
 // Stroked line art on a 24x24 grid, never filled glyphs and never a little
 // scene. Everything inherits currentColor, so a glyph is coloured by whatever
@@ -37,18 +37,27 @@ const P = {
   refresh: 'M20 12a8 8 0 1 1-2.6-5.9M20 3v5h-5',
   trash:   'M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13',
   grid:    'M4 4h7v7H4V4ZM13 4h7v7h-7V4ZM4 13h7v7H4v-7ZM13 13h7v7h-7v-7Z',
-  // category glyphs -- the sidebar and the footer
-  bed:     'M3 18v-8h18v8M3 14h18M6 10V7h5v3',
-  vase:    'M9 3h6v2c0 2 3 3.5 3 8s-3 8-6 8-6-3.5-6-8 3-6 3-8V3Z',
-  kurti:   'M9 3 6 5l-1 5 3 1v10h8V11l3-1-1-5-3-2c-1 1.6-5 1.6-6 0Z',
-  stool:   'M12 4 21 8l-9 4-9-4 9-4ZM5 10l1.5 10M19 10l-1.5 10',
-  gift:    'M3 9h18v4H3V9ZM4 13h16v8H4v-8ZM12 9v12M12 9C9 9 7 8 7 6.2A2.2 2.2 0 0 1 12 6a2.2 2.2 0 0 1 5 .2C17 8 15 9 12 9Z',
-  // Quilting lines, not a window: the outer rect plus a cross of stitching.
-  quilt:   'M4 6h16v13H4V6ZM4 12.5h16M10 6v13M16 6v13',
-  // Three layers of soft cloth. A dohar is defined by its layers.
-  dohar:   'M3 8.5c3-2 6-2 9 0s6 2 9 0M3 13.5c3-2 6-2 9 0s6 2 9 0M3 18.5c3-2 6-2 9 0s6 2 9 0',
-  // The mitred point at each end is what makes it a runner and not a strip.
-  runner:  'M6.5 7h11l3 5-3 5h-11l-3-5 3-5ZM9 12h6',
+  // ---------------------------------------------------------------------
+  // GARMENT GLYPHS -- the sidebar and the footer.
+  //
+  // Each one is identified by the detail that nothing else has: a shirt by
+  // its collar, a kurti by its length and straight side, a dress by its
+  // flare. Drawing all three as "a top with sleeves" is how a category menu
+  // ends up with three glyphs nobody can tell apart at 20px.
+  //
+  // Vastra's bed / quilt / dohar / runner / vase / stool / gift glyphs were
+  // deleted rather than left in place: an unused glyph is one somebody
+  // reaches for later because it is there, and a razai in a shirt shop is
+  // worse than a missing icon.
+  // ---------------------------------------------------------------------
+  // The collar is the whole glyph. Notch, stand, placket.
+  shirt:   'M8.5 3 12 6.5 15.5 3l3.5 2-1 5h-2v11H8V10H6L5 5l3.5-2ZM12 6.5V21',
+  // Straight side seams, calf length, side slit. No flare.
+  kurti:   'M9 3 6 5l-1 5 3 1v10h8V11l3-1-1-5-3-2c-1 1.6-5 1.6-6 0ZM8 17h8',
+  // The flare is the difference. Hem wider than the shoulders.
+  dress:   'M9 3 7 5v4l1.5 1.5L5 21h14l-3.5-10.5L17 9V5l-2-2c-1 1.6-5 1.6-6 0Z',
+  // The same body, stopped at the hip.
+  top:     'M9 3 6 5l-1 5 3 1v5h8v-5l3-1-1-5-3-2c-1 1.6-5 1.6-6 0Z',
 };
 
 /** A stroked glyph at `size`, inheriting currentColor. */

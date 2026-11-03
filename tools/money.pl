@@ -45,8 +45,16 @@ my @P    = @{ $cl->{products} };
 my $R    = $shop->{shipping};
 my %BY   = map { $_->{id} => $_ } @P;
 
-printf "fee %d, freeOver %d (%s), bulky %d, %d products\n\n",
+# See the long note above the named cases: the live rules make the threshold
+# unreachable, so every threshold assertion in this file runs against these as
+# well. Declared here because the random baskets use them too.
+my $SYNTH = { fee => 99, freeOver => 1999, bulkySurcharge => 250,
+              freeOverBasis => 'items' };
+
+printf "fee %d, freeOver %d (%s), bulky %d, %d products\n",
   $R->{fee}, $R->{freeOver}, $R->{freeOverBasis}, $R->{bulkySurcharge}, scalar @P;
+printf "synthetic: fee %d, freeOver %d, bulky %d\n\n",
+  $SYNTH->{fee}, $SYNTH->{freeOver}, $SYNTH->{bulkySurcharge};
 
 # ---------------------------------------------------------------------------
 # The spec, in Perl. Mirrors domain.js totals().
@@ -69,7 +77,8 @@ sub unit_mrp {
 }
 
 sub totals {
-  my ($lines, $coupon) = @_;
+  my ($lines, $coupon, $rules) = @_;
+  $rules ||= $R;
   my ($items, $mrp, $bulky, $physical) = (0, 0, 0, 0);
 
   for my $ln (@$lines) {
@@ -84,7 +93,7 @@ sub totals {
     if (($p->{kind} // 'goods') ne 'voucher') {
       $physical += $ln->{qty};
       # Once per bulky LINE, not per unit.
-      $bulky += $R->{bulkySurcharge} if ($p->{shipClass} // 'std') eq 'bulky';
+      $bulky += $rules->{bulkySurcharge} if ($p->{shipClass} // 'std') eq 'bulky';
     }
   }
 
@@ -99,8 +108,8 @@ sub totals {
   }
 
   # ⚠️ THE RULE: measured on $items, NOT on ($items - $discount).
-  my $free = ($physical == 0 || $items >= $R->{freeOver});
-  my $ship = $free ? 0 : $R->{fee};
+  my $free = ($physical == 0 || $items >= $rules->{freeOver});
+  my $ship = $free ? 0 : $rules->{fee};
 
   return {
     items => $items, mrp => $mrp, saved => ($mrp - $items),
@@ -140,15 +149,26 @@ for my $n (1 .. 500) {
   $bad++, fail("basket $n: grand is negative")      if $t->{grand} < 0;
 
   # The invariant that encodes the rule, checked on every random basket.
-  if ($t->{physical} > 0) {
-    $bad++, fail("basket $n: items $t->{items} >= freeOver but shipping charged")
-      if $t->{items} >= $R->{freeOver} && $t->{shipping} != 0;
-    $bad++, fail("basket $n: items $t->{items} < freeOver but shipping free")
-      if $t->{items} < $R->{freeOver} && $t->{shipping} != $R->{fee};
+  #
+  # ⚠️ Run against the SYNTHETIC rules as well as the live ones. Against the
+  # live rules alone this is vacuous: freeOver is 0, so `items >= freeOver` is
+  # true for every basket that can exist and the second branch is unreachable.
+  # 500 baskets of a condition that cannot fail is 500 baskets of nothing. See
+  # the $SYNTH note below the loop.
+  for my $rules ($R, $SYNTH) {
+    my $tt = ($rules == $R) ? $t : totals(\@lines, $coupon, $rules);
+    next unless $tt->{physical} > 0;
+    $bad++, fail("basket $n: items $tt->{items} >= $rules->{freeOver} but "
+               . "shipping $tt->{shipping} charged")
+      if $tt->{items} >= $rules->{freeOver} && $tt->{shipping} != 0;
+    $bad++, fail("basket $n: items $tt->{items} < $rules->{freeOver} but "
+               . "shipping was free")
+      if $tt->{items} < $rules->{freeOver} && $tt->{shipping} != $rules->{fee};
   }
   last if $bad > 4;
 }
-ok('500 random baskets reconcile, all integers') unless $bad;
+ok('500 random baskets reconcile, all integers, under live AND synthetic '
+ . 'shipping rules') unless $bad;
 
 # ---------------------------------------------------------------------------
 # THE NAMED CASES
@@ -156,15 +176,36 @@ ok('500 random baskets reconcile, all integers') unless $bad;
 print "\n";
 
 # ---------------------------------------------------------------------------
-# TWO SYNTHETIC PRODUCTS, for the rules the catalogue no longer exercises.
+# SYNTHETIC SHIPPING RULES -- and this is the most important block in the file.
 #
-# ⚠️ Deliberate, not laziness. Since the shop narrowed to bed linen,
-# nothing in the catalogue is `bulky` and nothing is a `voucher` -- but both
-# rules are still live: the surcharge in shop.json, the voucher branch in
-# domain.js, and the PDP copy saying a code is issued by hand. Aiming these
-# cases at a REAL product is what went wrong before -- they pointed at a
-# stool and a gift card, and when those were delisted the suite went on
-# reporting green. A live rule with no catalogue example gets one here.
+# ⚠️ THIS SHOP DELIVERS FREE. fee 0, freeOver 0. That makes the free-shipping
+# threshold rule DORMANT: every basket clears a threshold of zero, so a test
+# written against the live numbers passes whatever domain.js does, and would go
+# on passing if somebody moved the measurement to the post-coupon total
+# tomorrow.
+#
+# That is not a hypothetical. It is precisely how kirana hid a real bug for
+# months -- its domain.js measured the threshold AFTER the coupon and its
+# money.pl measured it BEFORE, and both were invisible because both numbers
+# were zero. DEVI inherited a real Rs 99 fee, which is the only reason the
+# disagreement was ever found.
+#
+# So the threshold cases below run against a SYNTHETIC fee and threshold. The
+# rule stays tested even though the shop does not charge for delivery, and the
+# day the owner introduces a delivery charge the arithmetic behind it has
+# already been proved rather than written fresh under time pressure.
+#
+# Same reasoning as the two synthetic PRODUCTS below, and the same lesson:
+# a live rule with no live example still gets a test.
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# TWO SYNTHETIC PRODUCTS, for the rules the catalogue does not exercise.
+#
+# ⚠️ Deliberate, not laziness. Nothing in a clothes catalogue is `bulky` and
+# nothing is a `voucher`, but both branches are still live in domain.js and in
+# shop.json. Aiming these cases at a REAL product is what went wrong in DEVI --
+# they pointed at a stool and a gift card, and when those were delisted the
+# suite went on reporting green while testing nothing.
 # ---------------------------------------------------------------------------
 $BY{'t-bulky'}   = { id => 't-bulky',   price => 4000, mrp => 4000,
                      kind => 'goods',   shipClass => 'bulky' };
@@ -174,16 +215,22 @@ $BY{'t-voucher'} = { id => 't-voucher', price => 1000, mrp => 1000,
 # (a) THE ONE THAT MATTERS. A basket just over the threshold, with a percentage
 #     coupon that drops the payable BELOW it. Free shipping must survive --
 #     the customer had already earned it before the code was applied.
+#
+#     Two SIZES of the kurti: 1099 (XXL, +100) + 999 (S) = 2098, which clears
+#     the synthetic 1999 on items. VASTRA10 takes 210 off, so the payable is
+#     1888 -- back under. That straddle is the whole test; a basket that does
+#     not cross back under proves nothing.
 {
-  my $devi10 = (grep { $_->{code} eq 'DEVI10' } @codes)[0];
-  # The basket has to actually cross back under, or the case proves nothing.
-  # p-bs-sanganeri-cotton is 2199: clears freeOver (1999) on items, and 10% off
-  # takes the payable to 1979, which is below it. That straddle is the test.
-  my $t = totals([{ pid => 'p-bs-sanganeri-cotton', qty => 1 }], $devi10);
+  my $c10 = (grep { $_->{code} eq 'VASTRA10' } @codes)[0];
+  my $t = totals([{ pid => 'p-wk-bagru-straight', qty => 1, size => 'xxl' },
+                  { pid => 'p-wk-bagru-straight', qty => 1, size => 's'   }],
+                 $c10, $SYNTH);
   my $payable = $t->{items} - $t->{discount};
-  if ($t->{items} >= $R->{freeOver} && $payable < $R->{freeOver} && $t->{shipping} == 0) {
-    ok("(a) items $t->{items} >= $R->{freeOver}, payable $payable < $R->{freeOver}, "
-     . "shipping still 0 -- the threshold is PRE-coupon");
+  if ($t->{items} >= $SYNTH->{freeOver} && $payable < $SYNTH->{freeOver}
+      && $t->{shipping} == 0) {
+    ok("(a) items $t->{items} >= $SYNTH->{freeOver}, payable $payable < "
+     . "$SYNTH->{freeOver}, shipping still 0 -- the threshold is PRE-coupon "
+     . "(synthetic rules; this shop delivers free)");
   } else {
     fail("(a) items $t->{items}, payable $payable, shipping $t->{shipping} -- "
        . "the free-shipping threshold is being measured AFTER the coupon");
@@ -192,13 +239,13 @@ $BY{'t-voucher'} = { id => 't-voucher', price => 1000, mrp => 1000,
 
 # (b) maxOff caps the discount, after rounding.
 {
-  my $devi10 = (grep { $_->{code} eq 'DEVI10' } @codes)[0];
-  # 3 x 5499 = 16497; 10% = 1650, which must be capped to maxOff 1000.
-  my $t = totals([{ pid => 'p-qt-kantha-patchwork', qty => 3 }], $devi10);
-  if ($t->{discount} == $devi10->{maxOff}) {
-    ok("(b) 10% of $t->{items} capped to maxOff $devi10->{maxOff}");
+  my $c10 = (grep { $_->{code} eq 'VASTRA10' } @codes)[0];
+  # 3 x 1899 = 5697; 10% = 570, which must be capped to maxOff 500.
+  my $t = totals([{ pid => 'p-wd-tiered-midi', qty => 3 }], $c10);
+  if ($t->{discount} == $c10->{maxOff}) {
+    ok("(b) 10% of $t->{items} capped to maxOff $c10->{maxOff}");
   } else {
-    fail("(b) discount $t->{discount} ignored maxOff $devi10->{maxOff}");
+    fail("(b) discount $t->{discount} ignored maxOff $c10->{maxOff}");
   }
 }
 
@@ -206,53 +253,98 @@ $BY{'t-voucher'} = { id => 't-voucher', price => 1000, mrp => 1000,
 #     unlock itself.
 {
   my $fest = (grep { $_->{code} eq 'FESTIVE15' } @codes)[0];
-  my $under = totals([{ pid => 'p-bc-bagru-floral', qty => 1 }], $fest);   # 2899 < 4000
-  my $over  = totals([{ pid => 'p-bc-bagru-floral', qty => 2 }], $fest);   # 5798 >= 4000
+  my $under = totals([{ pid => 'p-wd-tiered-midi', qty => 1 }], $fest); # 1899 < 3000
+  my $over  = totals([{ pid => 'p-wd-tiered-midi', qty => 2 }], $fest); # 3798 >= 3000
   if (!$under->{couponOk} && $under->{discount} == 0 && $over->{couponOk}) {
-    ok("(c) minItems $fest->{minItems}: 2899 rejected, 5798 accepted");
+    ok("(c) minItems $fest->{minItems}: $under->{items} rejected, "
+     . "$over->{items} accepted");
   } else {
     fail("(c) minItems gate is wrong: under=$under->{couponOk} over=$over->{couponOk}");
   }
 }
 
-# (d) Two colours of one product are TWO lines. If line identity were the
-#     product id, the second add would silently increment the first and the
-#     customer would receive two of the wrong colour.
+# (d) Two SIZES of one garment are TWO lines. If line identity were the product
+#     id, the second add would silently increment the first and the customer
+#     would receive two of the wrong size -- the single most likely way to turn
+#     one sale into one return.
 {
   my $two = totals([
-    { pid => 'p-bc-kalamkari-indigo', qty => 1, size => 'dbl'  },
-    { pid => 'p-bc-kalamkari-indigo', qty => 1, size => 'king' },
+    { pid => 'p-ms-indigo-dobby', qty => 1, size => 's'   },
+    { pid => 'p-ms-indigo-dobby', qty => 1, size => 'xxl' },
   ]);
-  my $p = $BY{'p-bc-kalamkari-indigo'};
-  my $want = unit_price($p, 'dbl') + unit_price($p, 'king');
+  my $p = $BY{'p-ms-indigo-dobby'};
+  my $want = unit_price($p, 's') + unit_price($p, 'xxl');
   if ($two->{items} == $want) {
-    ok("(d) two variants of one product total $want, not " . (2 * $p->{price}));
+    ok("(d) two sizes of one shirt total $want, not " . (2 * $p->{price}));
   } else {
-    fail("(d) two variants totalled $two->{items}, expected $want");
+    fail("(d) two sizes totalled $two->{items}, expected $want");
   }
 }
 
-# (e) bulkySurcharge applies once per bulky LINE, not per unit. Three of one
-#     oversized thing in a line is one handling charge, not three.
+# (e) ONLY THE SIZE AXIS MOVES THE PRICE, and it moves it by exactly the
+#     declared delta. The rule that makes a garment shop different from a
+#     grocery, checked on every product rather than asserted once.
 {
-  my $one   = totals([{ pid => 't-bulky', qty => 1 }]);
-  my $three = totals([{ pid => 't-bulky', qty => 3 }]);
-  if ($one->{bulky} == $R->{bulkySurcharge} && $three->{bulky} == $R->{bulkySurcharge}) {
-    ok("(e) bulky surcharge $R->{bulkySurcharge} charged once per line, not per unit");
+  my $bad = 0;
+  for my $p (@P) {
+    my $base = $p->{price};
+    for my $s (@{ $p->{variants}{size} || [] }) {
+      my $got  = unit_price($p, $s->{id});
+      my $want = $base + ($s->{delta} // 0);
+      $bad++, fail("(e) $p->{id} size $s->{id}: unit $got, expected $want")
+        if $got != $want;
+    }
+    # A colour must not move it at all. data.pl fails on a non-zero colour
+    # delta in the JSON; this proves the ARITHMETIC ignores one even if it
+    # somehow got there.
+    for my $c (@{ $p->{variants}{colour} || [] }) {
+      my $t = totals([{ pid => $p->{id}, qty => 1 }]);
+      $bad++, fail("(e) $p->{id}: colour $c->{id} moved the price")
+        if $t->{items} != $base;
+    }
+  }
+  ok('(e) every size delta is exact and no colour moves the price') unless $bad;
+}
+
+# (f) bulkySurcharge applies once per bulky LINE, not per unit. Synthetic
+#     rules: this shop charges nothing for an oversized item because it does
+#     not sell one, but the branch is live.
+{
+  my $one   = totals([{ pid => 't-bulky', qty => 1 }], undef, $SYNTH);
+  my $three = totals([{ pid => 't-bulky', qty => 3 }], undef, $SYNTH);
+  if ($one->{bulky} == $SYNTH->{bulkySurcharge}
+      && $three->{bulky} == $SYNTH->{bulkySurcharge}) {
+    ok("(f) bulky surcharge $SYNTH->{bulkySurcharge} charged once per line, "
+     . "not per unit (synthetic)");
   } else {
-    fail("(e) bulky: qty1=$one->{bulky} qty3=$three->{bulky}, "
-       . "expected $R->{bulkySurcharge} for both");
+    fail("(f) bulky: qty1=$one->{bulky} qty3=$three->{bulky}, "
+       . "expected $SYNTH->{bulkySurcharge} for both");
   }
 }
 
-# (f) A voucher-only basket ships nothing, so it is never charged shipping even
-#     below the threshold. There is no parcel.
+# (g) A voucher-only basket ships nothing, so it is never charged shipping even
+#     below the threshold. There is no parcel. Synthetic rules, or a fee of
+#     zero would make this pass without testing anything.
 {
-  my $t = totals([{ pid => 't-voucher', qty => 1 }]);
+  my $t = totals([{ pid => 't-voucher', qty => 1 }], undef, $SYNTH);
   if ($t->{shipping} == 0 && $t->{physical} == 0) {
-    ok('(f) a voucher-only basket is not charged shipping');
+    ok('(g) a voucher-only basket is not charged shipping (synthetic fee 99)');
   } else {
-    fail("(f) voucher basket charged shipping $t->{shipping}");
+    fail("(g) voucher basket charged shipping $t->{shipping}");
+  }
+}
+
+# (h) The shop as it actually ships: delivery is free on everything, including
+#     the smallest possible basket. If somebody puts a fee back in shop.json
+#     without meaning to, this is what says so.
+{
+  my $cheapest = (sort { $a->{price} <=> $b->{price} } @P)[0];
+  my $t = totals([{ pid => $cheapest->{id}, qty => 1 }]);
+  if ($t->{shipping} == 0) {
+    ok("(h) live rules: a $t->{items} basket still ships free");
+  } else {
+    fail("(h) live rules charged $t->{shipping} on a $t->{items} basket -- "
+       . "shop.json says delivery is free");
   }
 }
 

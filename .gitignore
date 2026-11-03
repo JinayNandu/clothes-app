@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # Generated. Rebuild, never edit:
-#   perl tools/mksingle.pl     -> build/devi-collections.html AND docs/
+#   perl tools/mksingle.pl     -> build/clothes-app.html AND docs/
 #   perl tools/mkartifact.pl   -> build/artifact.html
 #
 # ⚠️ docs/ is GENERATED but is NOT ignored. GitHub Pages serves what is in the

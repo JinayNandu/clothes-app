@@ -205,13 +205,13 @@ PRE
 
 # The four data files, which on a server would be four fetches.
 $js .= "\n/* ---- data/, inlined: there is no server to fetch it from ---- */\n";
-$js .= "const __DEVI_DATA = {};\n";
-$js .= "globalThis.__DEVI_DATA = __DEVI_DATA;\n";
+$js .= "const __VASTRA_DATA = {};\n";
+$js .= "globalThis.__VASTRA_DATA = __VASTRA_DATA;\n";
 my @data = qw(catalog.json categories.json shop.json pages.json);
 for my $d (@data) {
   my $json = slurp("$APP/data/$d");
   $json =~ s/\s+$//;
-  $js .= "__DEVI_DATA['data/$d'] =\n$json;\n";
+  $js .= "__VASTRA_DATA['data/$d'] =\n$json;\n";
 }
 
 for my $key (@order) {

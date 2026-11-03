@@ -1,5 +1,5 @@
 /* ============================================================================
-   DEVI Collections — design tokens.
+   Vastra Apparel — design tokens.
 
    THIS IS THE ONLY FILE IN THE PROJECT THAT MAY CONTAIN A :root BLOCK OR A
    LITERAL COLOUR. tools/tokens.pl enforces both halves of that: a hex in any
@@ -7,7 +7,7 @@
    block but missing from another.
 
    Three blocks, as in kirana: :root, the prefers-color-scheme override, and the
-   forced [data-theme] block. DEVI ships LIGHT-ONLY -- the brand's whole claim is
+   forced [data-theme] block. Vastra ships LIGHT-ONLY -- the brand's whole claim is
    warm ivory, and a dark mode inverts the one thing that is the brand. So all
    three blocks carry the SAME light values.
 
@@ -176,7 +176,7 @@
   color-scheme:light;
 }
 
-/* DEVI ships light-only. This block exists so that the OS dark preference
+/* Vastra ships light-only. This block exists so that the OS dark preference
    cannot produce a half-themed page -- NOT because the palette is unfinished.
    Do not "fill this in" with dark values without also doing the contrast work
    and flipping color-scheme; see the header of this file. */

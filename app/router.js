@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the router.
+// Vastra Apparel — the router.
 //
 // Hash routing, one document. The URL IS the state, so hashchange IS the back
 // button -- which deletes the parked/ownPop history workaround kirana needs
@@ -76,17 +76,17 @@ async function paint() {
       el.hidden = el.dataset.screen !== r.screen;
     }
     const host = document.querySelector(`[data-screen="${r.screen}"]`);
-    if (!host) { console.error('[devi] no section for screen', r.screen); return; }
+    if (!host) { console.error('[vastra] no section for screen', r.screen); return; }
 
     host.classList.remove('screen');
     void host.offsetWidth;          // restart the enter animation
     host.classList.add('screen');
 
     const enter = SCREENS[r.screen];
-    if (!enter) { console.error('[devi] no screen registered for', r.screen); return; }
+    if (!enter) { console.error('[vastra] no screen registered for', r.screen); return; }
 
     await enter(host, r);
-    document.dispatchEvent(new CustomEvent('devi:route', { detail: r }));
+    document.dispatchEvent(new CustomEvent('vastra:route', { detail: r }));
   } finally {
     painting = false;
   }

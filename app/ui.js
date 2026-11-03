@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the shell. Header, drawer, toast, counts.
+// Vastra Apparel — the shell. Header, drawer, toast, counts.
 //
 // ⚠️ THIS MODULE MUST NEVER IMPORT A PAGE MODULE. Pages import it. The import
 // graph has to stay a tree: a cycle hands you `undefined` for something that

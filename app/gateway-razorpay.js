@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the Razorpay seam.
+// Vastra Apparel — the Razorpay seam.
 //
 // THIS FILE SHIPS KNOWING ONLY HOW TO REFUSE, and that is deliberate. It is
 // the same stance kirana takes with backend-supabase.js: several hundred lines

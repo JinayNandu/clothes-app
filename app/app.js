@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — entry point.
+// Vastra Apparel — entry point.
 //
 // The ONLY module that knows every screen exists. Each page module registers
 // itself into the router at import time, which is why importing them is all
@@ -115,7 +115,7 @@ function wireChrome() {
   });
 
   // Nav highlighting, driven by the route rather than by click.
-  document.addEventListener('devi:route', (e) => {
+  document.addEventListener('vastra:route', (e) => {
     const p = e.detail.path;
     for (const a of $$('[data-nav]')) {
       const t = a.dataset.nav;

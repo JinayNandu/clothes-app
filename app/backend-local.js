@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the local backend. localStorage plus cross-tab events.
+// Vastra Apparel — the local backend. localStorage plus cross-tab events.
 //
 // THE CONTRACT. Every backend must obey all four, because store.js swaps
 // between them on one import line and nothing downstream may notice:
@@ -21,17 +21,17 @@ import * as D from './domain.js';
 import * as O from './overlay.js';
 
 const K = {
-  cart: 'devi.cart',
-  coupon: 'devi.coupon',
-  wish: 'devi.wishlist',
-  orders: 'devi.orders',
-  seq: 'devi.seq',
-  profile: 'devi.profile',
-  ui: 'devi.ui',
+  cart: 'vastra.cart',
+  coupon: 'vastra.coupon',
+  wish: 'vastra.wishlist',
+  orders: 'vastra.orders',
+  seq: 'vastra.seq',
+  profile: 'vastra.profile',
+  ui: 'vastra.ui',
   // The admin's field-level patches over the shipped catalogue. See overlay.js
   // for why this is a patch set and not a copy of the catalogue.
-  overrides: 'devi.catalog.overrides',
-  rev: 'devi.rev.',
+  overrides: 'vastra.catalog.overrides',
+  rev: 'vastra.rev.',
 };
 
 const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
@@ -54,7 +54,7 @@ function write(key, value, topic) {
     // ⚠️ Quota. localStorage is about 5 MB. This must not fail silently --
     // kirana's equivalent swallows it, and the symptom is a cart that forgets
     // one item in twenty with no error anywhere.
-    console.error('[devi] could not save', key, e);
+    console.error('[vastra] could not save', key, e);
     bus.emit('quota', { key });
     return false;
   }
@@ -118,13 +118,13 @@ const RAW = Object.create(null);
 
 async function loadJSON(path) {
   // ⚠️ The single-file build (tools/mksingle.pl) has no server to fetch
-  // from, so it defines __DEVI_DATA with the four data files already in it.
+  // from, so it defines __VASTRA_DATA with the four data files already in it.
   // The check lives HERE, in the real source, rather than the bundler
   // rewriting this function -- so the served app and the single file run
   // byte-identical code and cannot drift apart. Cloned on the way out for
   // the same reason every other read is: a caller that mutates what it got
   // must not poison the only copy.
-  const inline = globalThis.__DEVI_DATA && globalThis.__DEVI_DATA[path];
+  const inline = globalThis.__VASTRA_DATA && globalThis.__VASTRA_DATA[path];
   if (inline) return JSON.parse(JSON.stringify(inline));
 
   const r = await fetch(path, { cache: 'no-store' });

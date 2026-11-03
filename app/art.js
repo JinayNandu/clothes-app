@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the procedural artwork engine.
+// Vastra Apparel — the procedural artwork engine.
 //
 // There are no product photographs. Rather than ship grey boxes or depend on a
 // stock-photo host that Zscaler may block, every product gets a distinct piece
@@ -179,7 +179,123 @@ const MOTIFS = {
 };
 
 // ---------------------------------------------------------------------------
-// MEDALLIONS — single, centred, never tiled.
+// GARMENT SILHOUETTES — the highest-value idea in this engine.
+//
+// The patterned fill is clipped to a per-garment path, so the SAME bagru print
+// reads as a shirt on a shirt and as a kurti on a kurti. One mechanism solves
+// both "distinct per product" and "appropriate to the garment" at once.
+//
+// ⚠️ These shapes are the one part of art.js that is NOT inherited from Vastra.
+// Vastra sold bed linen, so its pool was `folded`, `drape` and `runner` — a
+// kurti drawn by those comes out as a folded bedsheet. Its `garment` shape
+// survived the November 2026 narrowing to linen and is the ancestor of `kurti`
+// below; the shirt, the dress and the top are new.
+//
+// `field`     — may a repeating motif fill it?
+// `chest`     — may a small centred device sit on the chest? ('force' = always)
+// `bands`     — hem and yoke rectangles, in THIS shape's own coordinates.
+//               ⚠️ Vastra hardcoded one hem rect for every shape, which was
+//               survivable when every shape was a rectangle of cloth. A dress
+//               flares from 88px at the waist to 160px at the hem, so a fixed
+//               rect either floats inside the skirt or hangs out of it.
+// `detail`    — linework drawn ON TOP of the clipped fill, outside it. This is
+//               where a garment becomes a specific garment: a collar and a
+//               button placket are what say "shirt" at 240px on a grid.
+// ---------------------------------------------------------------------------
+const SHAPES = {
+  // A button-through shirt. Collar, placket, five buttons, cuffs, chest pocket.
+  shirt: {
+    path: 'M168 140 L146 146 L104 222 L128 238 L150 206 V378 H250 V206 L272 238 '
+        + 'L296 222 L254 146 L232 140 C228 154, 172 154, 168 140 Z',
+    field: true, chest: false, border: 'hem',
+    bands: { hem: [150, 348, 100, 22], yoke: [150, 200, 100, 26] },
+    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.5" opacity=".72">
+      <path d="M168 140 L200 184 L162 168 Z"/>
+      <path d="M232 140 L200 184 L238 168 Z"/>
+      <path d="M192 180 V378 M208 180 V378"/>
+      <path d="M110 230 L134 246" opacity=".6"/>
+      <path d="M266 246 L290 230" opacity=".6"/>
+      <path d="M160 214 H186 V243 L173 251 L160 243 Z" opacity=".6"/></g>
+    <g fill="var(--art-ink)" opacity=".8">
+      <circle cx="200" cy="216" r="3.1"/><circle cx="200" cy="250" r="3.1"/>
+      <circle cx="200" cy="284" r="3.1"/><circle cx="200" cy="318" r="3.1"/>
+      <circle cx="200" cy="352" r="3.1"/></g>`,
+  },
+
+  // A straight kurti — calf length, side slits, short front placket.
+  // The ancestor of this path is Vastra's `garment`, lengthened at the hem.
+  kurti: {
+    path: 'M152 132 L118 154 L100 214 L134 228 L142 200 V400 H258 V200 L266 228 '
+        + 'L300 214 L282 154 L248 132 C236 152, 164 152, 152 132 Z',
+    field: true, chest: true, border: 'hem',
+    bands: { hem: [142, 368, 116, 24], yoke: [142, 196, 116, 26] },
+    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".6">
+      <path d="M152 132 C166 158, 234 158, 248 132"/>
+      <path d="M142 200 L134 228 M258 200 L266 228"/>
+      <path d="M200 156 V198"/>
+      <path d="M142 336 V400" stroke-width="1.7" opacity=".8"/>
+      <path d="M258 336 V400" stroke-width="1.7" opacity=".8"/></g>
+    <g fill="var(--art-ink)" opacity=".75">
+      <circle cx="200" cy="168" r="2.7"/><circle cx="200" cy="188" r="2.7"/></g>`,
+  },
+
+  // A tiered A-line midi. Three gathered tiers, so the seams run ACROSS the
+  // flare and the widths below are measured on the silhouette, not guessed.
+  dress: {
+    path: 'M166 136 L148 146 L142 198 L158 208 L156 250 L120 400 H280 L244 250 '
+        + 'L242 208 L258 198 L252 146 L234 136 C228 158, 172 158, 166 136 Z',
+    field: true, chest: true, border: 'hem',
+    bands: { hem: [124, 372, 152, 22], yoke: [156, 214, 88, 24] },
+    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".62">
+      <path d="M166 136 C178 160, 222 160, 234 136"/>
+      <path d="M156 250 Q200 262, 244 250" stroke-width="1.7"/>
+      <path d="M140 318 Q200 330, 260 318"/>
+      <path d="M130 360 Q200 372, 270 360"/></g>
+    <g fill="none" stroke="var(--art-ink)" stroke-width="1.1" opacity=".4"
+       stroke-linecap="round">
+      <path d="M164 256 V268 M186 258 V270 M214 258 V270 M236 256 V268"/>
+      <path d="M150 324 V336 M180 328 V340 M220 328 V340 M250 324 V336"/></g>`,
+  },
+
+  // A boxy top — the same grammar, stopped at the hip. Not in the three-product
+  // skeleton; kept live because `women-tops` is the next subcategory to land and
+  // a shape added later is a shape nobody checks against the others.
+  top: {
+    path: 'M160 138 L130 156 L112 212 L140 226 L148 198 V330 H252 V198 L260 226 '
+        + 'L288 212 L270 156 L240 138 C232 158, 168 158, 160 138 Z',
+    field: true, chest: true, border: 'yoke',
+    bands: { hem: [148, 302, 104, 20], yoke: [148, 194, 104, 26] },
+    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".6">
+      <path d="M160 138 C172 162, 228 162, 240 138"/>
+      <path d="M148 198 L140 226 M252 198 L260 226"/>
+      <path d="M148 314 H252" opacity=".7"/></g>`,
+  },
+};
+
+// Which silhouette and which motif pool a product draws from, keyed by its
+// SUBCATEGORY -- or, for a category that has none, by the category itself.
+//
+// ⚠️ THE POOLS ARE NOT INTERCHANGEABLE. A men's shirt never gets a floral
+// buti or a bandhani tie-dye: it gets the woven and geometric prints that
+// actually go on shirting. This is the same decision as Vastra's "a razai never
+// gets an ikat chevron", and it is what stops the grid reading as one print
+// sprayed over four garments.
+const BY_GROUP = {
+  'men-shirts':    ['shirt', ['chevron', 'jaali', 'ikat', 'kantha']],
+  'women-kurtis':  ['kurti', ['bagru', 'sanganeri', 'buta', 'bandhani']],
+  'women-dresses': ['dress', ['sanganeri', 'buta', 'bagru', 'lehariya']],
+  'women-tops':    ['top',   ['jaali', 'chevron', 'bandhani', 'kantha']],
+};
+
+// ---------------------------------------------------------------------------
+// CHEST DEVICES — a single embroidered motif at the neck, never tiled.
+//
+// Vastra's MEDALLIONS were centred at (200,250) with an outer radius of 70, on
+// a bedsheet 272px wide. A kurti body is 116px wide, so the same device would
+// be clipped to a band across its middle and read as a mistake rather than as
+// embroidery. These are the same four ideas at garment scale: ~60px across,
+// sitting high on the chest where a real neck motif goes.
+//
 // Gold fills always carry an --art-ink outline; see the file header.
 // ---------------------------------------------------------------------------
 const rot = (n, path, cx, cy, extra = '') => {
@@ -190,190 +306,61 @@ const rot = (n, path, cx, cy, extra = '') => {
   return out;
 };
 
-const MEDALLIONS = {
-  mandala: (gold) => `
-    <g fill="none" stroke="var(--art-ink)" stroke-width="1.5" opacity=".88">
-      ${rot(12, 'M200 196 C190 212, 190 236, 200 250 C210 236, 210 212, 200 196 Z', 200, 250)}
-      ${rot(12, 'M200 222 C194 232, 194 244, 200 252 C206 244, 206 232, 200 222 Z', 200, 250)}
-      <circle cx="200" cy="250" r="62"/>
-      <circle cx="200" cy="250" r="70"/>
-      <circle cx="200" cy="250" r="12" ${gold ? 'fill="var(--art-gold)"' : ''}/>
+const CHEST = {
+  buti: (gold) => `
+    <g fill="none" stroke="var(--art-ink)" stroke-width="1.25" opacity=".88">
+      ${rot(6, 'M200 212 C195.5 221, 195.5 233, 200 240 C204.5 233, 204.5 221, 200 212 Z', 200, 240)}
+      <circle cx="200" cy="240" r="3.6" ${gold ? 'fill="var(--art-gold)"' : ''}/>
     </g>`,
 
   lotus: (gold) => `
-    <g fill="none" stroke="var(--art-ink)" stroke-width="1.6" opacity=".9">
-      ${rot(8, 'M200 182 C184 206, 184 236, 200 258 C216 236, 216 206, 200 182 Z', 200, 258)}
-      <path d="M140 272 Q200 296, 260 272" />
-      <path d="M152 286 Q200 306, 248 286" opacity=".6"/>
-      <circle cx="200" cy="252" r="9" ${gold ? 'fill="var(--art-gold)"' : ''}/>
+    <g fill="none" stroke="var(--art-ink)" stroke-width="1.3" opacity=".9">
+      ${rot(5, 'M200 206 C193 219, 193 234, 200 244 C207 234, 207 219, 200 206 Z', 200, 244)}
+      <path d="M176 250 Q200 261, 224 250"/>
+      <circle cx="200" cy="241" r="3.2" ${gold ? 'fill="var(--art-gold)"' : ''}/>
     </g>`,
 
-  // The monogram's arch at full five-cusp fidelity, hollow.
-  jharokha: (gold) => `
-    <g fill="none" stroke="var(--art-ink)" stroke-width="1.8" opacity=".9">
-      <path d="M136 322 V228 C136 194, 164 172, 200 172 C236 172, 264 194, 264 228 V322"/>
-      <path d="M152 322 V232 C152 204, 174 188, 200 188 C226 188, 248 204, 248 232 V322"
-            opacity=".55"/>
-      <path d="M168 322 V236 C168 222, 176 212, 184 218 C190 204, 210 204, 216 218
-               C224 212, 232 222, 232 236 V322" opacity=".8"/>
-      <path d="M124 330 H276"/>
-      <circle cx="200" cy="246" r="8" ${gold ? 'fill="var(--art-gold)"' : ''}/>
+  // A jaali fret, squared off — the one device that suits a shirt if a shirt
+  // ever opts in, because it is architectural rather than floral.
+  jaali: (gold) => `
+    <g fill="none" stroke="var(--art-ink)" stroke-width="1.3" opacity=".85">
+      <rect x="183" y="215" width="34" height="34"/>
+      <rect x="183" y="215" width="34" height="34" transform="rotate(45 200 232)"/>
+      <circle cx="200" cy="232" r="5.4" ${gold ? 'fill="var(--art-gold)"' : ''}/>
     </g>`,
 
-  diya: (gold) => `
-    <g fill="none" stroke="var(--art-ink)" stroke-width="1.7" opacity=".9">
-      <path d="M146 268 Q200 252, 254 268 Q244 304, 200 308 Q156 304, 146 268 Z"
-            ${gold ? 'fill="var(--art-gold)" fill-opacity=".5"' : ''}/>
-      <path d="M200 252 C192 238, 196 222, 204 210 C210 224, 212 240, 200 252 Z"
-            ${gold ? 'fill="var(--art-gold)"' : ''}/>
-      <path d="M200 196 V182 M166 212 L158 202 M234 212 L242 202" stroke-linecap="round"/>
-      <path d="M134 316 H266"/>
-    </g>`,
-};
-
-// ---------------------------------------------------------------------------
-// CATEGORY SILHOUETTES — the highest-value idea in this engine.
-//
-// The patterned fill is clipped to a per-category path, so the SAME bagru
-// print reads as a kurti on a kurti and as a folded bedsheet on a bedsheet.
-// One mechanism solves both "distinct per product" and "appropriate to the
-// category" at once.
-//
-// `field`     — may a repeating motif fill it?
-// `medallion` — may a centred device sit on it? ('force' = always)
-// `detail`    — linework drawn ON TOP of the clipped fill, outside it.
-// ---------------------------------------------------------------------------
-const SHAPES = {
-  folded: {
-    path: 'M64 150 Q64 142 72 142 H328 Q336 142 336 150 V370 Q336 378 328 378 H72 Q64 378 64 370 Z',
-    field: true, medallion: true, border: 'pallu',
-    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.3" opacity=".42">
-      <path d="M64 206 H336"/><path d="M64 214 H336" opacity=".5"/>
-      <path d="M64 312 H336"/><path d="M64 320 H336" opacity=".5"/></g>`,
-  },
-  drape: {
-    path: 'M68 146 H332 V304 L262 376 H68 Z',
-    field: true, medallion: true, border: 'edge',
-    // The turned corner shows the reverse of the cloth in the alt colourway.
-    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".5">
-      <path d="M332 304 L262 376"/></g>`,
-    turn: 'M332 304 V376 H262 Z',
-  },
-  garment: {
-    path: 'M152 132 L118 154 L100 214 L134 228 L142 200 V376 H258 V200 L266 228 L300 214 '
-        + 'L282 154 L248 132 C236 152, 164 152, 152 132 Z',
-    field: true, medallion: false, border: 'hem',
-    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".55">
-      <path d="M152 132 C166 156, 234 156, 248 132"/>
-      <path d="M142 200 L134 228 M258 200 L266 228"/>
-      <path d="M142 358 H258" opacity=".7"/></g>`,
-  },
-  vessel: {
-    path: 'M200 126 C188 126 182 134 182 144 C182 156 168 164 158 184 '
-        + 'C140 220 140 282 158 318 C172 344 176 354 176 366 H224 '
-        + 'C224 354 228 344 242 318 C260 282 260 220 242 184 '
-        + 'C232 164 218 156 218 144 C218 134 212 126 200 126 Z',
-    // A carved object is ONE device, not a repeat. Forced.
-    field: false, medallion: 'force', border: 'none',
-    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.5" opacity=".6">
-      <path d="M182 150 Q200 158, 218 150"/>
-      <path d="M160 372 H240 V384 H160 Z"/></g>`,
-  },
-  stool: {
-    path: 'M200 154 L306 196 L200 238 L94 196 Z',
-    field: true, medallion: false, border: 'none',
-    // Legs are flat linework outside the clip — a patterned leg looks painted,
-    // not upholstered.
-    detail: `<g fill="var(--art-ink-2)" opacity=".8">
-      <path d="M104 202 L118 356 L136 362 L124 208 Z"/>
-      <path d="M296 202 L282 356 L264 362 L276 208 Z"/>
-      <path d="M194 240 L194 378 L206 378 L206 240 Z" opacity=".55"/>
-    </g>
-    <g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".5">
-      <path d="M126 290 Q200 312, 274 290"/></g>`,
-  },
-  bag: {
-    path: 'M108 208 H292 L308 374 H92 Z',
-    field: true, medallion: true, border: 'edge',
-    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="3" opacity=".85"
+  // A keyhole neck tie — two cords and a tassel. Not ornament: it is the most
+  // common finish on a kurti neckline in this price band.
+  keyhole: (gold) => `
+    <g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".85"
        stroke-linecap="round">
-      <path d="M150 208 C150 148, 250 148, 250 208"/></g>
-    <g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".45">
-      <path d="M92 240 H308"/></g>`,
-  },
-  pouch: {
-    path: 'M88 194 Q88 180 104 180 H296 Q312 180 312 194 V336 Q312 350 296 350 H104 '
-        + 'Q88 350 88 336 Z',
-    field: true, medallion: false, border: 'edge',
-    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="2"
-       stroke-dasharray="4 4" stroke-linecap="round" opacity=".7">
-      <path d="M100 200 H300"/></g>
-    <g fill="none" stroke="var(--art-ink)" stroke-width="1.6" opacity=".7">
-      <circle cx="300" cy="200" r="5"/></g>`,
-  },
-  // A table runner is the one piece here that is longer than it is wide, so
-  // it runs VERTICALLY down the 4:5 tile. Laid across it the band would be
-  // 60px of pattern in a 500px frame and read as a stripe, not a runner.
-  runner: {
-    path: 'M140 120 L200 80 L260 120 V400 L200 440 L140 400 Z',
-    field: true, medallion: false, border: 'hem',
-    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.4" opacity=".5">
-      <path d="M140 120 H260 M140 400 H260"/></g>
-    <g fill="none" stroke="var(--art-ink)" stroke-width="1.6" opacity=".6"
-       stroke-linecap="round">
-      <path d="M176 70 V52 M200 66 V44 M224 70 V52"/>
-      <path d="M176 450 V468 M200 454 V476 M224 450 V468"/></g>`,
-  },
-  envelope: {
-    path: 'M78 178 H322 V352 H78 Z',
-    field: false, medallion: false, border: 'edge',
-    detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.6" opacity=".6">
-      <path d="M78 178 L200 272 L322 178"/>
-      <path d="M78 352 L164 282 M322 352 L236 282" opacity=".6"/></g>`,
-  },
-};
-
-// Which silhouette and which motif pool a product draws from, keyed by its
-// SUBCATEGORY -- or, for a category that has none, by the category itself.
-// A table runner never gets a pallu; a razai never gets an ikat chevron.
-const BY_GROUP = {
-  'bedsheets-single': ['folded', ['sanganeri','bagru','bandhani','jaali']],
-  'bedsheets-double': ['folded', ['sanganeri','bagru','bandhani','jaali']],
-  'bedcovers-quilts': ['folded', ['bagru','sanganeri','buta','kantha']],
-  'dohars-single':    ['drape',  ['bagru','kantha','buta','bandhani']],
-  'dohars-double':    ['drape',  ['bagru','kantha','buta','bandhani']],
-  'dohars-sets':      ['drape',  ['sanganeri','buta','bandhani','lehariya']],
-  'table-runners':    ['runner', ['bagru','kantha','jaali','ikat']],
+      <path d="M200 200 V224 C200 232, 193 236, 193 244 C193 250, 207 250, 207 244
+               C207 236, 200 232, 200 224"/>
+      <path d="M186 206 Q200 214, 214 206"/>
+      <circle cx="200" cy="252" r="3.4" ${gold ? 'fill="var(--art-gold)"' : ''}/>
+      <path d="M197 256 V264 M200 257 V266 M203 256 V264" opacity=".7"/>
+    </g>`,
 };
 
 // ---------------------------------------------------------------------------
-// BORDERS — the pallu and the selvedge.
+// BANDS — the hem facing and the yoke.
+//
+// ⚠️ Takes the rect from the SHAPE, never a constant. See `bands` above.
 // ---------------------------------------------------------------------------
-const borderBand = (kind, gold) => {
+const borderBand = (kind, gold, bands) => {
   const g = gold ? 'var(--art-gold)' : 'var(--art-ink-2)';
-  if (kind === 'pallu') return `
-    <g opacity=".9">
-      <rect x="64" y="332" width="272" height="34" fill="${g}" fill-opacity=".55"/>
-      <rect x="64" y="332" width="272" height="34" fill="none"
-            stroke="var(--art-ink)" stroke-width=".9"/>
-      <g fill="none" stroke="var(--art-ink)" stroke-width="1.2" opacity=".7">
-        ${Array.from({ length: 9 }, (_, i) =>
-          `<path d="M${82 + i * 30} 358 C${76 + i * 30} 350, ${76 + i * 30} 340, ${82 + i * 30} 336
-                   C${88 + i * 30} 340, ${88 + i * 30} 350, ${82 + i * 30} 358 Z"/>`).join('')}
-      </g>
-    </g>`;
-  if (kind === 'hem') return `
+  const r = bands && bands[kind];
+  if (!r) return '';
+  const [x, y, w, h] = r;
+  return `
     <g opacity=".85">
-      <rect x="142" y="338" width="116" height="22" fill="${g}" fill-opacity=".5"/>
-      <rect x="142" y="338" width="116" height="22" fill="none"
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${g}" fill-opacity=".5"/>
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none"
             stroke="var(--art-ink)" stroke-width=".9"/>
+      ${kind === 'hem' ? `<g fill="none" stroke="var(--art-ink)" stroke-width="1"
+         opacity=".55" stroke-dasharray="4 3">
+        <path d="M${x} ${y + h - 5} H${x + w}"/></g>` : ''}
     </g>`;
-  if (kind === 'edge') return `
-    <g fill="none" stroke="${g}" stroke-width="3" opacity=".75">
-      <path d="M100 196 H300" stroke="var(--art-ink)" stroke-width="4.2" opacity=".35"/>
-      <path d="M100 196 H300"/>
-    </g>`;
-  return '';
 };
 
 // ---------------------------------------------------------------------------
@@ -384,8 +371,16 @@ const borderBand = (kind, gold) => {
 // take 56 to 120. They are load-bearing, not polish — dropping them to
 // "simplify" puts visually identical twins on the same grid page.
 // ---------------------------------------------------------------------------
+const CHEST_POOL = ['buti', 'lotus', 'jaali', 'keyhole'];
+
 function axes(id, group) {
-  const [shapeKey, pool] = BY_GROUP[group] || ['folded', ['bagru', 'jaali']];
+  // ⚠️ The fallback is `kurti`, not `shirt`. An unknown group means a
+  // subcategory this table has not been taught yet, and a kurti silhouette is
+  // the one that reads least wrong on an unknown womenswear garment — which is
+  // what a new subcategory here is most likely to be. Vastra's equivalent
+  // fallback was a folded bedsheet, and it is exactly what drew every table
+  // runner as a sheet until the `sub || cat` bug was found.
+  const [shapeKey, pool] = BY_GROUP[group] || ['kurti', ['bagru', 'jaali']];
   const shape = SHAPES[shapeKey];
 
   const ground = pick(id, 'c', PASTELS);
@@ -399,12 +394,16 @@ function axes(id, group) {
     rotate: Math.round(range(id, 'r', 0, 360)),
     scale: +range(id, 's', 0.70, 1.30).toFixed(3),
     weight: +range(id, 'w', 1.0, 2.2).toFixed(2),
-    medallion: shape.medallion === 'force'
-      ? pick(id, 'd', ['mandala', 'lotus', 'jharokha', 'diya'])
-      : (shape.medallion && gate(id, 'd', 34)
-          ? pick(id, 'd', ['mandala', 'lotus', 'jharokha', 'diya']) : null),
+    chest: shape.chest === 'force'
+      ? pick(id, 'd', CHEST_POOL)
+      : (shape.chest && gate(id, 'd', 34) ? pick(id, 'd', CHEST_POOL) : null),
+    // Which band, as well as whether — the hem and the yoke are both real
+    // finishes and alternating them is a cheap ninth axis. A shape that
+    // declares one band still only ever draws that one.
     border: shape.border === 'none' ? 'none'
-      : (gate(id, 'b', 72) ? shape.border : 'none'),
+      : (gate(id, 'b', 72)
+          ? (gate(id, 'bk', 30) && shape.bands.yoke ? 'yoke' : shape.border)
+          : 'none'),
     gold: gate(id, 'g', 35),
   };
 }
@@ -449,10 +448,8 @@ function build(id, group, view) {
   const inner = `
   <rect width="${W}" height="${H}" fill="var(${ground})" clip-path="url(#${cid})"/>
   ${field}
-  ${a.shape.turn ? `<path d="${a.shape.turn}" fill="var(${a.alt})" opacity=".75"/>
-     <path d="${a.shape.turn}" fill="none" stroke="var(--art-ink)" stroke-width="1.2" opacity=".5"/>` : ''}
-  ${a.border !== 'none' ? `<g clip-path="url(#${cid})">${borderBand(a.border, a.gold)}</g>` : ''}
-  ${a.medallion ? `<g clip-path="url(#${cid})">${MEDALLIONS[a.medallion](a.gold)}</g>` : ''}
+  ${a.border !== 'none' ? `<g clip-path="url(#${cid})">${borderBand(a.border, a.gold, a.shape.bands)}</g>` : ''}
+  ${a.chest ? `<g clip-path="url(#${cid})">${CHEST[a.chest](a.gold)}</g>` : ''}
   <path d="${a.shape.path}" fill="none" stroke="var(--art-ink)" stroke-width="1.6" opacity=".75"/>
   ${a.shape.detail || ''}`;
 
@@ -556,7 +553,8 @@ export function categoryArt(cat) {
      patternTransform="rotate(${Math.round(range(id, 'cr', 0, 360))}) scale(1.15)">${m.body}</pattern></defs>
   <rect width="300" height="400" fill="var(${ground})"/>
   <rect width="300" height="400" fill="url(#${pid})"/>
-  <path d="M60 300 V150 C60 112, 92 86, 150 86 C208 86, 240 112, 240 150 V300"
+  <path d="M122 70 L98 82 L80 134 L105 146 L112 126 V330 H188 V126 L195 146
+           L220 134 L202 82 L178 70 C170 88, 130 88, 122 70 Z"
         fill="none" stroke="var(--art-ink)" stroke-width="2" opacity=".32"/>
 </svg>`;
   cache.set(key, v);
@@ -568,35 +566,52 @@ export function categoryArt(cat) {
 // Seeded on a fixed string, so it is part of the system rather than a one-off
 // asset: re-seeding it is how the hero changes each season.
 // ---------------------------------------------------------------------------
-export function heroArt(seed = 'devi-hero-aw26') {
+// A kurta on a hanger on a rail. Vastra's hero was a jharokha arch — right for a
+// linen brand whose whole language was architectural, and wrong here: the first
+// thing a clothes shop must say, in one glance and before any copy is read, is
+// that it sells clothes. The hanger is doing most of that work; the garment
+// alone reads as a flat pattern swatch.
+export function heroArt(seed = 'vastra-hero-aw26') {
   const m = MOTIFS.jaali(1.5);
   const [tw, th] = m.tile;
   const pid = uid(seed, 8, 'hero');
+  const BODY = 'M224 150 L180 170 L146 272 L194 294 L206 256 V604 H354 V256 '
+             + 'L366 294 L414 272 L380 170 L336 150 C322 180, 238 180, 224 150 Z';
   return stamp(`<svg viewBox="0 0 560 700" preserveAspectRatio="xMidYMid slice"
    aria-hidden="true" focusable="false">
   <defs>
     <pattern id="${pid}" patternUnits="userSpaceOnUse" width="${tw}" height="${th}"
        patternTransform="scale(1.6)">${m.body}</pattern>
-    <clipPath id="${pid}-c">
-      <path d="M140 620 V300 C140 212, 202 156, 280 156 C358 156, 420 212, 420 300 V620 Z"/>
-    </clipPath>
+    <clipPath id="${pid}-c"><path d="${BODY}"/></clipPath>
   </defs>
   <rect width="560" height="700" fill="var(--p-sand)"/>
   <rect width="560" height="700" fill="url(#${pid})" opacity=".55"/>
+  <path d="M70 92 H490" stroke="var(--art-ink)" stroke-width="5"
+        stroke-linecap="round" opacity=".55"/>
+  <g fill="none" stroke="var(--art-ink)" stroke-width="4.5"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M280 126 V104 C280 92, 266 87, 258 96"/>
+    <path d="M184 170 L280 124 L376 170"/>
+  </g>
   <rect width="560" height="700" fill="url(#${pid})" clip-path="url(#${pid}-c)"/>
-  <path d="M140 620 V300 C140 212, 202 156, 280 156 C358 156, 420 212, 420 300 V620"
-        fill="none" stroke="var(--art-ink)" stroke-width="3"/>
-  <path d="M168 620 V306 C168 228, 218 182, 280 182 C342 182, 392 228, 392 306 V620"
-        fill="none" stroke="var(--art-ink)" stroke-width="1.6" opacity=".5"/>
-  <path d="M196 620 V312 C196 282, 212 262, 232 272 C246 244, 314 244, 328 272
-           C348 262, 364 282, 364 312 V620"
-        fill="none" stroke="var(--art-ink)" stroke-width="1.6" opacity=".7"/>
-  <g>${rot(8, 'M280 300 C264 324, 264 354, 280 376 C296 354, 296 324, 280 300 Z', 280, 376)
-        .replace(/<path /g, '<path fill="none" stroke="var(--art-ink)" stroke-width="1.6" opacity=".8" ')}</g>
-  <circle cx="280" cy="370" r="10" fill="var(--art-gold)"
-          stroke="var(--art-ink)" stroke-width="1.2"/>
-  <path d="M96 636 H464" stroke="var(--art-ink)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M112 652 H448" stroke="var(--art-ink)" stroke-width="1.4"
+  <path d="${BODY}" fill="none" stroke="var(--art-ink)" stroke-width="3"/>
+  <g clip-path="url(#${pid}-c)">
+    <rect x="206" y="556" width="148" height="34" fill="var(--art-gold)"
+          fill-opacity=".5"/>
+    <rect x="206" y="556" width="148" height="34" fill="none"
+          stroke="var(--art-ink)" stroke-width="1.4"/>
+  </g>
+  <g fill="none" stroke="var(--art-ink)" stroke-width="2.4" opacity=".7">
+    <path d="M224 150 C242 184, 318 184, 336 150"/>
+    <path d="M206 256 L194 294 M354 256 L366 294"/>
+    <path d="M206 470 V604 M354 470 V604" stroke-width="2.8"/>
+  </g>
+  <g>${rot(6, 'M280 196 C272 214, 272 236, 280 250 C288 236, 288 214, 280 196 Z', 280, 250)
+        .replace(/<path /g, '<path fill="none" stroke="var(--art-ink)" stroke-width="2.2" opacity=".8" ')}</g>
+  <circle cx="280" cy="250" r="8" fill="var(--art-gold)"
+          stroke="var(--art-ink)" stroke-width="1.4"/>
+  <path d="M96 648 H464" stroke="var(--art-ink)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M112 664 H448" stroke="var(--art-ink)" stroke-width="1.4"
         stroke-linecap="round" opacity=".5"/>
 </svg>`);
 }

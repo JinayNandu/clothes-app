@@ -1,7 +1,7 @@
 // ============================================================================
-// DEVI Collections — the handoff.
+// Vastra Apparel — the handoff.
 //
-// This is how an order actually reaches DEVI, and it is not a stand-in for a
+// This is how an order actually reaches Vastra, and it is not a stand-in for a
 // real mechanism: a WhatsApp handoff is how an Indian home-decor business of
 // this size already takes orders. It works today, with no backend, no gateway
 // fee and no settlement delay.

@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the category tree, and the same tree inside the drawer.
+// Vastra Apparel — the category tree, and the same tree inside the drawer.
 //
 // ⚠️ A GROUP WITH ONE CHILD -- OR NONE -- RENDERS AS A PLAIN LINK, never as a
 // disclosure. Bedcovers & Quilts and Table Runners have no children at all;
@@ -26,7 +26,7 @@ export async function initSidebar() {
   const saved = await store.ui.get();
   EXPANDED = new Set(saved.expanded || []);
   render();
-  document.addEventListener('devi:route', syncActive);
+  document.addEventListener('vastra:route', syncActive);
 }
 
 // ---------------------------------------------------------------------------

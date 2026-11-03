@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — CDN pins. TECHNICAL PLUMBING ONLY.
+// Vastra Apparel — CDN pins. TECHNICAL PLUMBING ONLY.
 //
 // ⚠️ NOTHING THE BUSINESS OWNS GOES IN THIS FILE. Prices, the phone number,
 // shipping rules, coupon codes and the UPI id all live in data/shop.json, so

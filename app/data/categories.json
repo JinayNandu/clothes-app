@@ -1,74 +1,44 @@
 {
   "categories": [
     {
-      "blurb": "Hand-blocked and woven cotton sheets, cut for Indian bed sizes and washed soft before they ship.",
-      "icon": "bed",
-      "id": "bedsheets",
-      "name": "Bedsheets",
+      "blurb": "Shirts cut on our own tables, in the fabrics we already buy by the roll for other people's labels.",
+      "icon": "shirt",
+      "id": "men",
+      "name": "Men",
       "order": 1,
-      "slug": "bedsheets",
+      "slug": "men",
       "sub": [
         {
-          "id": "bedsheets-single",
-          "name": "Single Bedsheets",
+          "id": "men-shirts",
+          "name": "Shirts",
           "order": 1,
-          "slug": "single-bedsheets"
-        },
-        {
-          "id": "bedsheets-double",
-          "name": "Double Bedsheets",
-          "order": 2,
-          "slug": "double-bedsheets"
+          "slug": "shirts"
         }
       ]
     },
     {
-      "blurb": "Block-printed covers and cotton-filled razais -- the layer that decides what a room looks like.",
-      "icon": "quilt",
-      "id": "bedcovers-quilts",
-      "name": "Bedcovers & Quilts",
+      "blurb": "Kurtis and dresses in cotton and cotton blends, graded S to XXL on the same block we grade for export.",
+      "icon": "kurti",
+      "id": "women",
+      "name": "Women",
       "order": 2,
-      "slug": "bedcovers-quilts",
-      "sub": []
-    },
-    {
-      "blurb": "Two and three layers of mulmul, light enough to keep out all year and warm enough for a north Indian October.",
-      "icon": "dohar",
-      "id": "dohars",
-      "name": "Dohars",
-      "order": 3,
-      "slug": "dohars",
+      "slug": "women",
       "sub": [
         {
-          "id": "dohars-single",
-          "name": "Single Dohars",
+          "id": "women-kurtis",
+          "name": "Kurtis",
           "order": 1,
-          "slug": "single-dohars"
+          "slug": "kurtis"
         },
         {
-          "id": "dohars-double",
-          "name": "Double Dohars",
+          "id": "women-dresses",
+          "name": "Dresses",
           "order": 2,
-          "slug": "double-dohars"
-        },
-        {
-          "id": "dohars-sets",
-          "name": "Dohar Sets",
-          "order": 3,
-          "slug": "dohar-sets"
+          "slug": "dresses"
         }
       ]
-    },
-    {
-      "blurb": "The narrow piece that finishes a table. Printed and stitched by the same hands as the bed linen.",
-      "icon": "runner",
-      "id": "table-runners",
-      "name": "Table Runners",
-      "order": 4,
-      "slug": "table-runners",
-      "sub": []
     }
   ],
-  "note": "The sidebar tree. `order` is display order; `icon` names a glyph in icons.js. Nested two levels because the tree IS two levels. A category may have NO subcategories at all -- Bedcovers & Quilts and Table Runners both hold products directly, and such a product carries no `sub` key. sidebar.js must render a zero-child AND a one-child group as a plain link, never as a disclosure: an expand arrow that reveals one row (or none) reads as a broken menu.",
-  "rev": 2
+  "note": "The sidebar tree. `order` is display order; `icon` names a glyph in icons.js. Nested two levels because the tree IS two levels: a department, then a garment type. MEN HAS EXACTLY ONE CHILD ON PURPOSE -- sidebar.js must render a one-child group (and a zero-child one) as a plain link, never as a disclosure, because an expand arrow that reveals a single row reads as a broken menu. Keeping a live one-child category in the skeleton is what stops that branch rotting unnoticed while the catalogue is small. A product in a category with NO subcategories carries no `sub` key at all -- data.pl requires `sub` exactly when the category has children and forbids it when it does not. There is no such category today; both have children.",
+  "rev": 1
 }

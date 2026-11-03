@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the pure domain.
+// Vastra Apparel — the pure domain.
 //
 // NO DOM, NO STORAGE, NO FETCH. Everything here is a function of its arguments,
 // which is what makes the money rules and the route parser testable by a Perl
@@ -70,6 +70,85 @@ export const fmtStamp = (iso) => {
 };
 
 // ---------------------------------------------------------------------------
+// THE DELIVERY PROMISE — a RANGE of two dates, never one.
+//
+// "Arrives 10–15 November", not "Arrives Tuesday". A single promised date on a
+// parcel crossing India is a date that gets missed; a range that can be kept is
+// worth more than a precise one that cannot.
+//
+// ⚠️ CALL THIS ONCE, AT PLACEMENT, AND STORE THE RESULT ON THE ORDER.
+// Recomputing it on the tracking screen from `placedAt` would re-derive the
+// same two dates for as long as the catalogue rules never change — and then
+// silently move every open order the day the owner edits `deliveryDays` from
+// 5-10 to 4-8. The customer screenshots the first promise. It is the same trap
+// as storing a price on a cart line, pointed at a date.
+//
+// The number of days lives in shop.json, so changing the promise is an edit
+// and not a code change.
+// ---------------------------------------------------------------------------
+
+/** Days forward over Mon–Sat, skipping Sundays. Pure arithmetic on a date-only
+ *  string, which carries no timezone — the IST part already happened in
+ *  istDate(). Day 0 of the count is the day AFTER `iso`: nothing ships the
+ *  same minute it is ordered. */
+const addWorkingDays = (iso, n) => {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  let t = Date.UTC(y, m - 1, d);
+  for (let added = 0; added < n; ) {
+    t += 86400000;
+    if (new Date(t).getUTCDay() !== 0) added++;
+  }
+  const x = new Date(t);
+  return `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, '0')}`
+       + `-${String(x.getUTCDate()).padStart(2, '0')}`;
+};
+
+/** { from, to, minDays, maxDays } — two ISO dates. `from` is always before
+ *  `to`; a min above a max in shop.json would otherwise print a range that
+ *  runs backwards, which looks like a bug in the shop rather than in the JSON.
+ *  data.pl refuses that configuration, and this clamps anyway. */
+export function deliveryEstimate(rules, placedISO = istDate()) {
+  const dd = (rules && rules.deliveryDays) || {};
+  const lo = Math.max(1, Math.round(dd.min || 1));
+  const hi = Math.max(lo, Math.round(dd.max || lo));
+  return {
+    from: addWorkingDays(placedISO, lo),
+    to: addWorkingDays(placedISO, hi),
+    minDays: lo,
+    maxDays: hi,
+  };
+}
+
+/** "10–15 November" when the two dates share a month, "28 November – 3
+ *  December" when they do not. An en dash, and the month named once where it
+ *  can be: "10 November – 15 November" reads as two separate promises. */
+export function fmtDateRange(fromISO, toISO) {
+  if (!fromISO || !toISO) return '';
+  if (fromISO === toISO) return fmtDate(fromISO);
+  const [fy, fm, fd] = fromISO.split('-').map(Number);
+  const [ty, tm, td] = toISO.split('-').map(Number);
+  if (fy === ty && fm === tm) return `${fd}–${td} ${MONTHS[fm - 1]} ${fy}`;
+  if (fy === ty) return `${fd} ${MONTHS[fm - 1]} – ${td} ${MONTHS[tm - 1]} ${fy}`;
+  return `${fmtDate(fromISO)} – ${fmtDate(toISO)}`;
+}
+
+/** The seven-day return window, counted from DELIVERY and not from placement.
+ *  Returns null while the parcel has not landed — there is no window to show
+ *  and inventing one from placedAt is the bug this signature exists to stop. */
+export function returnWindow(rules, deliveredISO) {
+  if (!deliveredISO || !rules || !rules.days) return null;
+  const iso = deliveredISO.length === 10 ? deliveredISO : istDate(new Date(deliveredISO));
+  const [y, m, d] = iso.split('-').map(Number);
+  const x = new Date(Date.UTC(y, m - 1, d) + rules.days * 86400000);
+  const until = `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, '0')}`
+              + `-${String(x.getUTCDate()).padStart(2, '0')}`;
+  return { until, days: rules.days, free: !!rules.free };
+}
+
+/** Whole days left in a window. Negative once it has closed. */
+export const daysLeft = (untilISO, today = istDate()) => -daysSince(untilISO, today);
+
+// ---------------------------------------------------------------------------
 // MONEY
 //
 // Integer rupees everywhere. Every price in this catalogue is a whole rupee,
@@ -138,7 +217,7 @@ export const matchCoupon = (code, coupons) => {
  *    A discount code must not win free shipping a basket had not earned.
  *    ⚠️ kirana's domain.js measures it on the post-coupon total while its
  *    money.pl measures it pre-coupon. They disagree, and it is dormant there
- *    only because both its numbers are zero. DEVI's are not.
+ *    only because both its numbers are zero. Vastra's are not.
  * 2. The discount is rounded ONCE, on the basket total — never per line.
  *    Per-line rounding lets the sum of the parts disagree with the total.
  * 3. maxOff caps the discount AFTER rounding.
@@ -352,7 +431,7 @@ export function buildHash(path, query) {
 //
 // ⚠️ An order starts at `draft`, NOT `placed`. An order the merchant has never
 // seen is not placed. draft -> sent happens when the CUSTOMER hands it over;
-// sent -> confirmed is an ADMIN action, a human at DEVI saying "I have this".
+// sent -> confirmed is an ADMIN action, a human at Vastra saying "I have this".
 // Nothing advances on a timer, and there is no "processing" state because
 // nothing processes.
 //
@@ -376,8 +455,8 @@ export const canAdvance = (from, to) => (ORDER_NEXT[from] || []).includes(to);
 
 export const STATUS_LABEL = {
   draft: 'Not sent yet',
-  sent: 'Sent to DEVI',
-  confirmed: 'Confirmed by DEVI',
+  sent: 'Sent to Vastra',
+  confirmed: 'Confirmed by Vastra',
   packed: 'Packed',
   shipped: 'Shipped',
   delivered: 'Delivered',

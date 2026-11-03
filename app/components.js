@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — shared components.
+// Vastra Apparel — shared components.
 //
 // Governing decision: PRODUCTS FLOAT, NOTHING IS BOXED. The card has no
 // border, no fill and no shadow; only the image tile has an edge. A bordered

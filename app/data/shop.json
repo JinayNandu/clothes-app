@@ -1,20 +1,21 @@
 {
   "brand": {
-    "about": "DEVI Collections began with a single block-printed bed cover carried home from Bagru, and the slow realisation that almost nothing sold online was made the way that one was.",
+    "about": "We have cut and stitched for other labels for seventeen years. The cloth, the tables, the pattern masters and the finishing line are ours; the name on the collar never was. This is the same floor, under our own name, with nobody in between.",
     "logo": "",
-    "logoNote": "The brand band at the top of every page. EMPTY means the drawn lockup in brand.js is used, which is what ships. To use a real logo: put the file in app/img/ and set this to its path relative to app/ -- \"img/devi-logo.svg\". SVG is strongly preferred; a PNG needs to be about 3x the displayed height (so ~170px tall) or it will look soft on a phone. data.pl FAILS if this names a file that is not on disk, so a typo is a check failure and not a broken image a customer finds. The band sets the height and leaves the width free, so any aspect ratio drops in without moving the page.",
-    "name": "DEVI Collections",
-    "since": 2023,
-    "tagline": "Thoughtfully Curated. Beautifully Yours."
+    "logoNote": "The brand band at the top of every page. EMPTY means the drawn lockup in brand.js is used, which is what ships. To use a real logo: put the file in app/img/ and set this to its path relative to app/ -- \"img/logo.svg\". SVG is strongly preferred; a PNG needs to be about 3x the displayed height (so ~170px tall) or it will look soft on a phone. data.pl FAILS if this names a file that is not on disk, so a typo is a check failure and not a broken image a customer finds. A LEADING SLASH ALSO FAILS: a root-relative path works locally and breaks on GitHub Pages, which serves from a subpath. The band sets the height and leaves the width free, so any aspect ratio drops in without moving the page.",
+    "name": "Vastra Apparel",
+    "since": 2009,
+    "tagline": "Made on our own floor. Sold with nobody in between."
   },
   "contact": {
     "addr": "",
     "city": "",
     "email": "",
     "gstin": "",
-    "hours": "Monday to Saturday, 10am to 7pm IST",
+    "hours": "Monday to Saturday, 10am to 6pm IST",
     "phone": "",
     "pin": "",
+    "returnsAddr": "",
     "state": "",
     "whatsapp": ""
   },
@@ -22,26 +23,26 @@
     "codes": [
       {
         "active": true,
-        "code": "DEVI10",
-        "flat": 0,
-        "maxOff": 1000,
+        "code": "FIRST300",
+        "flat": 300,
+        "maxOff": 300,
         "minItems": 1500,
-        "percent": 10
+        "percent": 0
       },
       {
         "active": true,
-        "code": "FIRST500",
-        "flat": 500,
+        "code": "VASTRA10",
+        "flat": 0,
         "maxOff": 500,
-        "minItems": 2500,
-        "percent": 0
+        "minItems": 1200,
+        "percent": 10
       },
       {
         "active": true,
         "code": "FESTIVE15",
         "flat": 0,
-        "maxOff": 2000,
-        "minItems": 4000,
+        "maxOff": 1200,
+        "minItems": 3000,
         "percent": 15
       }
     ],
@@ -58,18 +59,160 @@
   "lowStockAt": 3,
   "newDays": 45,
   "placeholder": true,
-  "placeholderNote": "WHILE THIS IS TRUE, data.pl FAILS. The brand story, every phone number, the address, the GSTIN and all 54 prices are invented. They are realistic, not real. A phone number that does not dial and a GSTIN that is not yours are the worst things to ship by accident on a real business's site -- so this flag makes shipping them impossible rather than merely inadvisable. Set it to false only when every field in `contact` is real and the prices have been checked.",
+  "placeholderNote": "WHILE THIS IS TRUE, data.pl FAILS. The brand name, the brand story, the year, every contact field and all three prices are INVENTED -- realistic, not real. The owner has not chosen a name yet. A phone number that does not dial and a GSTIN that is not yours are the worst things to ship by accident on a real business site, so this flag makes shipping them impossible rather than merely inadvisable. Set it to false only when every field in `contact` is real and the prices have been checked. data.pl then checks every contact field is non-empty -- including returnsAddr, which a shop selling to strangers must publish and a kirana delivering down the lane never needed.",
+  "returns": {
+    "days": 7,
+    "free": true,
+    "from": "delivery",
+    "note": "⚠️ SEVEN DAYS FROM DELIVERY, NOT FROM PLACEMENT. `from` is `delivery` and nothing may change that to `placed` without the owner saying so: a parcel that takes ten days to arrive would otherwise have its return window expire three days before it landed. This means `deliveredAt` MUST be stored the moment the status becomes `delivered`, and the window is counted from that stamp. ⚠️ `free: true` IS A COST, NOT A FEATURE -- for a manufacturer with no reverse logistics it can mean eating the courier both ways on a ₹700 kurti. NOT YET CONFIRMED WITH THE OWNER. Until it is, this number is a promise the app is making on their behalf."
+  },
   "shipping": {
-    "bulkySurcharge": 250,
+    "bulkySurcharge": 0,
     "codAvailable": true,
     "codFee": 0,
-    "fee": 99,
-    "freeOver": 1999,
+    "deliveryDays": {
+      "basis": "working",
+      "max": 10,
+      "min": 5
+    },
+    "fee": 0,
+    "freeOver": 0,
     "freeOverBasis": "items",
     "minOrder": 0,
-    "note": "freeOver is measured on the ITEMS total, BEFORE any coupon. A discount code must not win free shipping a basket had not earned. money.pl asserts exactly this case, because kirana's domain.js and money.pl currently disagree about it and it is dormant there only because both numbers are zero. bulkySurcharge applies once per BULKY LINE, not per unit.",
-    "shipsIn": "3 to 5 working days"
+    "note": "DELIVERY IS FREE EVERYWHERE -- fee 0, freeOver 0. ⚠️ That makes the free-shipping threshold rule DORMANT, which is exactly how the same rule hid a real disagreement in kirana for months: its domain.js measured the threshold after the coupon and its money.pl measured it before, and both were invisible because both numbers were zero. money.pl here therefore pins the rule against a SYNTHETIC fee and threshold, so the check keeps testing the rule rather than testing zero. freeOver is measured on the ITEMS total, BEFORE any coupon: a discount code must not win free shipping a basket had not earned. deliveryDays is the five-to-ten-day promise, in ONE place, so changing it is an edit and not a code change -- and it is FROZEN INTO THE ORDER at placement, never recomputed on the tracking screen. basis `working` means Monday to Saturday, excluding Sunday."
   },
+  "sizeCharts": {
+    "men-shirt": {
+      "cols": [
+        "To fit chest",
+        "Shoulder",
+        "Sleeve",
+        "Length"
+      ],
+      "fit": "Regular fit. Measure around the fullest part of your chest, keeping the tape level. If you are between two sizes, take the larger.",
+      "label": "Men's shirts",
+      "rows": {
+        "l": [
+          42,
+          18.5,
+          25,
+          30
+        ],
+        "m": [
+          40,
+          17.5,
+          24.5,
+          29
+        ],
+        "s": [
+          38,
+          16.5,
+          24,
+          28
+        ],
+        "xl": [
+          44,
+          19.5,
+          25.5,
+          31
+        ],
+        "xxl": [
+          46,
+          20.5,
+          26,
+          32
+        ]
+      },
+      "unit": "in"
+    },
+    "women-dress": {
+      "cols": [
+        "To fit bust",
+        "Waist",
+        "Hip",
+        "Length"
+      ],
+      "fit": "Relaxed through the body. Length is measured from the shoulder seam to the hem. If you are between two sizes, take the larger.",
+      "label": "Dresses",
+      "rows": {
+        "l": [
+          38,
+          32,
+          41,
+          47
+        ],
+        "m": [
+          36,
+          30,
+          39,
+          46.5
+        ],
+        "s": [
+          34,
+          28,
+          37,
+          46
+        ],
+        "xl": [
+          40,
+          34,
+          43,
+          47.5
+        ],
+        "xxl": [
+          42,
+          36,
+          45,
+          48
+        ]
+      },
+      "unit": "in"
+    },
+    "women-kurti": {
+      "cols": [
+        "To fit bust",
+        "Waist",
+        "Shoulder",
+        "Length"
+      ],
+      "fit": "Straight cut, not fitted. Length is measured from the shoulder seam to the hem. If you are between two sizes, take the larger.",
+      "label": "Kurtis",
+      "rows": {
+        "l": [
+          38,
+          34,
+          14.5,
+          45
+        ],
+        "m": [
+          36,
+          32,
+          14,
+          44.5
+        ],
+        "s": [
+          34,
+          30,
+          13.5,
+          44
+        ],
+        "xl": [
+          40,
+          36,
+          15,
+          45.5
+        ],
+        "xxl": [
+          42,
+          38,
+          15.5,
+          46
+        ]
+      },
+      "unit": "in"
+    }
+  },
+  "sizeChartsNote": "⚠️ THE CHEAPEST RETURN PREVENTION THERE IS. Most clothing returns are fit, so this table is not decoration. Measurements are BODY measurements in inches -- what the customer measures on themselves -- not garment measurements, and the product page says so, because the two differ by the ease allowance and a customer who assumes the wrong one orders the wrong size. One chart per garment type rather than per product, because a shirt in M is the same M across every shirt on this floor; repeating five rows on every product is how the numbers drift apart. A product names its chart with `sizeChart`, and data.pl FAILS if the chart is missing or does not carry a row for every size that product sells -- a size with no row renders a blank line in the table, which is worse than no table. Row keys are the size ids from the catalogue, not the labels. ⚠️ THESE NUMBERS ARE INVENTED, like the prices. They are a realistic Indian grading, not this manufacturer's own spec sheet. Get the real grading before anybody orders from it.",
   "social": {
     "facebook": "",
     "instagram": ""
@@ -77,7 +220,7 @@
   "upi": {
     "demo": true,
     "note": "A DELIBERATELY UNRESOLVABLE id. `example` is not a real UPI handle, so no payment app can find a payee and money physically cannot move. While demo is true the pay block wears a visible amber strip saying so. data.pl FAILS if demo is true and the handle after the @ is a real one (ybl, okaxis, paytm, ...), because a demo id on a live handle could send a customer's money to whoever owns it. To go live: put the real id in and set demo to false -- the strip disappears by itself.",
-    "payeeName": "DEVI Collections (demo)",
+    "payeeName": "Vastra Apparel (demo)",
     "vpa": "demo.not.real@example"
   }
 }

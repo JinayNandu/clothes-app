@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the catalogue overlay. PURE: no DOM, no storage, no clock.
+// Vastra Apparel — the catalogue overlay. PURE: no DOM, no storage, no clock.
 //
 // THE PROBLEM THIS SOLVES
 //

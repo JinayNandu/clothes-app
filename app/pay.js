@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — payment options and the UPI QR.
+// Vastra Apparel — payment options and the UPI QR.
 //
 // THIS SITE TAKES NO MONEY. A UPI QR carries the shop's id, the exact amount
 // and the order code; the customer scans it with whatever app they already

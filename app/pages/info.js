@@ -62,18 +62,45 @@ function block(b, shop, pageKey, bulky = []) {
 
     case 'shippingTable': {
       const s = shop.shipping;
+      // ⚠️ Free everywhere is its own sentence, not "₹0 flat" and "free above
+      // ₹0". Rendering a zero fee through the paid-delivery wording gives
+      // "₹0 flat, anywhere in India" above "Free on orders above ₹0", which
+      // reads as a shop that has not finished setting its prices.
+      const free = !s.fee;
       return `<ul>
-        <li><strong>${D.rupees(s.fee)}</strong> flat, anywhere in India.</li>
-        <li><strong>Free</strong> on orders above ${D.rupees(s.freeOver)},
-            measured on the value of the goods before any discount code.</li>
-        <li><strong>${D.rupees(s.bulkySurcharge)}</strong> extra per oversized
-            item. ${bulky.length
+        ${free
+          ? `<li><strong>Free</strong>, anywhere in India, on every order.
+              There is no minimum.</li>`
+          : `<li><strong>${D.rupees(s.fee)}</strong> flat, anywhere in India.</li>
+             <li><strong>Free</strong> on orders above ${D.rupees(s.freeOver)},
+                 measured on the value of the goods before any discount
+                 code.</li>`}
+        ${s.bulkySurcharge ? `<li><strong>${D.rupees(s.bulkySurcharge)}</strong>
+            extra per oversized item. ${bulky.length
               ? `At present that means ${esc(D.listOf(bulky))}.`
-              : 'Nothing we currently sell is oversized, so this does not '
-                + 'apply to anything in the catalogue today.'}</li>
+              : 'Nothing we currently sell is oversized.'}</li>` : ''}
         ${s.codAvailable ? `<li>Cash on delivery is available${s.codFee
           ? `, ${D.rupees(s.codFee)} extra` : ' at no extra charge'}.</li>` : ''}
       </ul>`;
+    }
+
+    // The promise, in days and as the two dates it would mean for an order
+    // placed today. ⚠️ Illustrative here and recomputed on every render, which
+    // is correct ONLY on a policy page: it is answering "how long does it
+    // normally take", not "when does MY parcel arrive". The order's own
+    // estimate is frozen at placement and read back, never recomputed.
+    case 'deliveryRange': {
+      const s = shop.shipping;
+      const e = D.deliveryEstimate(s);
+      return `<p><strong>${e.minDays} to ${e.maxDays} working days</strong>,
+          counting Monday to Saturday. An order placed today would be estimated
+          to arrive <strong>${esc(D.fmtDateRange(e.from, e.to))}</strong>.</p>`;
+    }
+
+    case 'returnWindow': {
+      const r = shop.returns || {};
+      return `<p><strong>${r.days} days from the day it reaches you</strong>
+          to start a return${r.free ? ', and we pay the courier both ways' : ''}.</p>`;
     }
 
     case 'contactCard': {
@@ -117,7 +144,7 @@ function block(b, shop, pageKey, bulky = []) {
           ${field('msg', 'Your message', { rows: 4, span: true,
             placeholder: 'What can we help with?' })}
           <div style="margin-top:var(--s4)" data-handoff>
-            ${handoffBlock('Hello DEVI Collections,\n\n', shop,
+            ${handoffBlock('Hello Vastra Apparel,\n\n', shop,
               { subject: 'Enquiry' })}
           </div>
         </div>

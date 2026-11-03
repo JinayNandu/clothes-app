@@ -95,7 +95,7 @@ router.registerScreen('home', async (host) => {
           </div>
         </div>
         <div class="hero-art" style="height:340px;min-height:0">
-          ${heroArt('devi-collection-blockprint')}
+          ${heroArt('vastra-aw26')}
         </div>
       </div>
     </div>
@@ -147,7 +147,7 @@ router.registerScreen('home', async (host) => {
         hand.</div>
       </div>
       <div style="margin-top:var(--s3)" data-handoff>
-        ${handoffBlock(`Please add me to the DEVI Collections list: ${email}`,
+        ${handoffBlock(`Please add me to the Vastra Apparel list: ${email}`,
           shop, { subject: 'Mailing list' })}
       </div>`;
     wireHandoff(out.querySelector('[data-handoff]'), null);

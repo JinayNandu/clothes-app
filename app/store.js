@@ -1,5 +1,5 @@
 // ============================================================================
-// DEVI Collections — the store facade.
+// Vastra Apparel — the store facade.
 //
 // Nine lines of re-export, and that is the entire point. Changing ONE import
 // here swaps every screen in the app from localStorage to a real server, with

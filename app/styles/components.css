@@ -1,5 +1,5 @@
 /* ============================================================================
-   DEVI Collections — components.
+   Vastra Apparel â components.
 
    The governing decision: PRODUCTS FLOAT, NOTHING IS BOXED. The product card
    has no border, no fill and no shadow; only the image tile has an edge.
@@ -9,52 +9,55 @@
 
 /* ---------------------------------------------------------------------------
    THE LOGO LOCKUP
-   COLLECTIONS is 0.34x the DEVI cap height and tracked to optically match its
-   width. Match by adjusting TRACKING, never by scaling -- scaling breaks the
-   stroke-weight relationship between the two lines.
+   APPAREL is tracked to optically match the VASTRA line width. Match by
+   adjusting TRACKING, never by scaling -- scaling breaks the stroke-weight
+   relationship between the two lines. ⚠ THE TRACKING VALUES WERE MEASURED IN
+   A BROWSER, not computed: VASTRA is 6 Cormorant caps and APPAREL is 7 Manrope
+   caps at a third the size, so no arithmetic on character counts predicts the
+   match. Re-measure if either word changes.
    ------------------------------------------------------------------------ */
 .logo-lock{ display:flex; align-items:center; gap:var(--s3); color:var(--ink); }
 .logo-mark{ display:flex; flex:none; }
 .logo-words{ display:flex; flex-direction:column; gap:2px; line-height:1; }
-.logo-devi{
+.logo-name{
   font-family:var(--f-display); font-weight:500;
   font-size:24px; line-height:1;
   letter-spacing:.18em;
-  /* Wide tracking visually detaches a narrow terminal letter, so the final I
-     needs the extra sidebar back. Done with padding, not a negative margin,
-     so the box still contains it. */
+  /* Wide tracking adds a gap after the LAST letter that nothing balances, so
+     the word reads as sitting left of where it is. Given back as padding, not
+     a negative margin, so the box still contains the glyph. */
   padding-right:.02em;
 }
 .logo-rule{ display:block; height:1px; background:var(--gold); margin:1px 15% 2px; }
 .logo-coll{
   font-family:var(--f-ui); font-weight:600;
-  font-size:8px; line-height:1;
-  letter-spacing:.30em;
+  font-size:9px; line-height:1;
+  letter-spacing:.42em;
   color:var(--ink-soft);
 }
 /* The band sits between 'sm' and 'lg': stacked and centred like the large
    lockup, but at a size that leaves the page its fold. */
 .logo-band{ flex-direction:column; gap:var(--s3); text-align:center; }
 .logo-band .logo-words{ align-items:center; }
-.logo-band .logo-devi{ font-size:34px; letter-spacing:.22em; }
+.logo-band .logo-name{ font-size:34px; letter-spacing:.22em; }
 .logo-band .logo-rule{ width:100%; margin:var(--s1) 0; }
-.logo-band .logo-coll{ font-size:10px; letter-spacing:.38em; }
+.logo-band .logo-coll{ font-size:11px; letter-spacing:.50em; }
 
- (max-width:1023px){
+@media (max-width:1023px){
   .logo-band{ gap:var(--s2); }
-  .logo-band .logo-devi{ font-size:26px; letter-spacing:.2em; }
-  .logo-band .logo-coll{ font-size:8px; letter-spacing:.32em; }
+  .logo-band .logo-name{ font-size:26px; letter-spacing:.2em; }
+  .logo-band .logo-coll{ font-size:9px; letter-spacing:.44em; }
 }
 
 .logo-lg{ flex-direction:column; gap:var(--s5); text-align:center; }
 .logo-lg .logo-words{ align-items:center; }
-.logo-lg .logo-devi{ font-size:44px; letter-spacing:.2em; }
+.logo-lg .logo-name{ font-size:44px; letter-spacing:.2em; }
 .logo-lg .logo-rule{ width:100%; margin:var(--s1) 0; }
-.logo-lg .logo-coll{ font-size:13px; letter-spacing:.42em; }
+.logo-lg .logo-coll{ font-size:14px; letter-spacing:.56em; }
 
 @media (max-width:599px){
-  .logo-devi{ font-size:20px; }
-  .logo-coll{ font-size:7px; letter-spacing:.26em; }
+  .logo-name{ font-size:20px; }
+  .logo-coll{ font-size:8px; letter-spacing:.36em; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -95,7 +98,7 @@
   text-decoration:underline; text-underline-offset:4px;
 }
 
-/* ⚠️ Disabled text clears 5.47 deliberately. Most disabled states fail
+/* â ï¸ Disabled text clears 5.47 deliberately. Most disabled states fail
    contrast, and a greyed-out control that cannot be read cannot explain why
    it is disabled -- which on this site is the whole point, because the card
    payment option ships disabled WITH ITS REASON ON IT. */
@@ -137,11 +140,11 @@
 .tree-top[aria-expanded="true"] .chev{ transform:rotate(90deg); }
 
 /* A single-child group renders as a PLAIN LINK, not a disclosure.
-   ⚠️ Ethnic Wear -> Kurtis is the only one, which is exactly why it gets
+   â ï¸ Ethnic Wear -> Kurtis is the only one, which is exactly why it gets
    missed: an expand arrow that reveals one row reads as a broken menu. */
 .tree-top.is-leaf .chev{ display:none; }
 
-/* ⚠️ Animating to height:auto is impossible. grid-template-rows 0fr -> 1fr
+/* â ï¸ Animating to height:auto is impossible. grid-template-rows 0fr -> 1fr
    transitions cleanly with no JS measurement and no scrollHeight read. */
 .tree-wrap{
   display:grid; grid-template-rows:0fr;
@@ -199,7 +202,7 @@
   transition:border-color var(--t-micro) var(--e-enter),
              box-shadow var(--t-micro) var(--e-enter);
 }
-/* ⚠️ The transform goes on the INNER image inside overflow:hidden, never on
+/* â ï¸ The transform goes on the INNER image inside overflow:hidden, never on
    the card. Scaling the card blurs its text during the transition and nudges
    its neighbours. */
 .card-art{
@@ -217,7 +220,7 @@
   .card:hover .wish,.card .wish:focus-visible,.card .wish.on{ opacity:1; }
 }
 
-/* ⚠️ Under reduced motion the hover zoom above is deleted by base.css, which
+/* â ï¸ Under reduced motion the hover zoom above is deleted by base.css, which
    would silently remove ALL hover feedback. Restore it as a ring. */
 @media (prefers-reduced-motion: reduce){
   .card:hover .card-tile{ box-shadow:inset 0 0 0 1px var(--gold); }
@@ -305,7 +308,7 @@
 
 /* ---------------------------------------------------------------------------
    PRICE BLOCK
-   ⚠️ The discount % is COMPUTED, never stored -- a stored value disagrees with
+   â ï¸ The discount % is COMPUTED, never stored -- a stored value disagrees with
    the prices the moment anyone edits one. And if price === mrp the block
    renders the price alone: no "-0%", no empty strikethrough, no badge.
    ------------------------------------------------------------------------ */
@@ -374,7 +377,7 @@
   background:var(--card);
   border:1px solid var(--edge-2);
   border-radius:var(--r1);
-  /* ⚠️ 16px is not a design choice. Under 16px iOS zooms the viewport on focus
+  /* â ï¸ 16px is not a design choice. Under 16px iOS zooms the viewport on focus
      and the whole checkout visibly lurches sideways. Carried from kirana. */
   font-size:16px;
   color:var(--ink);
@@ -394,7 +397,7 @@
 }
 .field-err svg{ flex:none; margin-top:1px; }
 
-/* ⚠️ The select chevron is a real inline <svg> positioned here, never a
+/* â ï¸ The select chevron is a real inline <svg> positioned here, never a
    data-URI background. A data-URI needs a literal colour inside a component
    rule, which tokens.pl fails on -- and rightly, since it could never follow
    the theme. */
@@ -529,7 +532,7 @@
 
 /* ---------------------------------------------------------------------------
    PRODUCT GRID BREAKPOINTS
-   ⚠️ The grid never drops to one column. Two at 360px gives ~164px cards,
+   â ï¸ The grid never drops to one column. Two at 360px gives ~164px cards,
    enough for a 4:5 tile, a two-line name and a price. A single-column mobile
    grid wastes the fold and signals a thin catalogue -- the opposite of what a
    curated brand wants to say.

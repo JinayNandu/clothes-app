@@ -1,35 +1,31 @@
 {
-  "note": "The six content pages, as structured blocks, so adding a paragraph to the returns policy is a JSON edit and not a code change. Block types: p, h2, ul, fromShop. A `fromShop` block interpolates a value straight out of shop.json, which is what stops the Shipping page and the cart's arithmetic disagreeing -- data.pl fails on a path that does not resolve, turning 'the policy says Rs 99 but we charge Rs 149' from an embarrassment into a check failure.",
+  "note": "The six content pages, as structured blocks, so adding a paragraph to the returns policy is a JSON edit and not a code change. Block types: p, h2, ul, fromShop, contactCard, shippingTable, deliveryRange, returnWindow. A `fromShop` block interpolates a value straight out of shop.json, which is what stops a policy page and the cart arithmetic disagreeing -- data.pl fails on a path that does not resolve, turning 'the policy says 99 but we charge 149' from an embarrassment into a check failure. ⚠️ THE POLICY COPY BELOW IS NOT LEGAL ADVICE AND HAS NOT BEEN REVIEWED. The returns address, the GSTIN and the courier are still blank in shop.json, and the pages say so out loud rather than inventing them -- a returns policy naming an address that does not exist is worse than one that admits it is being set up.",
   "pages": {
     "about": {
       "blocks": [
         {
           "t": "p",
-          "v": "DEVI Collections began with a single block-printed bed cover carried home from Bagru, and the slow realisation that almost nothing sold online was made the way that one was."
+          "v": "For seventeen years this floor has cut, stitched and finished clothes that left here with somebody else name on the collar. The cloth was ours to choose, the pattern masters were ours, the finishing line was ours. The label never was."
         },
         {
           "t": "p",
-          "v": "The print on that cover was not quite even. Each block had been placed by eye, and in a few places the register slipped by a millimetre or two. A factory would have rejected it. We have spent the years since looking for exactly that."
+          "v": "That is a good business and it is also a fragile one. A brand can move its order to another unit in a season, and everything we know how to do goes with it. So this is the same floor, the same people and the same cloth, under our own name, sold directly to the person who will wear it."
         },
         {
           "t": "h2",
-          "v": "What we sell"
+          "v": "What we make"
         },
         {
           "t": "p",
-          "v": "Bed linen from Bagru and Sanganer, printed with carved teak blocks by people whose fathers carved them. Kantha from Bolpur, where a single dohar is about nine days of one woman's stitching. Razais filled with hand-teased cotton in Jaipur. Handloom ikat from Pochampally, where the yarn is dyed before it ever reaches the loom. Four things, done properly, rather than forty done once."
+          "v": "Mens shirts, and womenswear across kurtis and dresses, with more of both to come. Everything is graded S to XXL on the same blocks we grade for export, which is why the size chart on every product page is a real grading and not a guess. Most clothing returns are a fit problem, and a fit problem is usually a chart problem."
         },
         {
           "t": "h2",
-          "v": "How we buy"
+          "v": "What that buys you"
         },
         {
           "t": "p",
-          "v": "Directly, in small batches, from the people who make the work. We do not run a factory and we do not hold a warehouse of thousands of units. When something sells out it stays out until the next batch, which is usually a few weeks and occasionally a season."
-        },
-        {
-          "t": "p",
-          "v": "This has a consequence we would rather state than have you discover: pieces vary. Two of the same bed cover will not be identical, a hand-carved pair of elephants will differ about the ears, and a dhokra casting is unrepeatable because the mould is destroyed to release it. If you need two things to match exactly, tell us before you order and we will check."
+          "v": "No distributor, no retailer margin, no minimum order. The price here is the price of making the garment plus what it costs to send it to you, and nothing in between."
         },
         {
           "t": "h2",
@@ -37,22 +33,25 @@
         },
         {
           "t": "p",
-          "v": "This website takes orders but does not yet take payment. There is no server behind it, so an order you place here is saved in your own browser and reaches us when you send it on WhatsApp or call. That is a real limitation and not a soft launch — we would rather be a shop that is honest about its counter than one that pretends to a card machine it has not installed."
+          "v": "This website is new and we would rather tell you what it does not do yet than let you find out. It does not take payment: the UPI code shown at checkout is a demonstration one and no money can move through it. Order tracking exists but lives only in the browser you ordered from. Both are being fixed, in that order."
+        },
+        {
+          "t": "p",
+          "v": "The brand name, the prices and the contact details on this site are placeholders while it is being built. Nothing here is a real offer yet."
         }
       ],
-      "eyebrow": "Our Story",
-      "title": "About DEVI Collections",
-      "updated": "2026-10-01"
+      "eyebrow": "Who we are",
+      "title": "About us",
+      "updated": "2026-11-04"
     },
     "contact": {
       "blocks": [
         {
           "t": "p",
-          "v": "We answer during working hours and usually within a few hours. If you are asking about a piece you have already ordered, send the order code and it will be quicker."
+          "v": "We answer during working hours and usually the same day. If your message is about an order, quote the order code -- it is the fastest way to the right person."
         },
         {
-          "t": "contactCard",
-          "v": ""
+          "t": "contactCard"
         },
         {
           "t": "h2",
@@ -61,14 +60,14 @@
         {
           "t": "ul",
           "v": [
-            "For a question about sizes, fabric or care, the product page usually has it under Specifications.",
-            "For an order you have placed, quote the DC- code from your confirmation.",
-            "For a wholesale or bulk enquiry, tell us the quantity and the date you need it by."
+            "Sizes: the chart on each product page is body measurements in inches. If you are between two sizes, take the larger.",
+            "Delivery: five to ten working days across India, free. The estimate on your order page is the one we committed to when you placed it.",
+            "Returns: seven days from the day it reaches you, free."
           ]
         },
         {
           "t": "h2",
-          "v": "Where we are"
+          "v": "Working hours"
         },
         {
           "t": "fromShop",
@@ -76,8 +75,8 @@
         }
       ],
       "eyebrow": "Get in touch",
-      "title": "Contact Us",
-      "updated": "2026-10-01"
+      "title": "Contact us",
+      "updated": "2026-11-04"
     },
     "privacy": {
       "blocks": [
@@ -87,11 +86,11 @@
         },
         {
           "t": "p",
-          "v": "Almost everything stays on your own device. Your basket, your wishlist, the details you type at checkout and any order you create are saved in your browser's local storage. They are not sent anywhere, they do not reach us, and they do not follow you to another device or another browser."
+          "v": "Today, almost everything stays on your own device. Your bag, your wishlist, your address and your orders are kept in this browser and nowhere else. Clearing your browser data erases all of it, and there is no copy for us to restore."
         },
         {
           "t": "p",
-          "v": "Clearing your browser data erases all of it, and there is no copy for us to restore. The My Account page has a Clear everything button that does the same thing deliberately."
+          "v": "That is a limitation, not a privacy promise, and it is changing: an order you are waiting ten days for has to be visible from a second phone. When accounts arrive, this page will be rewritten before the feature ships, not after."
         },
         {
           "t": "h2",
@@ -99,7 +98,7 @@
         },
         {
           "t": "p",
-          "v": "Only what you send. When you tap Send on WhatsApp, call, or email us an order, the contents of that message reach us through that channel and are then governed by that channel's own policies as well as this one. We keep what you send for as long as we need it to fulfil and account for the order."
+          "v": "Only what you send us. If you message or email us, we have that message. We do not have your bag, your browsing or anything you typed and did not send."
         },
         {
           "t": "h2",
@@ -108,9 +107,9 @@
         {
           "t": "ul",
           "v": [
-            "No analytics, no tracking pixels, no advertising cookies. There is no third-party script on this site other than the webfont.",
-            "We do not sell, rent or share your details with anyone outside the people who fulfil your order.",
-            "We do not store card details. No card number ever reaches this website."
+            "No advertising or analytics trackers of any kind.",
+            "No cookies set by this site.",
+            "No selling, sharing or renting of anything about you to anybody."
           ]
         },
         {
@@ -119,7 +118,7 @@
         },
         {
           "t": "p",
-          "v": "The typefaces load from Google Fonts, which means Google receives your IP address as part of serving them. That is the only third-party request this site makes."
+          "v": "The typefaces load from Google Fonts, which means Google receives your IP address and the name of the font file when a page loads. It is the one third party this site contacts. Hosting the files ourselves would remove it, and is on the list."
         },
         {
           "t": "h2",
@@ -127,22 +126,21 @@
         },
         {
           "t": "p",
-          "v": "Write to us to ask what we hold about you, to correct it, or to have it deleted. Since most of it is on your own device, deleting it is usually something you can do yourself and immediately."
+          "v": "Write to us to ask what we hold about you, to correct it, or to have it deleted. Since almost nothing leaves your device today, the answer is usually short."
         }
       ],
       "eyebrow": "Policy",
-      "title": "Privacy Policy",
-      "updated": "2026-10-01"
+      "title": "Privacy policy",
+      "updated": "2026-11-04"
     },
     "returns": {
       "blocks": [
         {
-          "t": "h2",
-          "v": "The window"
+          "t": "returnWindow"
         },
         {
           "t": "p",
-          "v": "Seven days from delivery to tell us something is wrong, and we will arrange the return. Write to us before sending anything back so we can book the pickup — an unannounced parcel is hard to match to an order."
+          "v": "The clock starts the day the parcel reaches you, not the day you ordered. A parcel that takes ten days to arrive would otherwise have its return window close before it landed."
         },
         {
           "t": "h2",
@@ -151,9 +149,9 @@
         {
           "t": "ul",
           "v": [
-            "Anything damaged in transit. Photograph it before unpacking further if you can.",
-            "Anything that is not what the product page described.",
-            "Anything unused, unwashed and with its tags on, if you simply did not like it."
+            "The wrong size, for any reason, including that you simply guessed wrong.",
+            "A garment that does not match what the page showed.",
+            "A fault in the cloth or the stitching, whenever you find it -- a seam that fails in month two is our problem, not a return."
           ]
         },
         {
@@ -163,11 +161,19 @@
         {
           "t": "ul",
           "v": [
-            "Gift cards and shopping vouchers, once the code has been issued.",
-            "Anything made or altered to order.",
-            "Anything washed or worn, unless the fault is ours.",
-            "Variation in a hand-made piece. Block print registers unevenly, kantha stitching is irregular, and a dhokra casting is unrepeatable. That is what you are buying, and the product pages say so."
+            "Anything worn, washed or altered.",
+            "Anything without its tags still attached.",
+            "Innerwear, for hygiene reasons.",
+            "Anything bought as a final-sale item, which is marked as such on the product page before you buy it."
           ]
+        },
+        {
+          "t": "h2",
+          "v": "How it works"
+        },
+        {
+          "t": "p",
+          "v": "Tell us from your order page. We arrange the pickup; you do not book a courier and you do not pay for one. Keep the garment and its tags together until it is collected."
         },
         {
           "t": "h2",
@@ -175,7 +181,7 @@
         },
         {
           "t": "p",
-          "v": "To the original payment method once the piece is back with us and checked, usually within five working days. Shipping charges are refunded only when the return is our fault."
+          "v": "To the original payment method, once the garment is back with us and has been checked. For a cash-on-delivery order we will ask for bank details, because there is no payment method to send it back to."
         },
         {
           "t": "h2",
@@ -183,12 +189,20 @@
         },
         {
           "t": "p",
-          "v": "For a different size, yes, subject to stock. Tell us the size you want when you write and we will hold it while the return travels."
+          "v": "For a different size, yes, subject to stock. Tell us the size you want when you raise the return and we will hold it."
+        },
+        {
+          "t": "h2",
+          "v": "Still being settled"
+        },
+        {
+          "t": "p",
+          "v": "The pickup address and the courier that collects from you are not finalised. Until they are, treat the promise above as what we intend rather than what is in place, and write to us before sending anything back."
         }
       ],
       "eyebrow": "Policy",
-      "title": "Returns & Refunds",
-      "updated": "2026-10-01"
+      "title": "Returns and refunds",
+      "updated": "2026-11-04"
     },
     "shipping": {
       "blocks": [
@@ -197,32 +211,18 @@
           "v": "Charges"
         },
         {
-          "t": "shippingTable",
-          "v": ""
-        },
-        {
-          "t": "p",
-          "v": "The free-shipping threshold is measured on the value of the goods before any discount code is applied. A coupon will never take away free shipping a basket had already earned."
+          "t": "shippingTable"
         },
         {
           "t": "h2",
-          "v": "Bulky items"
+          "v": "How long it takes"
+        },
+        {
+          "t": "deliveryRange"
         },
         {
           "t": "p",
-          "v": "Stools are furniture and travel as furniture. A bulky-item handling charge applies once per item in the basket, not per unit of quantity, and it is shown separately at checkout so you can see exactly what it is for."
-        },
-        {
-          "t": "h2",
-          "v": "Dispatch"
-        },
-        {
-          "t": "p",
-          "v": "Once an order is confirmed we dispatch within the window below. Confirmation is a person at DEVI replying to you — it is not automatic, because nothing on this site is automatic yet."
-        },
-        {
-          "t": "fromShop",
-          "v": "shipping.shipsIn"
+          "v": "You are given two dates, not one, and they are fixed at the moment you place the order. They do not move afterwards. A single promised date on a parcel travelling across India is a date that gets missed; a range we can keep is worth more than a precise one we cannot."
         },
         {
           "t": "h2",
@@ -230,7 +230,7 @@
         },
         {
           "t": "p",
-          "v": "Anywhere in India. We do not ship internationally at present. Remote PIN codes occasionally add two or three days, and we will tell you when we confirm rather than after you have waited."
+          "v": "Anywhere in India. We do not ship internationally. Remote PIN codes can take a few days longer than the upper end of the estimate, and we will tell you if yours is one."
         },
         {
           "t": "h2",
@@ -238,12 +238,20 @@
         },
         {
           "t": "p",
-          "v": "There is no tracking page on this site, because there is no server to hold tracking data. We send the courier's tracking number on WhatsApp when the parcel leaves."
+          "v": "Your order page shows where it is. Today that page lives in the browser you ordered from, so it will not open on a different phone -- which is the first thing being fixed. A courier tracking number will appear on it once a courier is appointed."
+        },
+        {
+          "t": "h2",
+          "v": "Who carries it"
+        },
+        {
+          "t": "p",
+          "v": "Not yet appointed. The five-to-ten-day estimate above is what we are planning around, not a quoted service level, and this page will name the courier once there is one."
         }
       ],
       "eyebrow": "Policy",
-      "title": "Shipping & Delivery",
-      "updated": "2026-10-01"
+      "title": "Shipping and delivery",
+      "updated": "2026-11-04"
     },
     "terms": {
       "blocks": [
@@ -253,11 +261,11 @@
         },
         {
           "t": "p",
-          "v": "Placing an order here creates a record in your browser and nothing more. It is a request, not a contract. A contract exists only once we have received your order through WhatsApp, telephone or email and replied to confirm it, at which point we will also confirm the price and availability."
+          "v": "Placing an order here creates a record and tells us what you want. It is an offer to buy, which becomes a contract when we confirm it. Until then nothing is committed on either side."
         },
         {
           "t": "p",
-          "v": "We may decline an order, most often because something has sold out between your placing it and our seeing it. If that happens we will tell you and refund anything already paid."
+          "v": "We may decline an order, most often because something sold out between your tap and our reading it. If that happens we tell you, and anything paid comes straight back."
         },
         {
           "t": "h2",
@@ -265,7 +273,7 @@
         },
         {
           "t": "p",
-          "v": "In Indian Rupees and inclusive of GST where it applies. We may change prices at any time, but never on an order we have already confirmed."
+          "v": "In Indian Rupees and inclusive of GST where it applies. We may change a price at any time, but never on an order already confirmed. Where a size costs more than the base price, the product page says so before you add it to the bag."
         },
         {
           "t": "h2",
@@ -273,23 +281,23 @@
         },
         {
           "t": "p",
-          "v": "This website does not take payment. A UPI QR code is shown so you can pay from your own banking app directly to us, and nothing on this page can confirm whether that payment succeeded — our bank record is the only source of truth. Where a card gateway is offered in future, a payment is confirmed by our team and not by this page."
+          "v": "This website does not take payment. A UPI code is shown so you can pay from your own app, and cash on delivery is offered. The code currently on the site is a demonstration one that no payment app can resolve, and the checkout says so."
         },
         {
           "t": "h2",
-          "v": "Hand-made goods"
+          "v": "Sizes and colour"
         },
         {
           "t": "p",
-          "v": "Colour, print registration, stitching and dimensions vary between pieces of the same product. Photographs and the generated artwork on this site are representative, not exact. This variation is not a defect and is not grounds for return."
+          "v": "Measurements are given as a grading and a garment is allowed to vary from it by about half an inch. Colour on a screen is not colour in a room; dyed cotton in particular varies between batches, and a small difference is the material behaving normally rather than a fault."
         },
         {
           "t": "h2",
-          "v": "Gift cards and vouchers"
+          "v": "Product images"
         },
         {
           "t": "p",
-          "v": "Valid for twelve months from the date we issue the code. Issued by hand after we confirm your order, not automatically by this website. Part-redeemable, not exchangeable for cash, and not replaceable if lost."
+          "v": "The artwork on this site is generated, not photographed, and it shows the kind of print and the cut rather than the exact garment you will receive. It is labelled as such on every product page. Photographs will replace it."
         },
         {
           "t": "h2",
@@ -297,7 +305,7 @@
         },
         {
           "t": "p",
-          "v": "The text, artwork and design of this site belong to DEVI Collections. The craft traditions it draws on belong to the communities that have practised them for generations, and we claim nothing over those."
+          "v": "The text, artwork and design of this site belong to us. The patterns and crafts they draw on belong to the people who have made them for centuries and to nobody in particular."
         },
         {
           "t": "h2",
@@ -305,12 +313,12 @@
         },
         {
           "t": "p",
-          "v": "These terms are governed by the laws of India, and disputes fall to the courts with jurisdiction over our registered address."
+          "v": "The laws of India, and the courts with jurisdiction where we are registered. Our registered address and GSTIN are on the Contact page; while they are blank, this site is not trading."
         }
       ],
       "eyebrow": "Policy",
-      "title": "Terms & Conditions",
-      "updated": "2026-10-01"
+      "title": "Terms and conditions",
+      "updated": "2026-11-04"
     }
   }
 }

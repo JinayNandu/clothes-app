@@ -1,1722 +1,289 @@
 {
-  "note": "Integer rupees everywhere -- no floats, no toFixed. price <= mrp. The discount percentage is DERIVED, never stored. `new`, `sale`, `low-stock` and `sold-out` are DERIVED too: `badges` holds only what a human chose. Variants carry `delta`, never a price, and only the SIZE axis may carry a non-zero one. `swatch` is a literal hex and is the one permitted literal colour in this project -- it is product data, not theme, and tokens.pl never sees it because tokens.pl reads only styles/*.css. A product with no `img` key renders generated artwork from art.js; adding `img` is the photography swap path. PRICES ARE ILLUSTRATIVE, NOT REAL -- see shop.json placeholder. A product in a category with NO subcategories carries no `sub` key at all -- data.pl requires `sub` exactly when the category has children, and forbids it when it does not.",
+  "note": "Integer rupees everywhere -- no floats, no toFixed. price <= mrp. The discount percentage is DERIVED, never stored. `new`, `sale`, `low-stock` and `sold-out` are DERIVED too: `badges` holds only what a human chose. Variants carry `delta`, never a price, and ONLY THE SIZE AXIS may carry a non-zero one -- for a garment that is real: XL and XXL take more cloth. `swatch` is a literal hex and is the one permitted literal colour in this project -- it is product data, not theme, and tokens.pl never sees it because tokens.pl reads only styles/*.css. `sizeChart` names a chart in shop.json; data.pl fails if the chart is missing or does not cover every size this product sells. A product with no `img` key renders generated artwork from art.js; adding `img` is the photography swap path. PRICES AND PRODUCTS ARE ILLUSTRATIVE, NOT REAL -- see shop.json placeholder. Three products is the skeleton, not the shop.",
   "products": [
     {
-      "addedOn": "2026-08-12",
+      "addedOn": "2026-10-18",
       "badges": [],
-      "cat": "bedcovers-quilts",
-      "desc": "A repeating floral buti in soft madder and turmeric on an unbleached cotton ground. The print is deliberately a little uneven -- each block is placed by eye, and a perfectly regular repeat would mean it came off a roller.",
-      "id": "p-bc-bagru-floral",
-      "kind": "goods",
-      "mrp": 3999,
-      "name": "Bagru Floral Bed Cover",
-      "popularity": 71,
-      "price": 2899,
-      "shipClass": "std",
-      "shortDesc": "Floral buti in madder and turmeric on unbleached cotton.",
-      "slug": "bagru-floral-bed-cover",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, 160 TC"
-        },
-        {
-          "k": "In the box",
-          "v": "1 bed cover, 2 pillow covers"
-        },
-        {
-          "k": "Care",
-          "v": "Gentle machine wash cold"
-        },
-        {
-          "k": "Origin",
-          "v": "Bagru, Rajasthan"
-        }
-      ],
-      "stock": 9,
-      "tags": [
-        "bed cover",
-        "bagru",
-        "block print",
-        "floral",
-        "cotton"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "madder",
-            "img": 0,
-            "label": "Madder",
-            "swatch": "#A6503C"
-          },
-          {
-            "id": "sage",
-            "img": 3,
-            "label": "Sage",
-            "swatch": "#7D8C6A"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
-          },
-          {
-            "delta": 700,
-            "id": "king",
-            "label": "King (108 x 108 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-09",
-      "badges": [],
-      "cat": "bedcovers-quilts",
-      "desc": "A dense garden print -- creepers, parrots and small blossoms -- in the Jaipur palette of rose, pistachio and ivory. Heavier than our other covers at 200 TC, which makes it the one to buy for a room that gets cold.",
-      "id": "p-bc-jaipur-garden",
-      "kind": "goods",
-      "mrp": 5999,
-      "name": "Jaipur Garden Bed Cover",
-      "popularity": 64,
-      "price": 4499,
-      "shipClass": "std",
-      "shortDesc": "A dense garden print in rose and pistachio. Our heaviest cover at 200 TC.",
-      "slug": "jaipur-garden-bed-cover",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, 200 TC"
-        },
-        {
-          "k": "In the box",
-          "v": "1 bed cover, 2 pillow covers"
-        },
-        {
-          "k": "Care",
-          "v": "Gentle machine wash cold, do not bleach"
-        },
-        {
-          "k": "Origin",
-          "v": "Sanganer, Rajasthan"
-        }
-      ],
-      "stock": 6,
-      "tags": [
-        "bed cover",
-        "jaipur",
-        "floral",
-        "garden",
-        "cotton"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "rose",
-            "img": 0,
-            "label": "Rose",
-            "swatch": "#C4867F"
-          },
-          {
-            "id": "pistachio",
-            "img": 3,
-            "label": "Pistachio",
-            "swatch": "#9BAE86"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
-          },
-          {
-            "delta": 800,
-            "id": "king",
-            "label": "King (108 x 108 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-09-28",
-      "badges": [
-        "bestseller"
-      ],
-      "cat": "bedcovers-quilts",
-      "desc": "Printed in Bagru with carved teak blocks and the iron-black dye that village still mixes by hand, then washed four times so it arrives soft rather than stiff. The indigo deepens for the first few washes and then holds. Comes with two matching pillow covers.",
-      "id": "p-bc-kalamkari-indigo",
-      "kind": "goods",
-      "mrp": 4999,
-      "name": "Kalamkari Indigo Bed Cover",
-      "popularity": 92,
-      "price": 3499,
-      "shipClass": "std",
-      "shortDesc": "Hand-blocked cotton with two pillow covers. Washed four times before it ships.",
-      "slug": "kalamkari-indigo-bed-cover",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, 180 TC"
-        },
-        {
-          "k": "In the box",
-          "v": "1 bed cover, 2 pillow covers"
-        },
-        {
-          "k": "Care",
-          "v": "Gentle machine wash cold, dry in shade"
-        },
-        {
-          "k": "Origin",
-          "v": "Bagru, Rajasthan"
-        }
-      ],
-      "stock": 14,
-      "tags": [
-        "bed cover",
-        "kalamkari",
-        "block print",
-        "indigo",
-        "cotton"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "indigo",
-            "img": 0,
-            "label": "Indigo",
-            "swatch": "#2E4A7D"
-          },
-          {
-            "id": "madder",
-            "img": 3,
-            "label": "Madder Red",
-            "swatch": "#8C3A2B"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
-          },
-          {
-            "delta": 700,
-            "id": "king",
-            "label": "King (108 x 108 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-12",
-      "badges": [
-        "bestseller"
-      ],
-      "cat": "bedsheets",
-      "desc": "The single-bed version of the indigo we print most of -- same carved teak blocks, same iron-black dye, scaled down so the repeat still reads on a narrower bed. It is the sheet that goes into a hostel room, a guest bed or a child's room and survives all three.",
-      "id": "p-bs-bagru-indigo-single",
+      "cat": "men",
+      "desc": "A dobby weave gives the cloth a fine raised grid you can see from a foot away and feel at once -- it is woven in, not printed on. Cut regular through the chest with a slight taper at the waist, so it sits under a jacket without bunching and still looks right untucked. The same shirting we run for two export labels; this one carries our own name.",
+      "id": "p-ms-indigo-dobby",
       "kind": "goods",
       "mrp": 1799,
-      "name": "Bagru Indigo Single Bedsheet",
-      "popularity": 74,
+      "name": "Indigo Dobby Cotton Shirt",
+      "popularity": 78,
       "price": 1299,
       "shipClass": "std",
-      "shortDesc": "Hand-blocked indigo on 180 TC cotton. One flat sheet, one pillow cover.",
-      "slug": "bagru-indigo-single-bedsheet",
+      "shortDesc": "Woven dobby grid, regular fit, classic spread collar.",
+      "sizeChart": "men-shirt",
+      "slug": "indigo-dobby-cotton-shirt",
       "specs": [
         {
           "k": "Material",
-          "v": "100% cotton, 180 TC"
+          "v": "100% cotton dobby, 120 GSM"
         },
         {
-          "k": "In the box",
-          "v": "1 flat sheet, 1 pillow cover"
+          "k": "Fit",
+          "v": "Regular, slight waist taper"
         },
         {
-          "k": "Size",
-          "v": "60 x 90 in"
+          "k": "Collar",
+          "v": "Classic spread, fused"
         },
         {
           "k": "Care",
-          "v": "Machine wash cold, dry in shade"
+          "v": "Machine wash cold, line dry in shade"
         },
         {
-          "k": "Origin",
-          "v": "Bagru, Rajasthan"
+          "k": "Made in",
+          "v": "Our own unit"
         }
       ],
       "stock": 24,
-      "sub": "bedsheets-single",
+      "sub": "men-shirts",
       "tags": [
-        "bedsheet",
-        "single",
-        "bagru",
-        "block print",
+        "shirt",
+        "dobby",
+        "cotton",
         "indigo",
-        "cotton"
+        "formal",
+        "casual"
       ],
       "variants": {
         "colour": [
           {
+            "delta": 0,
             "id": "indigo",
             "img": 0,
             "label": "Indigo",
-            "swatch": "#33548A"
+            "swatch": "#38506E"
           },
           {
-            "id": "clay",
+            "delta": 0,
+            "id": "ecru",
             "img": 3,
-            "label": "Clay",
-            "swatch": "#B07D5E"
+            "label": "Ecru",
+            "swatch": "#D9CFBC"
+          },
+          {
+            "delta": 0,
+            "id": "olive",
+            "label": "Olive",
+            "swatch": "#6B7355"
           }
         ],
         "size": [
           {
             "delta": 0,
-            "id": "sgl",
-            "label": "Single (60 x 90 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-20",
-      "badges": [],
-      "cat": "bedsheets",
-      "desc": "A woven chevron in ivory on ivory -- no print at all, the pattern comes from the loom. It is the sheet we reach for when nothing else in the room should have to accommodate it.",
-      "id": "p-bs-ivory-chevron",
-      "kind": "goods",
-      "mrp": 2899,
-      "name": "Ivory Chevron Bedsheet Set",
-      "popularity": 47,
-      "price": 2299,
-      "shipClass": "std",
-      "shortDesc": "Woven chevron, ivory on ivory. No print -- the pattern is the weave.",
-      "slug": "ivory-chevron-bedsheet-set",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, 280 TC"
-        },
-        {
-          "k": "In the box",
-          "v": "1 fitted sheet, 2 pillow covers"
-        },
-        {
-          "k": "Pocket depth",
-          "v": "9 inches"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash warm"
-        }
-      ],
-      "stock": 11,
-      "sub": "bedsheets-double",
-      "tags": [
-        "bedsheet",
-        "chevron",
-        "ivory",
-        "woven",
-        "cotton"
-      ],
-      "variants": {
-        "size": [
+            "id": "s",
+            "label": "S"
+          },
           {
             "delta": 0,
-            "id": "dbl",
-            "label": "Double (72 x 78 in)"
+            "id": "m",
+            "label": "M"
           },
-          {
-            "delta": 500,
-            "id": "king",
-            "label": "King (78 x 84 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-08-20",
-      "badges": [],
-      "cat": "bedsheets",
-      "desc": "Nothing across the middle and a lattice border taken from a jharokha screen in Jaipur. The point of a plain field is that a quilt or a dohar can sit on top of it without the two arguing.",
-      "id": "p-bs-jaali-border-single",
-      "kind": "goods",
-      "mrp": 1599,
-      "name": "Jaali Border Single Bedsheet",
-      "popularity": 49,
-      "price": 1199,
-      "shipClass": "std",
-      "shortDesc": "Plain ivory ground with a printed jaali lattice at the border.",
-      "slug": "jaali-border-single-bedsheet",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, 220 TC"
-        },
-        {
-          "k": "In the box",
-          "v": "1 flat sheet, 1 pillow cover"
-        },
-        {
-          "k": "Size",
-          "v": "60 x 90 in"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash warm"
-        }
-      ],
-      "stock": 2,
-      "sub": "bedsheets-single",
-      "tags": [
-        "bedsheet",
-        "single",
-        "jaali",
-        "border",
-        "ivory",
-        "cotton"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "ivory",
-            "img": 0,
-            "label": "Ivory",
-            "swatch": "#EDE4D4"
-          },
-          {
-            "id": "slate",
-            "img": 3,
-            "label": "Slate",
-            "swatch": "#6F7A86"
-          }
-        ],
-        "size": [
           {
             "delta": 0,
-            "id": "sgl",
-            "label": "Single (60 x 90 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-09-05",
-      "badges": [],
-      "cat": "bedsheets",
-      "desc": "A plain woven stripe, then a single row of running kantha worked by hand along the top hem -- the one place on a bed you actually look at. Thirteen in this batch, because the stitching is the bottleneck and we would rather it stayed that way.",
-      "id": "p-bs-kantha-stripe-single",
-      "kind": "goods",
-      "mrp": 1999,
-      "name": "Kantha Stripe Single Bedsheet",
-      "popularity": 61,
-      "price": 1499,
-      "shipClass": "std",
-      "shortDesc": "A woven stripe with a kantha running stitch along the hem.",
-      "slug": "kantha-stripe-single-bedsheet",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, 200 TC"
-        },
-        {
-          "k": "In the box",
-          "v": "1 fitted sheet, 1 pillow cover"
-        },
-        {
-          "k": "Size",
-          "v": "60 x 90 in, 8 in pockets"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold"
-        },
-        {
-          "k": "Origin",
-          "v": "Bolpur, West Bengal"
-        }
-      ],
-      "stock": 13,
-      "sub": "bedsheets-single",
-      "tags": [
-        "bedsheet",
-        "single",
-        "kantha",
-        "stripe",
-        "hand stitched"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "sage",
-            "img": 0,
-            "label": "Sage",
-            "swatch": "#7F9070"
+            "id": "l",
+            "label": "L"
           },
           {
-            "id": "blush",
-            "img": 3,
-            "label": "Blush",
-            "swatch": "#DDB4AC"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "sgl",
-            "label": "Single (60 x 90 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-07-18",
-      "badges": [],
-      "cat": "bedsheets",
-      "desc": "Scattered buti in four pastels on a white ground, printed so the spacing never falls into a visible grid. A quiet sheet, meant for a room where something else is already doing the talking.",
-      "id": "p-bs-pastel-buti",
-      "kind": "goods",
-      "mrp": 2499,
-      "name": "Pastel Buti Bedsheet Set",
-      "popularity": 58,
-      "price": 1799,
-      "shipClass": "std",
-      "shortDesc": "Scattered buti in four pastels on white. 220 TC with two pillow covers.",
-      "slug": "pastel-buti-bedsheet-set",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, 220 TC"
-        },
-        {
-          "k": "In the box",
-          "v": "1 flat sheet, 2 pillow covers"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold"
-        },
-        {
-          "k": "Origin",
-          "v": "Sanganer, Rajasthan"
-        }
-      ],
-      "stock": 17,
-      "sub": "bedsheets-double",
-      "tags": [
-        "bedsheet",
-        "pastel",
-        "buti",
-        "cotton"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "blush",
-            "img": 0,
-            "label": "Blush",
-            "swatch": "#E3C3BD"
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
           },
           {
-            "id": "mint",
-            "img": 3,
-            "label": "Mint",
-            "swatch": "#B6CDBC"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (72 x 78 in)"
-          },
-          {
-            "delta": 400,
-            "id": "king",
-            "label": "King (78 x 84 in)"
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
           }
         ]
       }
     },
     {
       "addedOn": "2026-09-22",
-      "badges": [
-        "bestseller"
-      ],
-      "cat": "bedsheets",
-      "desc": "Fine Sanganeri printing on 300 thread-count cotton -- a small, regular buti that reads almost as a texture from across the room. The set includes a fitted sheet with deep pockets, which is the detail most bedsheets get wrong.",
-      "id": "p-bs-sanganeri-cotton",
+      "badges": [],
+      "cat": "women",
+      "desc": "Hand-blocked in Bagru in madder and iron black, on a cotton that has already been washed once so it will not shrink away from the size you chose. Straight cut, side slits to mid-thigh, and a length that works over leggings or trousers. The print sits a little unevenly from panel to panel, which is what a wooden block does and a roller never would.",
+      "id": "p-wk-bagru-straight",
       "kind": "goods",
-      "mrp": 3299,
-      "name": "Sanganeri Cotton Bedsheet Set",
-      "popularity": 95,
-      "price": 2199,
+      "mrp": 1499,
+      "name": "Bagru Block Print Straight Kurti",
+      "popularity": 85,
+      "price": 999,
       "shipClass": "std",
-      "shortDesc": "300 TC cotton with a fitted sheet and deep pockets. Two pillow covers.",
-      "slug": "sanganeri-cotton-bedsheet-set",
+      "shortDesc": "Hand-blocked in madder and iron black, pre-shrunk cotton.",
+      "sizeChart": "women-kurti",
+      "slug": "bagru-block-print-straight-kurti",
       "specs": [
         {
           "k": "Material",
-          "v": "100% cotton, 300 TC"
+          "v": "100% cotton, pre-shrunk"
         },
         {
-          "k": "In the box",
-          "v": "1 fitted sheet, 2 pillow covers"
+          "k": "Fit",
+          "v": "Straight, side slits"
         },
         {
-          "k": "Pocket depth",
-          "v": "10 inches"
+          "k": "Length",
+          "v": "Calf length, 44 to 46 in by size"
         },
         {
           "k": "Care",
-          "v": "Machine wash warm, tumble dry low"
+          "v": "First wash separately, cold"
+        },
+        {
+          "k": "Made in",
+          "v": "Our own unit, printed in Bagru"
         }
       ],
-      "stock": 22,
-      "sub": "bedsheets-double",
+      "stock": 31,
+      "sub": "women-kurtis",
       "tags": [
-        "bedsheet",
-        "sanganeri",
+        "kurti",
+        "bagru",
         "block print",
         "cotton",
-        "fitted"
+        "straight"
       ],
       "variants": {
         "colour": [
-          {
-            "id": "ivory",
-            "img": 0,
-            "label": "Ivory",
-            "swatch": "#EFE7D8"
-          },
-          {
-            "id": "powder",
-            "img": 3,
-            "label": "Powder Blue",
-            "swatch": "#A9BFD0"
-          }
-        ],
-        "size": [
           {
             "delta": 0,
-            "id": "dbl",
-            "label": "Double (72 x 78 in)"
-          },
-          {
-            "delta": 500,
-            "id": "king",
-            "label": "King (78 x 84 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-07-04",
-      "badges": [],
-      "cat": "dohars",
-      "desc": "Our plainest dohar and our cheapest -- a single block repeated in one colour, no border, no fuss. It exists because not every bed needs a statement on it.",
-      "id": "p-dh-bagru-block",
-      "kind": "goods",
-      "mrp": 2299,
-      "name": "Bagru Block Dohar",
-      "popularity": 52,
-      "price": 1799,
-      "shipClass": "std",
-      "shortDesc": "One block, one colour, no border. The plain one.",
-      "slug": "bagru-block-dohar",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "2-layer cotton"
-        },
-        {
-          "k": "Size",
-          "v": "90 x 100 in (double)"
-        },
-        {
-          "k": "Weight",
-          "v": "750 g"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold"
-        }
-      ],
-      "stock": 19,
-      "sub": "dohars-double",
-      "tags": [
-        "dohar",
-        "bagru",
-        "block print",
-        "plain"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "charcoal",
+            "id": "madder",
             "img": 0,
-            "label": "Charcoal",
-            "swatch": "#4A4A4A"
+            "label": "Madder",
+            "swatch": "#A6503C"
           },
-          {
-            "id": "clay",
-            "img": 3,
-            "label": "Clay",
-            "swatch": "#B08062"
-          }
-        ],
-        "size": [
           {
             "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 100 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-07-22",
-      "badges": [],
-      "cat": "dohars",
-      "desc": "Our plainest dohar in the single size -- a single carved block repeated in one colour, no border. It exists for the same reason the double does: not every bed needs a statement on it.",
-      "id": "p-dh-bagru-single",
-      "kind": "goods",
-      "mrp": 1699,
-      "name": "Bagru Block Single Dohar",
-      "popularity": 55,
-      "price": 1299,
-      "shipClass": "std",
-      "shortDesc": "Two layers, one block, one colour. The plain single.",
-      "slug": "bagru-block-single-dohar",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "2-layer cotton"
-        },
-        {
-          "k": "Size",
-          "v": "60 x 90 in (single)"
-        },
-        {
-          "k": "Weight",
-          "v": "480 g"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold"
-        },
-        {
-          "k": "Origin",
-          "v": "Bagru, Rajasthan"
-        }
-      ],
-      "stock": 17,
-      "sub": "dohars-single",
-      "tags": [
-        "dohar",
-        "single",
-        "bagru",
-        "block print",
-        "plain"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "charcoal",
-            "img": 0,
-            "label": "Charcoal",
-            "swatch": "#4A4A4A"
-          },
-          {
-            "id": "clay",
-            "img": 3,
-            "label": "Clay",
-            "swatch": "#B08062"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "sgl",
-            "label": "Single (60 x 90 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-02",
-      "badges": [
-        "bestseller"
-      ],
-      "cat": "dohars",
-      "desc": "Three layers of mulmul muslin quilted together -- light enough for a Mumbai October, warm enough for a Delhi one. It compresses to almost nothing, which is why it is the one that travels.",
-      "id": "p-dh-jaipuri-mulmul",
-      "kind": "goods",
-      "mrp": 3499,
-      "name": "Jaipuri Mulmul Dohar",
-      "popularity": 97,
-      "price": 2399,
-      "shipClass": "std",
-      "shortDesc": "Three layers of mulmul muslin. Light enough for October, packs to nothing.",
-      "slug": "jaipuri-mulmul-dohar",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "3-layer cotton mulmul"
-        },
-        {
-          "k": "Size",
-          "v": "90 x 108 in (double)"
-        },
-        {
-          "k": "Weight",
-          "v": "900 g"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold, line dry"
-        }
-      ],
-      "stock": 26,
-      "sub": "dohars-double",
-      "tags": [
-        "dohar",
-        "mulmul",
-        "muslin",
-        "jaipuri",
-        "summer"
-      ],
-      "variants": {
-        "colour": [
-          {
             "id": "indigo",
-            "img": 0,
-            "label": "Indigo",
-            "swatch": "#39547F"
-          },
-          {
-            "id": "rust",
             "img": 3,
-            "label": "Rust",
-            "swatch": "#AB5B38"
+            "label": "Indigo",
+            "swatch": "#38506E"
           }
         ],
         "size": [
           {
             "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
+            "id": "s",
+            "label": "S"
           },
           {
-            "delta": 600,
-            "id": "king",
-            "label": "King (108 x 108 in)"
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
           }
         ]
       }
     },
     {
-      "addedOn": "2026-06-15",
+      "addedOn": "2026-11-01",
       "badges": [],
-      "cat": "dohars",
-      "desc": "Running kantha worked across the whole surface by hand, which at single width takes one woman about five days. The stitches are visibly irregular; a machine quilt is perfectly even and reads as such from across the room.",
-      "id": "p-dh-kantha-single",
+      "cat": "women",
+      "desc": "Three tiers, each gathered onto the one above, so the weight of the cloth does the shaping and nothing needs to be tight to hold its line. Midi length, a hidden side zip, and pockets deep enough to actually use. Cotton voile -- light enough for a Mumbai October and opaque enough not to need a slip.",
+      "id": "p-wd-tiered-midi",
       "kind": "goods",
       "mrp": 2599,
-      "name": "Kantha Single Dohar",
-      "popularity": 46,
-      "price": 1999,
+      "name": "Tiered Cotton Midi Dress",
+      "popularity": 64,
+      "price": 1899,
       "shipClass": "std",
-      "shortDesc": "Hand kantha across the full surface, single width. About five days of stitching.",
-      "slug": "kantha-single-dohar",
+      "shortDesc": "Three gathered tiers in cotton voile, with real pockets.",
+      "sizeChart": "women-dress",
+      "slug": "tiered-cotton-midi-dress",
       "specs": [
         {
           "k": "Material",
-          "v": "Cotton with hand kantha stitch"
+          "v": "Cotton voile, 90 GSM"
         },
         {
-          "k": "Size",
-          "v": "60 x 90 in (single)"
+          "k": "Fit",
+          "v": "Relaxed through the body, three tiers"
         },
         {
-          "k": "Weight",
-          "v": "700 g"
+          "k": "Length",
+          "v": "Midi, 46 in from shoulder"
+        },
+        {
+          "k": "Details",
+          "v": "Hidden side zip, two side pockets"
         },
         {
           "k": "Care",
           "v": "Gentle machine wash cold"
-        },
-        {
-          "k": "Origin",
-          "v": "Bolpur, West Bengal"
         }
       ],
-      "stock": 7,
-      "sub": "dohars-single",
+      "stock": 2,
+      "sub": "women-dresses",
       "tags": [
-        "dohar",
-        "single",
-        "kantha",
-        "hand stitched",
-        "bengal"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "ochre",
-            "img": 0,
-            "label": "Ochre",
-            "swatch": "#C08B3E"
-          },
-          {
-            "id": "slate",
-            "img": 3,
-            "label": "Slate",
-            "swatch": "#6B7682"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "sgl",
-            "label": "Single (60 x 90 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-08-30",
-      "badges": [],
-      "cat": "dohars",
-      "desc": "Running kantha stitch worked across the whole surface by hand in Bengal, which takes one woman about nine days. The stitches are visibly irregular and that is the point -- a machine quilt is perfectly even and reads as such.",
-      "id": "p-dh-kantha-stitch",
-      "kind": "goods",
-      "mrp": 3999,
-      "name": "Kantha Stitch Dohar",
-      "popularity": 76,
-      "price": 3199,
-      "shipClass": "std",
-      "shortDesc": "Hand-worked kantha across the whole surface. About nine days of stitching.",
-      "slug": "kantha-stitch-dohar",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "Cotton with hand kantha stitch"
-        },
-        {
-          "k": "Size",
-          "v": "90 x 108 in (double)"
-        },
-        {
-          "k": "Weight",
-          "v": "1.2 kg"
-        },
-        {
-          "k": "Origin",
-          "v": "Bolpur, West Bengal"
-        }
-      ],
-      "stock": 5,
-      "sub": "dohars-double",
-      "tags": [
-        "dohar",
-        "kantha",
-        "hand stitched",
-        "bengal"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "ochre",
-            "img": 0,
-            "label": "Ochre",
-            "swatch": "#C08B3E"
-          },
-          {
-            "id": "slate",
-            "img": 3,
-            "label": "Slate",
-            "swatch": "#6B7682"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-09-30",
-      "badges": [
-        "bestseller"
-      ],
-      "cat": "dohars",
-      "desc": "The same three-layer mulmul as our double, at single width. This is the one that goes in a cabin bag -- it compresses to about the size of two folded shirts and comes out of a train journey uncreased.",
-      "id": "p-dh-mulmul-single",
-      "kind": "goods",
-      "mrp": 1999,
-      "name": "Mulmul Single Dohar",
-      "popularity": 81,
-      "price": 1499,
-      "shipClass": "std",
-      "shortDesc": "Three layers of mulmul at single width. Packs down to nothing.",
-      "slug": "mulmul-single-dohar",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "3-layer cotton mulmul"
-        },
-        {
-          "k": "Size",
-          "v": "60 x 90 in (single)"
-        },
-        {
-          "k": "Weight",
-          "v": "550 g"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold, line dry"
-        },
-        {
-          "k": "Origin",
-          "v": "Jaipur, Rajasthan"
-        }
-      ],
-      "stock": 28,
-      "sub": "dohars-single",
-      "tags": [
-        "dohar",
-        "single",
-        "mulmul",
-        "muslin",
-        "travel"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "indigo",
-            "img": 0,
-            "label": "Indigo",
-            "swatch": "#39547F"
-          },
-          {
-            "id": "rust",
-            "img": 3,
-            "label": "Rust",
-            "swatch": "#AB5B38"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "sgl",
-            "label": "Single (60 x 90 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-09-20",
-      "badges": [],
-      "cat": "dohars",
-      "desc": "Two single dohars cut from the same printed length, dyed in two colourways that sit together. Made for a twin-bed room, where two identical dohars look like a hotel and two unrelated ones look like an accident.",
-      "id": "p-ds-bagru-twin-set",
-      "kind": "goods",
-      "mrp": 4499,
-      "name": "Bagru Twin Dohar Set",
-      "popularity": 63,
-      "price": 3299,
-      "shipClass": "std",
-      "shortDesc": "Two single dohars from the same block, in two colourways.",
-      "slug": "bagru-twin-dohar-set",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "2-layer cotton, hand block printed"
-        },
-        {
-          "k": "In the box",
-          "v": "2 single dohars"
-        },
-        {
-          "k": "Size",
-          "v": "60 x 90 in each"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold"
-        },
-        {
-          "k": "Origin",
-          "v": "Bagru, Rajasthan"
-        }
-      ],
-      "stock": 9,
-      "sub": "dohars-sets",
-      "tags": [
-        "dohar set",
-        "twin",
-        "bagru",
-        "block print",
-        "pair"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "indigo-clay",
-            "img": 0,
-            "label": "Indigo & Clay",
-            "swatch": "#4A6490"
-          },
-          {
-            "id": "sage-ochre",
-            "img": 3,
-            "label": "Sage & Ochre",
-            "swatch": "#8B9A6E"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "pair",
-            "label": "Pair of singles"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-08-02",
-      "badges": [],
-      "cat": "dohars",
-      "desc": "A double kantha dohar with two pillow covers stitched from the same length, by the same hand, in the same week -- which matters, because kantha tension varies between people and a mismatched pair is obvious. Three sets left from this batch.",
-      "id": "p-ds-kantha-dohar-set",
-      "kind": "goods",
-      "mrp": 6499,
-      "name": "Kantha Dohar & Pillow Set",
-      "popularity": 51,
-      "price": 4999,
-      "shipClass": "std",
-      "shortDesc": "A kantha dohar with two matching pillow covers. Three in stock.",
-      "slug": "kantha-dohar-and-pillow-set",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "Cotton with hand kantha stitch"
-        },
-        {
-          "k": "In the box",
-          "v": "1 dohar, 2 pillow covers"
-        },
-        {
-          "k": "Size",
-          "v": "Dohar 90 x 108 in"
-        },
-        {
-          "k": "Care",
-          "v": "Gentle hand wash cold, dry flat"
-        },
-        {
-          "k": "Origin",
-          "v": "Bolpur, West Bengal"
-        }
-      ],
-      "stock": 3,
-      "sub": "dohars-sets",
-      "tags": [
-        "dohar set",
-        "kantha",
-        "hand stitched",
-        "pillow covers",
-        "bengal"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "ochre",
-            "img": 0,
-            "label": "Ochre",
-            "swatch": "#C08B3E"
-          },
-          {
-            "id": "plum",
-            "img": 3,
-            "label": "Plum",
-            "swatch": "#7C4A63"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-15",
-      "badges": [
-        "bestseller"
-      ],
-      "cat": "dohars",
-      "desc": "A double dohar with a fitted sheet and two pillow covers, all printed in the same run so the dye lot actually matches -- which is the whole reason to buy a set rather than four separate things. Bought apart, these four come to a little over six thousand.",
-      "id": "p-ds-mulmul-dohar-set",
-      "kind": "goods",
-      "mrp": 5799,
-      "name": "Mulmul Dohar & Bedsheet Set",
-      "popularity": 84,
-      "price": 4299,
-      "shipClass": "std",
-      "shortDesc": "Dohar, fitted sheet and two pillow covers, printed in one run.",
-      "slug": "mulmul-dohar-and-bedsheet-set",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "3-layer mulmul dohar, 300 TC cotton sheet"
-        },
-        {
-          "k": "In the box",
-          "v": "1 dohar, 1 fitted sheet, 2 pillow covers"
-        },
-        {
-          "k": "Size",
-          "v": "Dohar 90 x 108 in, sheet 72 x 78 in"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold, line dry"
-        },
-        {
-          "k": "Origin",
-          "v": "Sanganer, Rajasthan"
-        }
-      ],
-      "stock": 11,
-      "sub": "dohars-sets",
-      "tags": [
-        "dohar set",
-        "mulmul",
-        "bedsheet",
-        "matched",
-        "gifting"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "indigo",
-            "img": 0,
-            "label": "Indigo",
-            "swatch": "#39547F"
-          },
-          {
-            "id": "madder",
-            "img": 3,
-            "label": "Madder",
-            "swatch": "#9C4433"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
-          },
-          {
-            "delta": 800,
-            "id": "king",
-            "label": "King (108 x 108 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-26",
-      "badges": [
-        "bestseller"
-      ],
-      "cat": "bedcovers-quilts",
-      "desc": "The razai Jaipur is known for: cotton teased by hand until it is almost air, then quilted between two layers of mulmul. It weighs less than a kilo and is warmer than a blanket twice that, which sounds like a claim until you have slept under one.",
-      "id": "p-qt-jaipuri-razai",
-      "kind": "goods",
-      "mrp": 4999,
-      "name": "Jaipuri Razai",
-      "popularity": 89,
-      "price": 3799,
-      "shipClass": "std",
-      "shortDesc": "The light Jaipur quilt -- hand-teased cotton, under a kilo, actually warm.",
-      "slug": "jaipuri-razai",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "Hand-teased cotton fill, mulmul shell"
-        },
-        {
-          "k": "Size",
-          "v": "90 x 108 in (double)"
-        },
-        {
-          "k": "Weight",
-          "v": "900 g"
-        },
-        {
-          "k": "Care",
-          "v": "Dry clean only"
-        },
-        {
-          "k": "Origin",
-          "v": "Jaipur, Rajasthan"
-        }
-      ],
-      "stock": 16,
-      "tags": [
-        "quilt",
-        "razai",
-        "jaipuri",
-        "cotton fill",
-        "winter"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "rose",
-            "img": 0,
-            "label": "Rose",
-            "swatch": "#C98A86"
-          },
-          {
-            "id": "indigo",
-            "img": 3,
-            "label": "Indigo",
-            "swatch": "#3C5786"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
-          },
-          {
-            "delta": 900,
-            "id": "king",
-            "label": "King (108 x 108 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-09-14",
-      "badges": [],
-      "cat": "bedcovers-quilts",
-      "desc": "Built the way kantha was always built -- worn cotton saris layered up and held together with running stitch across the entire surface. Each one uses whatever came in, so the photograph is the idea and not the piece. Tell us a palette before you order and we will pick from what is on the shelf.",
-      "id": "p-qt-kantha-patchwork",
-      "kind": "goods",
-      "mrp": 6999,
-      "name": "Kantha Patchwork Quilt",
-      "popularity": 68,
-      "price": 5499,
-      "shipClass": "std",
-      "shortDesc": "Old saris layered and run through with kantha. No two are the same.",
-      "slug": "kantha-patchwork-quilt",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "Layered vintage cotton, hand kantha"
-        },
-        {
-          "k": "Size",
-          "v": "90 x 108 in (double)"
-        },
-        {
-          "k": "Weight",
-          "v": "1.6 kg"
-        },
-        {
-          "k": "Care",
-          "v": "Gentle hand wash cold, dry flat"
-        },
-        {
-          "k": "Origin",
-          "v": "Bolpur, West Bengal"
-        }
-      ],
-      "stock": 4,
-      "tags": [
-        "quilt",
-        "kantha",
-        "patchwork",
-        "vintage",
-        "hand stitched"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "ochre",
-            "img": 0,
-            "label": "Ochre mix",
-            "swatch": "#C28F42"
-          },
-          {
-            "id": "jewel",
-            "img": 3,
-            "label": "Jewel mix",
-            "swatch": "#7A4463"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 108 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-08-08",
-      "badges": [],
-      "cat": "bedcovers-quilts",
-      "desc": "Quilted, but barely -- two layers of mulmul and a thin cotton wadding, which is the correct amount of quilt for most of the Indian year. It folds to the size of a pillow and lives at the foot of the bed from March to October.",
-      "id": "p-qt-mulmul-summer",
-      "kind": "goods",
-      "mrp": 3799,
-      "name": "Mulmul Summer Quilt",
-      "popularity": 57,
-      "price": 2999,
-      "shipClass": "std",
-      "shortDesc": "A thin quilted mulmul for a room with a fan on. 600 g.",
-      "slug": "mulmul-summer-quilt",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "2-layer mulmul, thin cotton wadding"
-        },
-        {
-          "k": "Size",
-          "v": "90 x 100 in (double)"
-        },
-        {
-          "k": "Weight",
-          "v": "600 g"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold, line dry"
-        }
-      ],
-      "stock": 21,
-      "tags": [
-        "quilt",
-        "mulmul",
-        "summer",
-        "light",
-        "cotton"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "ivory",
-            "img": 0,
-            "label": "Ivory",
-            "swatch": "#EFE8DA"
-          },
-          {
-            "id": "sky",
-            "img": 3,
-            "label": "Sky",
-            "swatch": "#A8C0D4"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "dbl",
-            "label": "Double (90 x 100 in)"
-          },
-          {
-            "delta": 600,
-            "id": "king",
-            "label": "King (108 x 100 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-24",
-      "badges": [
-        "bestseller"
-      ],
-      "cat": "table-runners",
-      "desc": "Printed from the same blocks as the bed linen, which is deliberate -- a dining table and the bed in the next room reading as one house is the point of buying both here. Finished with a mitred point at each end rather than a straight hem.",
-      "id": "p-tr-bagru-block",
-      "kind": "goods",
-      "mrp": 999,
-      "name": "Bagru Block Table Runner",
-      "popularity": 72,
-      "price": 699,
-      "shipClass": "std",
-      "shortDesc": "Hand-blocked cotton, 14 x 72 in, with a mitred point at each end.",
-      "slug": "bagru-block-table-runner",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, hand block printed"
-        },
-        {
-          "k": "Size",
-          "v": "14 x 72 in"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold, warm iron"
-        },
-        {
-          "k": "Origin",
-          "v": "Bagru, Rajasthan"
-        }
-      ],
-      "stock": 32,
-      "tags": [
-        "table runner",
-        "bagru",
-        "block print",
+        "dress",
+        "midi",
+        "tiered",
         "cotton",
-        "dining"
+        "voile",
+        "pockets"
       ],
       "variants": {
         "colour": [
           {
-            "id": "indigo",
+            "delta": 0,
+            "id": "sage",
             "img": 0,
-            "label": "Indigo",
-            "swatch": "#33548A"
+            "label": "Sage",
+            "swatch": "#7D8C6A"
           },
           {
-            "id": "madder",
+            "delta": 0,
+            "id": "blush",
             "img": 3,
-            "label": "Madder",
-            "swatch": "#9C4433"
+            "label": "Blush",
+            "swatch": "#C98B86"
           }
         ],
         "size": [
           {
             "delta": 0,
-            "id": "std",
-            "label": "Standard (14 x 72 in)"
+            "id": "s",
+            "label": "S"
           },
-          {
-            "delta": 200,
-            "id": "long",
-            "label": "Long (14 x 90 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-30",
-      "badges": [],
-      "cat": "table-runners",
-      "desc": "A lattice taken from a jharokha screen, printed in metallic gold on raw silk. This is the festive one -- it is not meant to be the runner you use every week, and the care label says as much.",
-      "id": "p-tr-gold-jaali",
-      "kind": "goods",
-      "mrp": 1599,
-      "name": "Gold Jaali Table Runner",
-      "popularity": 66,
-      "price": 1199,
-      "shipClass": "std",
-      "shortDesc": "A jaali lattice in metallic gold on raw silk. For the festive table.",
-      "slug": "gold-jaali-table-runner",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "Raw silk with metallic print"
-        },
-        {
-          "k": "Size",
-          "v": "14 x 72 in"
-        },
-        {
-          "k": "Care",
-          "v": "Dry clean only"
-        },
-        {
-          "k": "Origin",
-          "v": "Jaipur, Rajasthan"
-        }
-      ],
-      "stock": 8,
-      "tags": [
-        "table runner",
-        "jaali",
-        "gold",
-        "silk",
-        "festive"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "ivory",
-            "img": 0,
-            "label": "Ivory & Gold",
-            "swatch": "#EDE2CA"
-          },
-          {
-            "id": "plum",
-            "img": 3,
-            "label": "Plum & Gold",
-            "swatch": "#6E4057"
-          }
-        ],
-        "size": [
           {
             "delta": 0,
-            "id": "std",
-            "label": "Standard (14 x 72 in)"
+            "id": "m",
+            "label": "M"
           },
-          {
-            "delta": 300,
-            "id": "long",
-            "label": "Long (14 x 90 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-18",
-      "badges": [],
-      "cat": "table-runners",
-      "desc": "Woven in Pochampally, where the yarn is tie-dyed before it goes on the loom -- which is why the edge of every shape is feathered and why no printed cloth ever looks quite like it. Out of stock; the next lot is on the loom.",
-      "id": "p-tr-ikat-weave",
-      "kind": "goods",
-      "mrp": 1299,
-      "name": "Ikat Weave Table Runner",
-      "popularity": 44,
-      "price": 999,
-      "shipClass": "std",
-      "shortDesc": "Pochampally ikat, woven not printed. The blur is in the yarn.",
-      "slug": "ikat-weave-table-runner",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "Handloom cotton ikat"
-        },
-        {
-          "k": "Size",
-          "v": "14 x 72 in"
-        },
-        {
-          "k": "Care",
-          "v": "Machine wash cold, do not bleach"
-        },
-        {
-          "k": "Origin",
-          "v": "Pochampally, Telangana"
-        }
-      ],
-      "stock": 0,
-      "tags": [
-        "table runner",
-        "ikat",
-        "handloom",
-        "pochampally",
-        "woven"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "indigo",
-            "img": 0,
-            "label": "Indigo",
-            "swatch": "#3C5786"
-          },
-          {
-            "id": "rust",
-            "img": 3,
-            "label": "Rust",
-            "swatch": "#A85E3C"
-          }
-        ],
-        "size": [
           {
             "delta": 0,
-            "id": "std",
-            "label": "Standard (14 x 72 in)"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-10-24",
-      "badges": [],
-      "cat": "table-runners",
-      "desc": "Running stitch worked down the full length by hand, so the line wanders slightly -- which is what tells you a person did it. Reversible: the back is the same stitch in the reverse colour and plenty of people use it that way round.",
-      "id": "p-tr-kantha-stitch",
-      "kind": "goods",
-      "mrp": 1199,
-      "name": "Kantha Stitch Table Runner",
-      "popularity": 58,
-      "price": 899,
-      "shipClass": "std",
-      "shortDesc": "Running kantha the full length, worked by hand in Bengal.",
-      "slug": "kantha-stitch-table-runner",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "Cotton with hand kantha stitch"
-        },
-        {
-          "k": "Size",
-          "v": "14 x 72 in"
-        },
-        {
-          "k": "Care",
-          "v": "Gentle hand wash cold"
-        },
-        {
-          "k": "Origin",
-          "v": "Bolpur, West Bengal"
-        }
-      ],
-      "stock": 14,
-      "tags": [
-        "table runner",
-        "kantha",
-        "hand stitched",
-        "reversible",
-        "bengal"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "id": "ochre",
-            "img": 0,
-            "label": "Ochre",
-            "swatch": "#C08B3E"
+            "id": "l",
+            "label": "L"
           },
           {
-            "id": "slate",
-            "img": 3,
-            "label": "Slate",
-            "swatch": "#6B7682"
-          }
-        ],
-        "size": [
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
           {
-            "delta": 0,
-            "id": "std",
-            "label": "Standard (14 x 72 in)"
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
           }
         ]
       }
     }
-  ],
-  "rev": 2
+  ]
 }

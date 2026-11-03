@@ -3,7 +3,7 @@
 //
 // ⚠️ IT NEVER SAYS "order confirmed", "order placed successfully", "thank you
 // for your purchase" or "payment successful". None of those is true. The order
-// is a record in this browser; DEVI has not seen it; no money has moved.
+// is a record in this browser; Vastra has not seen it; no money has moved.
 //
 // What it DOES say is exactly what has happened and exactly what to do next.
 // tools/honesty.pl greps this project for all four phrases and fails on any of
@@ -164,7 +164,7 @@ function statusBlock(order, shop) {
   const via = { whatsapp: 'on WhatsApp', phone: 'by phone',
                 email: 'by email', copy: 'by copying it' }[order.sentVia] || '';
 
-  // ⚠️ "Sent", never "confirmed". Only a human at DEVI can confirm, and that
+  // ⚠️ "Sent", never "confirmed". Only a human at Vastra can confirm, and that
   // happens in the admin, not here.
   return notice('good',
     `<b>Sent ${esc(via)} at ${esc(D.fmtStamp(order.sentAt))}.</b> `

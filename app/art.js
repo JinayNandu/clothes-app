@@ -208,7 +208,11 @@ const SHAPES = {
     path: 'M168 140 L146 146 L104 222 L128 238 L150 206 V378 H250 V206 L272 238 '
         + 'L296 222 L254 146 L232 140 C228 154, 172 154, 168 140 Z',
     field: true, chest: false, border: 'hem',
-    bands: { hem: [150, 348, 100, 22], yoke: [150, 200, 100, 26] },
+    // ⚠️ The yoke sits just UNDER the shoulder seam, not at chest height. A
+    // shirt yoke is the panel across the shoulders; drawn at y=200 it landed
+    // level with the chest pocket and read as a belt worn over the shirt.
+    // Measured on screen, not reasoned about.
+    bands: { hem: [150, 348, 100, 22], yoke: [150, 162, 100, 26] },
     detail: `<g fill="none" stroke="var(--art-ink)" stroke-width="1.5" opacity=".72">
       <path d="M168 140 L200 184 L162 168 Z"/>
       <path d="M232 140 L200 184 L238 168 Z"/>
@@ -585,7 +589,12 @@ export function heroArt(seed = 'vastra-hero-aw26') {
     <clipPath id="${pid}-c"><path d="${BODY}"/></clipPath>
   </defs>
   <rect width="560" height="700" fill="var(--p-sand)"/>
-  <rect width="560" height="700" fill="url(#${pid})" opacity=".55"/>
+  <!-- ⚠️ .26, not DEVI's .55. The same pattern fills the garment at full
+       strength, so a strong background leaves the two at nearly equal
+       contrast and the silhouette stops being a silhouette — it reads as one
+       flat swatch with a hanger drawn on it. Dropped until the garment was
+       the thing the eye lands on first. -->
+  <rect width="560" height="700" fill="url(#${pid})" opacity=".26"/>
   <path d="M70 92 H490" stroke="var(--art-ink)" stroke-width="5"
         stroke-linecap="round" opacity=".55"/>
   <g fill="none" stroke="var(--art-ink)" stroke-width="4.5"

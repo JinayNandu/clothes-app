@@ -48,7 +48,7 @@
       "blocks": [
         {
           "t": "p",
-          "v": "We answer during working hours and usually the same day. If your message is about an order, quote the order code -- it is the fastest way to the right person."
+          "v": "We answer during working hours and usually the same day. If your message is about an order, quote the order code — it is the fastest way to the right person."
         },
         {
           "t": "contactCard"
@@ -151,7 +151,7 @@
           "v": [
             "The wrong size, for any reason, including that you simply guessed wrong.",
             "A garment that does not match what the page showed.",
-            "A fault in the cloth or the stitching, whenever you find it -- a seam that fails in month two is our problem, not a return."
+            "A fault in the cloth or the stitching, whenever you find it — a seam that fails in month two is our problem, not a return."
           ]
         },
         {
@@ -238,7 +238,7 @@
         },
         {
           "t": "p",
-          "v": "Your order page shows where it is. Today that page lives in the browser you ordered from, so it will not open on a different phone -- which is the first thing being fixed. A courier tracking number will appear on it once a courier is appointed."
+          "v": "Your order page shows where it is. Today that page lives in the browser you ordered from, so it will not open on a different phone — which is the first thing being fixed. A courier tracking number will appear on it once a courier is appointed."
         },
         {
           "t": "h2",

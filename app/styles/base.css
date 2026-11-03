@@ -106,9 +106,15 @@ input,textarea,.user-text{ font-family:var(--f-ui),var(--f-deva); }
   font-family:var(--f-display); font-weight:600;
   font-size:20px; line-height:1.3;
 }
+/* ⚠️ 20px, not 19px. Inherited from DEVI at 19 and raised here: the house
+   rule is that Cormorant is NEVER used below 20px, because its thin strokes
+   hint away on Windows and the whole line goes grey and cheap. 19px broke
+   that rule by one pixel on every screen, which is exactly how a rule like
+   this dies. If this needs to be smaller, it needs to stop being the display
+   face -- not get smaller. */
 .t-tagline{
   font-family:var(--f-display); font-weight:400; font-style:italic;
-  font-size:19px; line-height:1.45; letter-spacing:.01em;
+  font-size:20px; line-height:1.45; letter-spacing:.01em;
   color:var(--ink-soft);
 }
 .t-body{ font-size:15px; line-height:1.60; }

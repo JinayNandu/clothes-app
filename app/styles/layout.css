@@ -10,16 +10,29 @@
    ANNOUNCEMENT STRIP -- kept at every width. One line, and it is where free
    shipping and festive dates live.
    ------------------------------------------------------------------------ */
+/* ⚠️ THE STRIP WRAPS. It used to be `height:var(--strip)` with
+   `white-space:nowrap; overflow:hidden; text-overflow:ellipsis`, which was
+   survivable while the line was short. This shop states three promises here
+   -- free delivery, the 5-10 day range and free returns -- and at 375px that
+   is 511px of text in a 375px box. Centred and clipped, it lost BOTH ends and
+   showed no ellipsis at all (the ellipsis only renders on the overflowing
+   end, and a centred nowrap line overflows on two). Measured, not guessed.
+
+   `height:auto` with `min-height` rather than a breakpoint: on a desktop the
+   line fits, so the strip stays exactly var(--strip) tall and the sticky
+   offsets below (which add --strip to --hh) are unaffected. It only grows
+   where the rail that depends on those offsets is already hidden. */
 .strip{
-  height:var(--strip);
+  min-height:var(--strip);
   display:flex; align-items:center; justify-content:center;
   background:var(--sunk);
   border-bottom:1px solid var(--edge);
-  padding:0 var(--gutter);
+  padding:5px var(--gutter);
   font-size:12px; font-weight:500; letter-spacing:.02em;
+  line-height:1.4;
   color:var(--ink-soft);
   text-align:center;
-  overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+  text-wrap:balance;
 }
 .strip b{ color:var(--gold-ink); font-weight:600; }
 

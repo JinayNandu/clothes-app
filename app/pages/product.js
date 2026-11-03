@@ -50,6 +50,14 @@ router.registerScreen('product', async (host, r) => {
   const low = badges.includes('low-stock');
   const views = viewCount(p);
 
+  // ⚠️ An ESTIMATE, computed live, and that is correct HERE and nowhere else.
+  // This screen answers "if I order today, when does it arrive" — a question
+  // whose answer must move as today moves. The ORDER's estimate is a different
+  // thing: it is the promise that was made, it is frozen into the order at
+  // placement, and it is read back rather than recomputed. Confusing the two
+  // is how a customer's delivery date quietly slides a day every day.
+  const est = D.deliveryEstimate(shop.shipping);
+
   host.innerHTML = `
   ${crumbs([
     { label: 'Home', href: '#/' },
@@ -121,18 +129,31 @@ router.registerScreen('product', async (host, r) => {
       </div>
 
       <div>
-        <h2 class="t-h3" style="margin-bottom:var(--s2)">Delivery</h2>
+        <h2 class="t-h3" style="margin-bottom:var(--s2)">Delivery and returns</h2>
         <dl class="spec">
-          <div class="spec-row"><dt>Dispatch</dt>
-            <dd>${esc(shop.shipping.shipsIn)} after we confirm your order</dd></div>
-          <div class="spec-row"><dt>Shipping</dt>
-            <dd>${D.rupees(shop.shipping.fee)} flat, free above
-                ${D.rupees(shop.shipping.freeOver)}${p.shipClass === 'bulky'
+          <div class="spec-row"><dt>Arrives</dt>
+            <dd>${esc(D.fmtDateRange(est.from, est.to))}
+                <span class="dim">(${est.minDays}–${est.maxDays} working
+                days)</span></dd></div>
+          <div class="spec-row"><dt>Delivery</dt>
+            <dd>${shop.shipping.fee
+                  ? `${D.rupees(shop.shipping.fee)} flat, free above
+                     ${D.rupees(shop.shipping.freeOver)}`
+                  : 'Free, anywhere in India'}${p.shipClass === 'bulky'
                   ? `. This is a bulky item: ${D.rupees(shop.shipping.bulkySurcharge)} handling applies.`
                   : ''}</dd></div>
-          <div class="spec-row"><dt>Returns</dt>
-            <dd>Seven days from delivery. <a href="#/returns"
-                style="color:var(--gold-ink);text-decoration:underline">Read the policy</a></dd></div>
+          ${shop.returns && shop.returns.days ? `<div class="spec-row">
+            <dt>Returns</dt>
+            <!-- ⚠️ The number comes from shop.returns.days, never the word
+                 "Seven". DEVI hardcoded it here while its policy page read it
+                 from the JSON, so changing the window in one place would have
+                 left the product page promising the old one -- on the exact
+                 screen where the customer decides. -->
+            <dd>${shop.returns.free ? 'Free' : 'At your cost'}, within
+                ${shop.returns.days} days of delivery &mdash; wrong size
+                included. <a href="#/returns"
+                style="color:var(--gold-ink);text-decoration:underline">Read the
+                policy</a></dd></div>` : ''}
         </dl>
       </div>
     </div>

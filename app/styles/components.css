@@ -31,8 +31,12 @@
 .logo-rule{ display:block; height:1px; background:var(--gold); margin:1px 15% 2px; }
 .logo-coll{
   font-family:var(--f-ui); font-weight:600;
-  font-size:9px; line-height:1;
-  letter-spacing:.42em;
+  font-size:10px; line-height:1;
+  letter-spacing:.52em;
+  /* Letter-spacing is added AFTER the last letter too, so a centred line
+     sits half a tracking-step left of where it looks like it should. Given
+     back as padding-left, matched to the letter-spacing at every size. */
+  padding-left:.52em;
   color:var(--ink-soft);
 }
 /* The band sits between 'sm' and 'lg': stacked and centred like the large
@@ -41,23 +45,23 @@
 .logo-band .logo-words{ align-items:center; }
 .logo-band .logo-name{ font-size:34px; letter-spacing:.22em; }
 .logo-band .logo-rule{ width:100%; margin:var(--s1) 0; }
-.logo-band .logo-coll{ font-size:11px; letter-spacing:.50em; }
+.logo-band .logo-coll{ font-size:13px; letter-spacing:.70em; padding-left:.70em; }
 
 @media (max-width:1023px){
   .logo-band{ gap:var(--s2); }
   .logo-band .logo-name{ font-size:26px; letter-spacing:.2em; }
-  .logo-band .logo-coll{ font-size:9px; letter-spacing:.44em; }
+  .logo-band .logo-coll{ font-size:11px; letter-spacing:.62em; padding-left:.62em; }
 }
 
 .logo-lg{ flex-direction:column; gap:var(--s5); text-align:center; }
 .logo-lg .logo-words{ align-items:center; }
 .logo-lg .logo-name{ font-size:44px; letter-spacing:.2em; }
 .logo-lg .logo-rule{ width:100%; margin:var(--s1) 0; }
-.logo-lg .logo-coll{ font-size:14px; letter-spacing:.56em; }
+.logo-lg .logo-coll{ font-size:16px; letter-spacing:.74em; padding-left:.74em; }
 
 @media (max-width:599px){
   .logo-name{ font-size:20px; }
-  .logo-coll{ font-size:8px; letter-spacing:.36em; }
+  .logo-coll{ font-size:9px; letter-spacing:.46em; padding-left:.46em; }
 }
 
 /* ---------------------------------------------------------------------------

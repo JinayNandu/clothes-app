@@ -20,6 +20,16 @@ import { handoffBlock, wireHandoff } from '../handoff.js';
 import { icon } from '../icons.js';
 import * as D from '../domain.js';
 
+/** The brand line, split on its first full stop so a two-sentence tagline
+ *  stacks the way a hero wants and a one-sentence one still renders whole.
+ *  Escaped, because it comes out of a file the owner edits. */
+function tagline(shop) {
+  const t = String((shop.brand && shop.brand.tagline) || '').trim();
+  if (!t) return esc(shop.brand && shop.brand.name || '');
+  const m = t.match(/^(.+?[.!?])\s+(.+)$/);
+  return m ? `${esc(m[1])}<br>${esc(m[2])}` : esc(t);
+}
+
 router.registerScreen('home', async (host) => {
   const [cats, shop, wishIds, best, fresh, offers, under, counts] =
     await Promise.all([
@@ -33,19 +43,24 @@ router.registerScreen('home', async (host) => {
   <!-- HERO -->
   <section class="hero">
     <div class="hero-copy">
-      <div class="t-eyebrow">The Festive Edit &middot; AW26</div>
-      <h1 class="t-hero">Thoughtfully Curated.<br>Beautifully Yours.</h1>
-      <p class="t-tagline">Bedsheets, bedcovers and quilts, dohars and table
-        runners — block-printed and hand-stitched in small batches across
-        Rajasthan, Bengal and Telangana.</p>
+      <div class="t-eyebrow">Direct from the floor that makes it</div>
+      <!-- ⚠️ The headline is shop.brand.tagline, split on its first full
+           stop, NOT two hardcoded lines. The owner has not chosen a name or a
+           line yet; when they do it is a JSON edit, and a headline that can
+           only be changed by editing JavaScript is a headline that stays
+           wrong. The split is defensive: a one-sentence tagline renders as
+           one line rather than losing half of itself. -->
+      <h1 class="t-hero">${tagline(shop)}</h1>
+      <p class="t-tagline">Shirts, kurtis and dresses, graded S to XXL on the
+        same blocks we grade for export. No distributor, no retailer margin —
+        the price here is what the garment costs to make and send.</p>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="#/shop">Shop the collection</a>
+        <a class="btn btn-primary" href="#/shop">Shop everything</a>
         <a class="btn btn-secondary" href="#/new">What is new</a>
       </div>
       <p class="t-micro dim" style="margin-top:var(--s2)">
-        ${icon('truck', 14)} Complimentary shipping above
-        ${D.rupees(shop.shipping.freeOver)} &nbsp;·&nbsp;
-        Dispatched in ${esc(shop.shipping.shipsIn)}</p>
+        ${icon('truck', 14)} ${esc(D.shippingLine(shop))} &nbsp;·&nbsp;
+        ${esc(D.returnsLine(shop))}</p>
     </div>
     <div class="hero-art">${heroArt()}</div>
   </section>
@@ -64,10 +79,10 @@ router.registerScreen('home', async (host) => {
           <div class="tile-art">${categoryArt(c)}</div>
           <div class="tile-grad"></div>
           <div class="tile-name">${esc(c.name)}
-            <!-- Pieces, not subcategories: two of the four categories have
-                 none, and "0 edits" under a full category reads as broken. -->
+            <!-- Styles, not subcategories: a category may have none, and "0 edits"
+                 under a full category reads as broken. -->
             <small>${counts[c.id] || 0}
-              ${(counts[c.id] || 0) === 1 ? 'piece' : 'pieces'}</small>
+              ${(counts[c.id] || 0) === 1 ? "style" : "styles"}</small>
           </div>
         </a>`).join('')}
     </div>
@@ -76,26 +91,35 @@ router.registerScreen('home', async (host) => {
   ${rail('r-best', 'Bestsellers', best, shop, wishIds, '#/best')}
   ${rail('r-new', 'New Arrivals', fresh, shop, wishIds, '#/new')}
 
-  <!-- FEATURED COLLECTION -->
+  <!-- WHY THE PRICE IS THE PRICE
+       DEVI had a "Featured collection" panel here pointing at a category.
+       This shop has three products, so a curated edit would be two of them
+       and a link — merchandising furniture with nothing behind it. The
+       manufacturer-direct story is the one thing this shop can say that the
+       marketplaces cannot, so it gets the slot until there is a real edit
+       to put in it. ⚠️ The category link that used to be here pointed at
+       bedcovers-quilts, which no longer exists: routes.pl proves a #/ link
+       matches a ROUTE, not that the category behind it is real. -->
   <section class="sec">
     <div class="panel" style="background:var(--sunk);border-color:var(--edge)">
       <div class="two-col" style="gap:var(--s6);align-items:center">
         <div>
-          <div class="t-eyebrow" style="color:var(--gold-ink)">Featured collection</div>
-          <h2 class="t-h1" style="margin:var(--s2) 0 var(--s3)">The Block Print Room</h2>
+          <div class="t-eyebrow" style="color:var(--gold-ink)">Why it costs less</div>
+          <h2 class="t-h1" style="margin:var(--s2) 0 var(--s3)">The same floor,
+            without the middle</h2>
           <p class="t-long" style="color:var(--ink-soft);max-width:48ch">
-            Everything in this edit was printed by hand with carved teak blocks
-            in Bagru and Sanganer — each one placed by eye, which is why no two
-            repeats land quite the same way. Bed covers, sheets, dohars and the
-            table runner that matches them.</p>
+            We have cut and stitched for other labels for seventeen years. The
+            cloth, the pattern masters and the finishing line were always ours;
+            only the name on the collar was not. Buying here skips the
+            distributor and the shop, and what is left is the garment and the
+            courier.</p>
           <div style="margin-top:var(--s5);display:flex;gap:var(--s3);flex-wrap:wrap">
-            <a class="btn btn-primary" href="#/c/bedcovers-quilts">
-              Explore the room</a>
-            <a class="btn btn-secondary" href="#/about">How we buy</a>
+            <a class="btn btn-primary" href="#/shop">See what we make</a>
+            <a class="btn btn-secondary" href="#/about">How we got here</a>
           </div>
         </div>
         <div class="hero-art" style="height:340px;min-height:0">
-          ${heroArt('vastra-aw26')}
+          ${heroArt('vastra-direct')}
         </div>
       </div>
     </div>
@@ -109,11 +133,11 @@ router.registerScreen('home', async (host) => {
     <div class="news">
       <div class="news-inner">
         <span style="color:var(--gold)">${logo('sm')}</span>
-        <h2 class="t-h2">New batches, before they sell out</h2>
+        <h2 class="t-h2">New batches, before your size goes</h2>
         <p class="t-micro dim" style="max-width:46ch">
-          We buy in small lots, so the good pieces go quickly. Leave your
-          address and we will tell you when a batch lands — a few times a
-          season, never more.</p>
+          We cut in batches and a size runs out before the batch does. Leave your
+          address and we will tell you when something lands or comes back in
+          your size — a few times a season, never more.</p>
         <div class="news-form">
           <input type="email" data-news placeholder="you@example.com"
             aria-label="Email address" autocomplete="email">

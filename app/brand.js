@@ -23,21 +23,32 @@
 
 // Shared geometry, on a 48×48 grid so a 2-unit stroke renders at exactly 1px
 // when the mark is drawn at 24px.
-const VEE      = 'M16.4 12.6 L24 32.4 L31.6 12.6';
+// ⚠️ THE V APEX MUST SIT ABOVE THE BOTTOM OF THE SIDE SEAMS. At 32.4 it hung
+// below them, so the lowest point of the whole mark was the point of the V and
+// the eye read the shape bottom-up as an arrow rather than top-down as a
+// neckline inside a body. Pulled up to 28.5 against seams that run to 36, and
+// the garment reading arrives on its own.
+const VEE      = 'M16.4 12.6 L24 28.5 L31.6 12.6';
 const SHOULDER = 'M16.4 12.6 L7.2 17.4 M31.6 12.6 L40.8 17.4';
 
 // The topstitch inside the neckline. Dashed, because that is what a topstitch
 // IS — and because a second solid V at 24px reads as a printing error.
-const STITCH   = 'M20.4 13.4 L24 23 L27.6 13.4';
+const STITCH   = 'M20.2 13.4 L24 21.4 L27.8 13.4';
 
-// The shoulder seams dropping away from the collar. Large sizes only: below
-// about 44px they close up against the V and the counter fills in.
-const SEAM     = 'M7.2 17.4 L9.6 27.6 M40.8 17.4 L38.4 27.6';
+// The side seams dropping away from the shoulders.
+//
+// ⚠️ DRAWN AT EVERY SIZE, and that is the fix for the first version of this
+// mark. With the shoulders and the V alone, the silhouette has two outer
+// peaks and a central valley and reads as a crown or a bird — abstract,
+// because nothing says which way is down. Two short verticals give the shape
+// a body, and the moment it has a body the V is a neckline. Measured on
+// screen at 44px, where the crown reading was unmistakable and wrong.
+const SEAM     = 'M7.2 17.4 L9.2 36 M40.8 17.4 L38.8 36';
 
 // ---------------------------------------------------------------------------
 // The monogram.
-//   size >= 44  -> full: topstitch, shoulder seams, the gold bar-tack
-//   size <  44  -> reduced: V and shoulders only, thicker strokes, no gold
+//   size >= 44  -> full: topstitch, the gold bar-tack
+//   size <  44  -> reduced: no topstitch, no gold, thicker strokes
 // ---------------------------------------------------------------------------
 export function mark(size = 48) {
   const big = size >= 44;
@@ -46,9 +57,7 @@ export function mark(size = 48) {
     ? `<path d="${STITCH}" fill="none" stroke="currentColor" stroke-width="1"
              stroke-linecap="round" stroke-linejoin="round"
              stroke-dasharray="2.2 2" opacity=".6"/>
-       <path d="${SEAM}" fill="none" stroke="currentColor" stroke-width="1.1"
-             stroke-linecap="round" opacity=".45"/>
-       <circle cx="24" cy="35.6" r="2" fill="var(--gold)"
+       <circle cx="24" cy="31.4" r="1.9" fill="var(--gold)"
                stroke="currentColor" stroke-width=".7"/>`
     : '';
 
@@ -58,6 +67,9 @@ export function mark(size = 48) {
         stroke-linecap="round" stroke-linejoin="round"/>
   <path d="${SHOULDER}" fill="none" stroke="currentColor"
         stroke-width="${big ? 2.2 : 3}" stroke-linecap="round"/>
+  <path d="${SEAM}" fill="none" stroke="currentColor"
+        stroke-width="${big ? 1.9 : 2.6}" stroke-linecap="round"
+        opacity="${big ? '.75' : '.9'}"/>
   ${detail}
 </svg>`;
 }

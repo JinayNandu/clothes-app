@@ -10,6 +10,9 @@
 import * as store from './store.js';
 import { icon } from './icons.js';
 import { logo, mark, brandBand } from './brand.js';
+// domain.js is PURE and imports nothing, so this cannot create a cycle --
+// the rule is that ui.js must never import a PAGE.
+import * as D from './domain.js';
 
 export const $  = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -140,10 +143,13 @@ export function drawChrome(shop) {
     if (el) el.innerHTML = icon(name, 20);
   }
 
+  // ⚠️ Both halves come from domain.js, not from shop.shipping directly. See
+  // shippingLine() for why: three screens stating one promise in three
+  // hand-built sentences is three sentences that drift.
   const strip = $('#strip');
   if (strip) {
-    strip.innerHTML = `Complimentary shipping on orders above `
-      + `<b>₹${shop.shipping.freeOver.toLocaleString('en-IN')}</b>`
-      + ` &nbsp;·&nbsp; Dispatched in ${esc(shop.shipping.shipsIn)}`;
+    const ret = D.returnsLine(shop);
+    strip.innerHTML = esc(D.shippingLine(shop))
+      + (ret ? ` &nbsp;·&nbsp; ${esc(ret)}` : '');
   }
 }

@@ -148,6 +148,37 @@ export function returnWindow(rules, deliveredISO) {
 /** Whole days left in a window. Negative once it has closed. */
 export const daysLeft = (untilISO, today = istDate()) => -daysSince(untilISO, today);
 
+/** The delivery promise as ONE line, built in ONE place.
+ *
+ *  ⚠️ The top strip, the hero and the product page all state this promise, and
+ *  before this function they each built their own sentence out of
+ *  `shop.shipping`. Two of the three said "Complimentary shipping on orders
+ *  above ₹0" the moment delivery became free, because they were written when
+ *  there was a real threshold to clear. A promise assembled in three places is
+ *  a promise that will eventually be made in three different ways, and the
+ *  customer only has to see two of them to stop believing any.
+ *
+ *  Same reasoning as orderSummaryText(): one function, so what the strip says
+ *  and what the PDP says cannot drift. */
+export function shippingLine(shop) {
+  const s = (shop && shop.shipping) || {};
+  const dd = s.deliveryDays || {};
+  const cost = s.fee
+    ? `Delivery ${rupees(s.fee)}, free over ${rupees(s.freeOver)}`
+    : 'Free delivery, everywhere in India';
+  if (!dd.min || !dd.max) return cost;
+  return `${cost} · Arrives in ${dd.min}–${dd.max} working days`;
+}
+
+/** The return promise, same rule. Empty when returns are switched off, so a
+ *  caller interpolating it gets nothing rather than "0 days". */
+export function returnsLine(shop) {
+  const r = (shop && shop.returns) || {};
+  if (!r.days) return '';
+  return `${r.free ? 'Free returns' : 'Returns'} for ${r.days} days `
+       + 'after it reaches you';
+}
+
 // ---------------------------------------------------------------------------
 // MONEY
 //

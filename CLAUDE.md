@@ -1,8 +1,10 @@
 # Clothes app — project context
 
-⚠️ **Nothing is built yet.** This file is a starting brief, not a record
-of decisions already taken. Rewrite it as things get settled; the
-Milan and DEVI versions of this file are what it should grow into.
+Read this before changing anything. Everything here was either
+established by testing or decided deliberately; none of it is a guess.
+
+**Status: step 1 of 10 is built.** A walkable skeleton with three
+garments. See *Where this is* and *The order of work*.
 
 ---
 
@@ -15,146 +17,293 @@ distribution.
 
 The shape is Amazon or Nykaa, not a kirana: a catalogue you browse by
 eye, sizes and colours, a cart, an order that arrives in **five to ten
-days**, and **free returns for seven days** after it lands.
+working days**, and **free returns for seven days** after it lands.
 
 Personal side-venture of the user, not client work.
 
+### Settled with the owner, 4 November 2026
+
+| Question | Answer |
+|---|---|
+| What do they make? | **Men's shirts, and womenswear across the board** — tops, kurtis, dresses. The skeleton carries one shirt, one kurti, one dress. |
+| One manufacturer or several? | **One.** Milan's `db/MULTISTORE.md` is there for the day it is more, and that day is cheaper to reach than to start from. |
+| Photographs? | **None.** `art.js` carries the whole catalogue. ⚠️ Still the single biggest risk to the idea — see *Open*. |
+| How do they pay? | **UPI and cash on delivery.** Both. The UPI id is a demo one that cannot resolve, and the checkout says so. |
+
+### Still not answered, and each one blocks something
+
+1. ⚠️ **What does a free return actually cost them?** `shop.json` says
+   `returns.free: true` and the site promises it on every product page.
+   For a manufacturer with no reverse logistics that can mean eating the
+   courier both ways on a ₹700 kurti. **The app is making this promise
+   on their behalf and nobody has priced it.** Blocks step 9.
+2. **Who ships it?** Delhivery, Shiprocket, India Post, a local courier?
+   The five-to-ten-day estimate is a planning number, not a quoted
+   service level, and the shipping page says so in as many words.
+3. **Returns address, GSTIN, and the legal pages.** `contact.returnsAddr`
+   is in `shop.json` and `data.pl` requires it to be non-empty before
+   `placeholder` can go false. A shop selling to strangers needs it; a
+   kirana delivering down the lane did not.
+
 ---
 
-## ⚠️ START FROM `devi-collections`, NOT FROM `kirana`
+## Where this is
 
-The user's instinct was to copy the Milan grocery app. **That is the
-wrong parent**, and it is worth saying why before anybody starts
-copying files.
-
-`%USERPROFILE%\Projects\devi-collections` is already a textile
-storefront — a premium home-linen brand selling bedsheets, quilts and
-table runners. It has solved, in production, every structural problem a
-clothes shop has and a grocery does not:
-
-| | |
+| Piece | State |
 |---|---|
-| **Variants** | A cart line is `{pid, qty, variant}`. Line identity is `pid\|colour\|size`, never `pid`. This is THE structural difference between selling atta and selling a kurta, and it is already done. |
-| **Sizes that cost more** | Only the SIZE axis may carry a price `delta`. A king sheet costs more than a single; an XXL may cost more than an S. |
-| **Returns** | `shipped → delivered → returned` is already in `ORDER_NEXT`. |
-| **A product page** | `app/pages/product.js` — gallery, variant picker, the lot. A grocery has no product page on purpose; a clothes shop is nothing without one. |
-| **Listing, wishlist, account, admin** | All in `app/pages/`. |
-| **Artwork without photographs** | `app/art.js` generates a product image when there is no `img` key. For a shop whose photographs do not exist yet, this is the difference between a demo and an empty grid. |
+| Browse — home, category listing, product page, gallery, variant picker | **Built.** Inherited from DEVI, re-pointed at garments |
+| Cart, coupon, totals | **Built.** `money.pl` green, including the size delta |
+| Checkout, address, pay options | **Built**, still DEVI's: it saves to this browser and hands off on WhatsApp |
+| Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED |
+| Size charts | **Data built and checked.** Not yet ON the product page — step 2 |
+| Delivery range | `deliveryEstimate()` works and the shipping page uses it. **NOT yet frozen into an order** — step 5 |
+| Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
+| Database, accounts, seller view | **Not started** — steps 6, 7, 8 |
+| Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
 
-Milan (`%USERPROFILE%\Projects\kirana`) is a grocery with three
-delivery windows a day, a tempo route, buy-2-get-1 on chip packets and a
-pure-veg rule. **Almost none of that transfers.** What Milan has that
-DEVI does not is the **working Supabase layer** — schema, row-level
-security, SECURITY DEFINER functions, email sign-in, and a 288-line
-setup walkthrough that has actually been followed end to end.
+### Running it
 
-**So: the storefront comes from DEVI, the database comes from Milan.**
-See `FROM-DEVI-AND-MILAN.md` for file-by-file detail.
+```bash
+perl tools/serve.pl 8150 app
+```
+
+**Port 8150**, because 8110/8111 are kirana, 8120 is scorer-dev,
+8130–8133 are DEVI and 8140 is orb. `perl tools/serve.pl --lan 8151 app`
+for a phone on the same Wi-Fi — opt-in, and it will often fail on a
+managed network, which is not a bug in the server.
+
+```bash
+perl tools/check.pl        # nine checks
+```
+
+⚠️ **`data.pl` fails on a clean tree, on purpose.** See *Open*.
+
+---
+
+## ⚠️ The storefront is DEVI's, the database will be Milan's
+
+`devi-collections` is a home-linen storefront that had already solved,
+in production, every structural problem a clothes shop has and a grocery
+does not: variant-aware cart lines, a size axis that may carry a price
+delta, a product page, a listing page, a wishlist, a seller admin, and
+an artwork generator for products with no photograph.
+
+`kirana` is a grocery with three delivery windows a day, a tempo route
+and buy-2-get-1 on chip packets. **Almost none of that transfers.** What
+it has that DEVI does not is a **working Supabase layer** — schema, row
+level security, SECURITY DEFINER functions, email sign-in, and a
+288-line setup walkthrough that has been followed end to end.
+
+`FROM-DEVI-AND-MILAN.md` has the file-by-file detail and the traps.
 
 ---
 
 ## What this app has that neither parent does
 
-Four things. They are the actual work.
+Four things. They are the actual work, and two of them are now partly
+built.
 
-### 1. A delivery estimate, as a range, frozen at placement
+### 1. A delivery estimate, as a range
 
-Not "Tuesday". **"Arrives 10–15 November."** Five to ten working days,
-shown as two dates.
+**"Arrives 10–16 November"**, not "Arrives Tuesday". Five to ten
+*working* days — Monday to Saturday, Sundays skipped — shown as two
+dates with the month named once.
 
-⚠️ **Snapshot the range into the order when it is placed.** Do not
-recompute it on the track screen from `placedAt` every time it renders —
-the same trap as storing a price on a cart line. A promise that moves is
-worse than no promise, and the customer will screenshot the first one.
+`shop.json` → `shipping.deliveryDays {min, max, basis}`, so changing the
+promise is an edit and not a code change. `domain.js` owns
+`deliveryEstimate()` and `fmtDateRange()`. `data.pl` fails if `min` is
+above `max`, because a range that prints backwards reads as a broken
+shop rather than as a bad number in a file.
 
-The number of days belongs in `shop.json` beside the shipping rules, so
-changing it is an edit and not a code change. Milan's lesson: everything
-the owner owns lives in one JSON file.
+⚠️ **NOT YET FROZEN INTO AN ORDER.** Today it is computed live on the
+product page and the shipping page, which is correct *there* — both
+answer "if I order today, when does it arrive", and that answer must
+move as today moves. **Step 5 is to snapshot it onto the order at
+placement and read it back**, never recompute it from `placedAt`. The
+trap is not that the arithmetic drifts; it is that the day the owner
+edits `deliveryDays` from 5–10 to 4–8, every open order silently gets a
+new promise. The customer screenshots the first one.
 
 ### 2. A seven-day return window, counted from DELIVERY
 
-Not from placement. So `deliveredAt` has to be stored the moment the
-status becomes `delivered`, and the window is computed from it.
+`shop.json` → `returns {days, from, free}`, and **`data.pl` FAILS if
+`from` is anything but `delivery`.** Counted from placement, a seven-day
+window on a parcel that takes ten working days to arrive would expire
+before it landed — the customer receives a garment they were already
+unable to send back.
 
-The customer-facing states are roughly `return_requested → picked_up →
-refunded`. Settle with the owner whether a refund is money back or
-credit — it changes the screen and it changes what you promise.
+So `deliveredAt` must be stored the moment the status becomes
+`delivered`, and the window counted from that stamp. `returnWindow()`
+returns `null` while the parcel has not landed, deliberately: there is
+no window to show, and inventing one from `placedAt` is the bug the
+signature exists to prevent.
 
-⚠️ **Free returns is a cost, not a feature.** Ask what a return actually
-costs them before building a button that invites one. For a
-manufacturer with no reverse logistics, "free returns" may mean "we eat
-the courier both ways on a ₹700 kurta". Better to find that out now.
+⚠️ **Free returns is a cost, not a feature**, and it is still unpriced.
+See *Still not answered*.
 
 ### 3. Orders that leave the browser
 
-DEVI has **no login, anywhere, ever** — a deliberate rule there, and
-right for a shop that sends a WhatsApp handoff. This app cannot work
-that way: a customer waiting ten days for a parcel must be able to open
-the app on a different phone and see where it is.
+Not built. DEVI has **no login, anywhere, ever** — right for a shop that
+sends a WhatsApp handoff, and `honesty.pl` still enforces it. This app
+cannot work that way: a customer waiting ten days for a parcel must be
+able to open the app on a different phone and see where it is.
 
-So take Milan's account layer: anonymous Supabase session upgraded with
-an email + six-digit code. **Do not invent a password.**
+Milan's account layer — anonymous Supabase session upgraded with email +
+a six-digit code. **Do not invent a password.** Steps 6 and 7, and
+`honesty.pl`'s no-login rule has to be relaxed deliberately when they
+land, not quietly.
 
 ### 4. Sizes that are garment sizes
 
-S/M/L/XL/XXL, and a **size chart** on the product page with actual chest
-and length measurements in inches. Most clothing returns are fit, so the
-size chart is not decoration — it is the cheapest return-prevention
-there is.
+S/M/L/XL/XXL. **Only the size axis may carry a price delta**, and for a
+garment that is real rather than inherited: XL is +₹50 and XXL is +₹100
+because they take more cloth. The MRP moves with the price, so the
+discount percentage stays honest at every size.
+
+**Size charts live in `shop.json` → `sizeCharts`, one per garment type**,
+not one per product: an M is the same M across every shirt on this
+floor, and five rows copied onto every product is how the numbers drift
+apart. A product names its chart with `sizeChart`.
+
+`data.pl` **fails** if a chart is missing, if it does not carry a row for
+every size that product sells, if a row has the wrong number of values,
+or if a chart is orphaned. A size with no row renders a blank line in
+the table, which a customer reads as "no measurement needed for XXL"
+rather than as a missing number — and the return that follows costs more
+than the check does.
+
+⚠️ Measurements are **body** measurements in inches, not garment
+measurements. The two differ by the ease allowance and a customer who
+assumes the wrong one orders the wrong size. **The numbers are invented**
+— a realistic Indian grading, not this manufacturer's spec sheet.
+
+⚠️ **The chart is not on the product page yet.** That is step 2, and it
+is the cheapest return prevention there is.
 
 ---
 
 ## Stack and constraints — carried over, not negotiable
 
-- **No Node, no npm. Python is blocked by group policy.** Perl at
+- **No Node, no npm. Python is blocked by group policy.** Perl 5.42.2 at
   `%USERPROFILE%/AppData/Local/Programs/Git/usr/bin/perl.exe`.
 - Therefore **zero build step** — vanilla HTML/CSS/ES modules.
-- ES modules refuse to run over `file://`, so local work needs
-  `perl tools/serve.pl 8110 app`.
-- **There IS a browser here.** Use it. Both parent projects were
-  verified by clicking, not by reading.
+- ES modules refuse to run over `file://`, so local work needs the
+  server above.
+- **There IS a browser here.** Use it. Everything in the second commit
+  was found by tapping and none of it was visible to a check script.
 
 ### The rules both parents learned the hard way
 
-Copy these before copying any code:
-
 - **Money is integer rupees everywhere.** No floats, no `toFixed`.
-- **A cart line stores no price.** Price resolves from the catalogue at
-  render and freezes into the order line at placement.
-- **Every date and clock read lives in `domain.js`**, and
-  `toISOString().slice(0,10)` is BANNED and grepped — it is UTC, so on
-  an IST device between 00:00 and 05:30 it returns yesterday.
-- **`hourCycle: 'h23'`, never `hour12: false`** — the latter returns
-  `"24:00"` for midnight in several engines.
-- **`ui.js` / `router.js` must never import a page module.** A circular
-  ES import hands you `undefined` for something that looks hoisted.
+- **A cart line stores no price**, and line identity is
+  `pid|colour|size`, never `pid`. Two sizes of one shirt are two lines.
+- **Every date and clock read lives in `domain.js`**;
+  `toISOString().slice(0,10)` is BANNED and grepped.
+- **`hourCycle: 'h23'`, never `hour12: false`.**
+- **`ui.js` / `router.js` must never import a page module.** `ui.js` may
+  import `domain.js` — it is pure and imports nothing, so there is no
+  cycle. The rule is about pages.
 - **`[hidden]{display:none !important}` is load-bearing.**
-- **No literal colours outside the token block**, and a `-ink` variant
-  for text on every filled accent. Never hardcode `#fff`.
-- **Patch `i18n.js` in RAW BYTES.** No decode, no encode. Devanagari
-  through UTF-8 twice is 28 lines of silent rubbish, and it has happened.
-- **An input must never sit inside the region its own handler repaints**
-  — that is how a search box loses the phone keyboard.
+- **No literal colours outside the token block.** Never hardcode `#fff`.
+- **An input must never sit inside the region its own handler repaints.**
+- **A promise stated on more than one screen is built in ONE function.**
+  `shippingLine()` and `returnsLine()` in `domain.js`, for the same
+  reason `orderSummaryText()` exists. Three screens each assembling the
+  same sentence is three sentences that drift.
 
 ---
 
-## Things to settle with the owner before building
+## What changed from DEVI, and why
 
-Flagged rather than guessed. The app is a prop; the answers are the
-product.
+Read this before assuming a DEVI behaviour still holds.
 
-1. **One manufacturer, or many?** Everything below changes. Default to
-   one — Milan has `db/MULTISTORE.md` for the day it is many, and that
-   day is cheaper to reach than to start from.
-2. **What do they actually make?** Kurtis, shirts, childrenswear,
-   saris? The catalogue, the size axis and the photography all follow.
-3. **Do they have photographs?** If not, `art.js` carries the demo, but
-   nothing sells a garment like a photograph of it. This is the single
-   biggest risk to the whole thing.
-4. **What does a return cost them?** See above.
-5. **Prepaid or cash on delivery?** COD on a ten-day shipped parcel is a
-   different risk from COD on a grocery bag delivered round the corner.
-6. **Who ships it?** Delhivery, Shiprocket, India Post, a local courier?
-   The five-to-ten-day promise is theirs to keep, not the app's.
-7. **Returns address, GST, and the legal page.** A shop selling to
-   strangers needs them; a kirana delivering down the lane did not.
+- **`art.js` silhouettes are garments.** `shirt`, `kurti`, `dress`,
+  `top` replaced `folded`/`drape`/`runner`/`vessel`/`stool`/`bag`/
+  `pouch`/`envelope`. DEVI's `garment` shape survived its narrowing to
+  linen and is the ancestor of `kurti`. **Motif pools are per garment**:
+  a men's shirt draws only woven and geometric prints, never a floral
+  buti — the same decision as DEVI's "a razai never gets an ikat
+  chevron".
+- **Band rects come from the shape**, not one constant. A dress flares
+  from 88px at the waist to 160px at the hem, so DEVI's single hardcoded
+  hem rect either floated inside the skirt or hung out of it.
+- **`MEDALLIONS` became `CHEST`.** DEVI's were 140px across, centred on
+  a 272px-wide bedsheet. A kurti body is 116px wide, so the same device
+  clipped to a band across its middle and read as a mistake. These are
+  the same four ideas at garment scale.
+- **`shipsIn` is gone**, replaced by `deliveryDays`. Three screens used
+  it.
+- **The free-shipping threshold is dormant** — delivery is free, so
+  `fee: 0, freeOver: 0`. ⚠️ `money.pl` therefore pins the rule against
+  **synthetic** rules, and so do the 500 random baskets. Against the
+  live numbers every basket clears a threshold of zero and the whole
+  assertion is unreachable — which is precisely how kirana hid a real
+  pre-coupon/post-coupon disagreement for months.
+- **`data.pl`'s category counts are named constants** at the top of the
+  file, `$EXPECT_CATS` and `$EXPECT_SUBS`. Bump them deliberately. A
+  magic number buried in a condition gets edited without being read.
+
+### Bug found in DEVI while copying
+
+`components.css` carried a bare `(max-width:1023px){` with **no
+`@media`**, so three brand-band sizing rules have been silently dead
+there as well. Fixed here. Worth telling that project.
+
+---
+
+## The order of work
+
+Steps 1–5 are the demo. 6–10 make it a shop.
+
+1. ✅ **Copy DEVI, strip to a skeleton, serve it.**
+2. ⬜ **The size chart on the product page.** *This is the screenshot
+   that sells it*, and the cheapest return prevention there is.
+3. ✅ Cart, coupon, totals — `money.pl` green.
+4. ⬜ **Checkout and a real order**, still in local storage.
+5. ⬜ **Freeze the delivery range into the order at placement.**
+6. ⬜ **Supabase** — follow `kirana/db/SETUP.md`, do not improvise.
+7. ⬜ **Accounts**, so a parcel can be tracked from a second phone.
+8. ⬜ **The seller view**, behind `claim_staff()`.
+9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.
+10. ⬜ **Real photographs**, whenever the owner can supply them.
+
+---
+
+## Open, and owned by the user
+
+- ⚠️ **`placeholder` is `true`, and `data.pl` FAILS while it is.** The
+  brand name, the brand story, the year, every contact field and all
+  three prices are **invented** — realistic, not real. The owner has not
+  chosen a name. That flag makes shipping them impossible rather than
+  merely inadvisable.
+
+  **To clear it:** fill in `contact` in `app/data/shop.json` — including
+  `returnsAddr` and `gstin` — check the prices, set `placeholder` to
+  false.
+
+- ⚠️ **No photographs, and this is the biggest risk to the whole idea.**
+  `art.js` is good enough that the catalogue does not look broken, and
+  it is not good enough to sell a garment. Nothing sells a garment like
+  a photograph of it. The swap path is live per product *and* per view,
+  so a partial shoot stays coherent, and adding one is a data edit plus
+  a file.
+
+- **The palette is still DEVI's** — warm ivory, antique gold,
+  terracotta, light-only, 67 tokens. It survives the move to apparel
+  better than expected, but it was chosen for a home-linen brand and
+  nobody has asked whether it is right for this one.
+
+- ⚠️ **`deliveryEstimate()` has no Perl check.** The Sunday skip and the
+  month-boundary formatting were verified once in a browser, on one
+  date. A `promise.pl` belongs with step 5, covering both the arithmetic
+  and the freeze.
+
+- ⚠️ **Hash routes do not rank in search.** Fragments are poorly
+  crawled. Real SEO needs server-side rendering or a prerender build,
+  and there is neither. For a shop whose whole problem is distribution,
+  this is worth knowing early rather than in month three.
+
+- **The checkout still hands off on WhatsApp**, inherited from DEVI, and
+  is honest about it on screen. It stops being honest the moment the
+  copy promises tracking the browser cannot deliver, so steps 4–7 move
+  together.

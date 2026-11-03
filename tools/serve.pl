@@ -77,7 +77,7 @@ sub lan_ip {
 if ($lan) {
   my $ip = lan_ip();
   print "\n";
-  print "  DEVI Collections -- shared on this network\n";
+  print "  Vastra Apparel -- shared on this network\n";
   print "  " . ('-' x 44) . "\n";
   printf "  On this computer   http://127.0.0.1:%d/\n", $port;
   if ($ip) {

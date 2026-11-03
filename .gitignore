@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# Generated. Rebuild, never edit:
+#   perl tools/mksingle.pl     -> build/devi-collections.html AND docs/
+#   perl tools/mkartifact.pl   -> build/artifact.html
+#
+# ⚠️ docs/ is GENERATED but is NOT ignored. GitHub Pages serves what is in the
+# branch and cannot run a build step, so the built page has to be committed.
+# ---------------------------------------------------------------------------
+build/
+
+# Machine-specific: absolute paths, and the Windows account name along with
+# them. CLAUDE.md documents the serve commands, so nothing is lost.
+.claude/
+
+# ---------------------------------------------------------------------------
+# Secrets. There is none in this project today and there must not be one
+# tomorrow.
+#
+# shop.json holds the UPI id and the gateway KEY ID, and both are public by
+# design -- a Razorpay key id is sent to every browser that opens checkout.
+# The gateway SECRET is a different thing entirely: it signs the HMAC that
+# verifies a payment, it belongs on a server, and it must never reach this
+# repository. See the gateway section of CLAUDE.md.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+
+# OS and editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

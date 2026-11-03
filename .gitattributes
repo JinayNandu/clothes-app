@@ -1,0 +1,8 @@
+# Normalise every text file to LF in the repository.
+#
+# Without this, committing from Windows stores CRLF, and the first clone on a
+# Mac or a Linux box shows every one of the 54 files as entirely rewritten --
+# which makes the history useless for exactly the review the honesty checks
+# exist to support. Perl, node-less JS and CSS are all happy with LF on
+# Windows, so there is nothing to trade away here.
+* text=auto eol=lf

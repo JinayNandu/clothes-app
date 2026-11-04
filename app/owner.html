@@ -34,18 +34,10 @@
 
 <a class="skip" href="#main">Skip to content</a>
 
-<!-- ⚠️ THE LOCK, STATED. There is no store code yet, because a code checked
-     in the browser is a code anyone can read in this public repository: the
-     real lock has to live on the server, and there is no server yet. Until
-     then this page can only ever show what is in the browser it is opened
-     in, which is why it is safe to leave open -- and why it says so. This
-     goes when the server-side code check exists, not before.
-     tools/honesty.pl fails if it disappears. -->
-<div class="preview-bar" id="owner-bar" role="note">
-  <b>Not locked yet</b> — anyone with this link sees only the orders placed
-  in their own browser, never anybody else's. When orders move to a server,
-  this page will ask for the store code before it shows any.
-</div>
+<!-- ⚠️ THE LOCK, STATED -- by owner.js, because which lock this is depends on
+     whether a database is connected. Empty in the HTML so neither sentence
+     flashes up before the page knows which is true. -->
+<div class="preview-bar" id="owner-bar" role="note" hidden></div>
 
 <header class="hdr" id="site-header">
   <div class="hdr-left">
@@ -60,6 +52,10 @@
 
 <div class="shell shell-solo" id="shell">
   <main class="main main-wide" id="main">
+    <!-- The store code, asked for here when a database is connected. NOT a
+         section: the router never draws it, and nothing behind it is drawn
+         until the server has let this browser in. -->
+    <div id="lock" hidden></div>
     <!-- router.js toggles [hidden] on these, exactly as in the shop. -->
     <section data-screen="admin" hidden></section>
     <section data-screen="notfound" hidden></section>

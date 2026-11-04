@@ -150,8 +150,12 @@ sub read_module {
     # been taught. Dying beats emitting code that looks fine and is not.
     die "$key: unhandled import form:\n  $line\n" if $line =~ m{^import\b};
 
-    # export [async ]function NAME / export const NAME / export class NAME
-    if ($line =~ m{^export\s+(?:async\s+)?(?:function|const|class)\s+([A-Za-z_\$][\w\$]*)}) {
+    # export [async ]function NAME / export const|let NAME / export class NAME
+    #
+    # `let` is store.js: its backends are live bindings that ready() can
+    # re-point at the server. This bundle only ever runs from file://, where
+    # store.js never re-points them, so collecting the name is enough.
+    if ($line =~ m{^export\s+(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z_\$][\w\$]*)}) {
       push @names, $1;
       $line =~ s{^export\s+}{};
       push @lines, $line;

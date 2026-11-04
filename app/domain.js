@@ -564,6 +564,38 @@ export const ACTION_LABEL = {
 /** Where an order can stop short of delivery, or after it. No step follows. */
 export const ORDER_ENDS = ['cancelled', 'returned', 'abandoned'];
 
+/**
+ * What an order says it costs, against what the catalogue says TODAY: each
+ * line's unit price, and any discount against the coupon it names. The store
+ * board shows the result on every order, because the server cannot check
+ * prices it has never seen. Empty means nothing to say.
+ */
+export function checkOrderPrices(o, byId, shop) {
+  const out = [];
+  for (const l of (o && o.lines) || []) {
+    const p = byId(l.pid);
+    const what = `${l.name}${l.variantLabel ? ' (' + l.variantLabel + ')' : ''}`;
+    if (!p) { out.push(`${what} is no longer in the catalogue`); continue; }
+    const want = variantPrice(p, l.variant);
+    if (want !== l.unitPrice) {
+      out.push(`${what}: ${rupees(l.unitPrice)} on the order, ${rupees(want)} today`);
+    }
+  }
+  if (o && o.discount) {
+    const c = matchCoupon(o.coupon || '', shop.coupons);
+    if (!c) {
+      out.push(`${rupees(o.discount)} off with no coupon this shop knows`);
+    } else {
+      const t = totals(o.lines.map((l) => ({ pid: l.pid, qty: l.qty, variant: l.variant })),
+        byId, shop.shipping, c);
+      if (t.discount !== o.discount) {
+        out.push(`coupon ${c.code}: ${rupees(o.discount)} off on the order, ${rupees(t.discount)} by today's rule`);
+      }
+    }
+  }
+  return out;
+}
+
 /** Past the last promised day and still not delivered: the store's "Late".
  *  Never true for an order that was promised nothing. ISO dates compare as
  *  strings, and `today` is IST through istDate(). */
@@ -612,6 +644,10 @@ export function trackSteps(order) {
   const rows = [];
   for (const s of ORDER_PATH) {
     const at = statusAt(order, s);
+    // An order placed online never was a draft in a browser: it reached the
+    // shop the moment it existed. "Saved in this browser: Not yet" above it
+    // would be a step it can never take.
+    if (s === 'draft' && !at && order.status !== 'draft') continue;
     if (ended && !at) break;
     const state = !at ? 'todo'
       : (s === order.status && s !== 'delivered' ? 'now' : 'done');

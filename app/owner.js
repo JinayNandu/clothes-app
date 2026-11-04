@@ -46,8 +46,94 @@ async function boot() {
   const shop = await store.catalog.shop();
   $('#owner-logo').innerHTML = logo('sm');
   document.title = `Store — ${shop.brand.name}`;
+  drawBar();
 
+  if (store.shared()) {
+    try {
+      if (!(await store.staff.isStaff())) await lock();
+    } catch (e) {
+      $('#main').innerHTML =
+        `<div class="notice notice-bad" style="margin:var(--s6) 0">
+          <div><b>The store could not reach its server.</b><br>
+          ${esc(String(e.message || e))}</div></div>`;
+      return;
+    }
+  }
   await router.start(OWNER_ROUTES);
+}
+
+// ⚠️ THE BAR SAYS WHICH LOCK THIS IS. With no database there is no server to
+// check a code, so there is no code, and the page says so; honesty.pl keeps
+// that sentence here for as long as one-browser mode exists.
+function drawBar() {
+  const bar = $('#owner-bar');
+  bar.innerHTML = store.shared()
+    ? '<b>Locked</b> — this page opens only with the store code, which the '
+      + 'server checks. Orders arrive here from every phone as they are placed.'
+    : '<b>Not locked yet</b> — anyone with this link sees only the orders placed '
+      + 'in their own browser, never anybody else\'s. When orders move to a server, '
+      + 'this page will ask for the store code before it shows any.';
+  bar.hidden = false;
+}
+
+/**
+ * The store code, asked for once per browser.
+ *
+ * ⚠️ claim_staff() on the server decides; this form only carries what was
+ * typed. Nothing here can tell a right code from a wrong one, and nothing
+ * should: a page that could is a page anybody can read the answer out of.
+ */
+function lock() {
+  const box = $('#lock');
+  box.innerHTML = `
+    <section class="panel lock">
+      <h1 class="t-h1">Store code</h1>
+      <p class="t-micro dim" style="margin-top:var(--s2)">This page shows every
+        customer's name, phone number and address, so it opens only with the
+        store code. The shop's server checks it, not this page, and this
+        browser stays let in afterwards.</p>
+      <form class="lock-form" data-lock novalidate>
+        <div class="field">
+          <label for="lock-code">Code</label>
+          <input id="lock-code" name="code" type="password" autocomplete="off"
+                 autocapitalize="none" spellcheck="false" maxlength="24">
+        </div>
+        <button type="submit" class="btn btn-primary">Open the store</button>
+        <p class="t-micro lock-msg" data-msg role="status" aria-live="polite"></p>
+      </form>
+    </section>`;
+  box.hidden = false;
+  const form = box.querySelector('[data-lock]');
+  const input = box.querySelector('#lock-code');
+  const msg = box.querySelector('[data-msg]');
+  const btn = form.querySelector('button');
+  input.focus();
+
+  return new Promise((resolve) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = input.value.trim().toLowerCase();
+      if (!code) { msg.textContent = 'Type the store code first.'; return; }
+      btn.disabled = true;
+      msg.textContent = 'Checking…';
+      try {
+        if (await store.staff.claim(code)) {
+          box.hidden = true;
+          box.innerHTML = '';
+          resolve();
+          return;
+        }
+        msg.textContent = 'That is not the store code.';
+        input.select();
+      } catch (err) {
+        msg.textContent = /TOO_MANY_TRIES/.test(String(err.message))
+          ? 'Too many tries from this browser. Wait an hour, then try again.'
+          : 'The store could not reach its server: ' + String(err.message || err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 favicon();

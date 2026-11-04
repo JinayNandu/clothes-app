@@ -52,7 +52,11 @@ async function paint(host) {
   host.innerHTML = `
   ${h1('Your details', 'Account')}
 
-  ${notice('info', '<b>This is not an account.</b> There is no login here, '
+  ${store.shared() ? notice('info', '<b>Not an account yet.</b> Your orders reach '
+    + 'us the moment you place them, but only this browser can show them to you: '
+    + 'with no sign-in yet, another phone cannot tell they are yours. Your details '
+    + 'and your wishlist are kept in this browser only.')
+  : notice('info', '<b>This is not an account.</b> There is no login here, '
     + 'because there is no server to hold a password. Your details, your '
     + 'wishlist and your orders are saved in this browser only — clearing your '
     + 'browser data erases all of it, and opening this site on another device '
@@ -125,8 +129,11 @@ async function paint(host) {
       <section class="panel" style="margin-top:var(--s4)">
         <h2 class="t-h3">Clear everything</h2>
         <p class="t-micro dim" style="margin:var(--s2) 0 var(--s4)">
-          Removes your details, bag, wishlist and every order from this browser.
-          There is no copy anywhere else, so this cannot be undone.</p>
+          ${store.shared()
+            ? 'Removes your details, bag and wishlist from this browser. Orders are '
+              + 'not removed: once placed, they are with us.'
+            : 'Removes your details, bag, wishlist and every order from this browser. '
+              + 'There is no copy anywhere else, so this cannot be undone.'}</p>
         <button type="button" class="btn btn-secondary btn-block" data-clear>
           ${icon('trash', 16)} Clear everything</button>
         <div data-confirm hidden style="margin-top:var(--s3)">

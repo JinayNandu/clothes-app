@@ -73,10 +73,13 @@ function renderOverview({ orders, all, shop, cats }) {
   const late = orders.filter((o) => D.isLate(o));
 
   return `
-  ${notice('warn', '<b>These are orders placed in THIS browser only.</b> '
-    + 'There is no server, so an order a customer places on their own phone '
-    + 'never appears here — it reaches you on WhatsApp. Two tabs side by side '
-    + 'make this look like it works, which is exactly why it is worth saying.')}
+  ${store.shared()
+    ? notice('info', '<b>Every order, from every phone.</b> They arrive here the '
+      + 'moment a customer places one, and this page updates by itself.')
+    : notice('warn', '<b>These are orders placed in THIS browser only.</b> '
+      + 'There is no server, so an order a customer places on their own phone '
+      + 'never appears here — it reaches you on WhatsApp. Two tabs side by side '
+      + 'make this look like it works, which is exactly why it is worth saying.')}
 
   <div class="adm-stats">
     ${stat('Products', all.length, tabHref('catalogue'))}
@@ -129,7 +132,16 @@ const stat = (label, n, href) => `<a class="adm-stat" href="${href}">
 // ---------------------------------------------------------------------------
 // ORDERS
 // ---------------------------------------------------------------------------
-function renderOrders({ orders, shop }) {
+function renderOrders({ orders, shop, all }) {
+  if (!orders.length && store.shared()) {
+    return `<section class="panel">
+      <h2 class="t-h3">No orders yet</h2>
+      <p class="t-micro dim" style="margin-top:var(--s3);max-width:60ch">
+        They appear here the moment a customer places one, on any phone. The
+        board is not seeded with invented orders, because a board that invents
+        orders cannot be trusted about the real ones.</p>
+    </section>`;
+  }
   if (!orders.length) {
     return `<section class="panel">
       <h2 class="t-h3">No orders in this browser</h2>
@@ -141,7 +153,7 @@ function renderOrders({ orders, shop }) {
         own phone reaches you on WhatsApp.</p>
     </section>`;
   }
-  return `<div class="adm-orders">${orders.map((o) => orderPanel(o, shop)).join('')}</div>`;
+  return `<div class="adm-orders">${orders.map((o) => orderPanel(o, shop, all)).join('')}</div>`;
 }
 
 // History records what happened, so a saved order reads "Saved", not the
@@ -154,7 +166,7 @@ const stepName = (s) => (s === 'draft' ? 'Saved' : D.STATUS_LABEL[s]);
  * one panel -- before this, the board showed the name and the total and
  * left the address on the customer's own page.
  */
-function orderPanel(o, shop) {
+function orderPanel(o, shop, all) {
   const next = D.ORDER_NEXT[o.status] || [];
   const main = next.find((to) => D.ORDER_PATH.includes(to));
   const c = o.customer || {};
@@ -187,6 +199,8 @@ function orderPanel(o, shop) {
       <b>unverified</b> and does not mark this order paid. Verifying it needs
       an HMAC over the key secret on a server, which does not exist yet — so
       check the bank yourself before marking it paid.`) : ''}
+
+    ${priceNotice(o, shop, all)}
 
     <div class="adm-order-lines">
       ${o.lines.map((l) => `<div class="total-row muted">
@@ -228,8 +242,24 @@ function orderPanel(o, shop) {
     ? `Marked paid ${D.fmtStamp(o.paidAt)}${o.paidVia ? ' · ' + esc(o.paidVia) : ''}.
          Only you can set this, and only you can unset it.`
     : 'Mark this only after you have seen the money arrive. Nothing on this '
-      + 'site can tell you that — there is no gateway and no server.'}</p>
+      + 'site can tell you that: UPI sends no message back to a web page.'}</p>
   </section>`;
+}
+
+/**
+ * ⚠️ THE SERVER RE-ADDS AN ORDER'S TOTALS BUT CANNOT KNOW ITS PRICES -- the
+ * catalogue is JSON in git, not in the database -- so a forged request could
+ * name its own. This page has the catalogue, so it checks every order against
+ * today's prices and coupons, and says so before anybody puts it in a parcel.
+ * A price changed since the order looks the same, which is why it says
+ * "today's".
+ */
+function priceNotice(o, shop, all) {
+  const off = D.checkOrderPrices(o, (id) => (all || []).find((p) => p.id === id), shop);
+  if (!off.length) return '';
+  return notice('bad', `<b>These are not today's catalogue prices.</b>
+    ${off.map((x) => esc(x)).join('; ')}. Check them before you ship: an order
+    can be made by hand to name its own price.`);
 }
 
 /** Courier and tracking number travel with "Mark shipped"; both optional. */
@@ -330,7 +360,7 @@ router.registerScreen('admin', async (host, r) => {
 
   const draw = async () => {
     const [orders, all, shop, cats, ov, state] = await Promise.all([
-      store.orders.mine(), store.catalog.all(), store.catalog.shop(),
+      store.orders.all(), store.catalog.all(), store.catalog.shop(),
       store.catalog.categories(), store.catalog.overlay(),
       store.catalog.overlayState(),
     ]);

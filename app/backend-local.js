@@ -531,6 +531,11 @@ export const orders = {
     return clone(read(K.orders, []).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   },
 
+  /** Every order the store can see. In one browser, that is the same list:
+   *  the board and "Your orders" read one localStorage key. On the server
+   *  they differ, which is why the board asks for this and not mine(). */
+  async all() { return orders.mine(); },
+
   async byCode(code) {
     return clone(read(K.orders, []).find((o) => o.code === code));
   },

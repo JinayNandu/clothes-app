@@ -5,7 +5,9 @@ established by testing or decided deliberately; none of it is a guess.
 
 **Status: steps 1 to 5 of 10 are built — the demo** (4 November 2026). Three
 garments, sizes, a bag, and an order that goes from checkout to delivered
--- all of it in one browser until step 6. See *Where this is* and *The order of work*.
+-- all of it in one browser until step 6. **Step 6 is built on this side and
+waits on the owner's Supabase project**: `app/config.js` is empty, so the
+live site is still one-browser. See *Where this is* and *The order of work*.
 
 ---
 
@@ -84,7 +86,8 @@ for the store owner**.
 | Delivery range | **Frozen into the order (step 5)** as it reaches the shop, and read back everywhere after. Live only where it should be: the product page and the shipping page. The store flags an order **Late** once its last promised day has passed |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
 | Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders with the address, the phone and the next step; catalogue; stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
-| Database, accounts | **Not started** — steps 6, 7 |
+| Database | **Built, waiting on the project (step 6).** `db/schema.sql`, `db/store-code.sql`, `db/SETUP.md`, `app/backend-supabase.js`. Empty `SUPABASE` in `config.js` = one-browser mode, which is what is live. Clicked through against a fake server in the browser; ⚠️ **the SQL has not yet run on a real Postgres** — see *The database* |
+| Accounts | **Not started** — step 7 |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
 | Public site | Shop <https://jinaynandu.github.io/clothes-app/>, store <https://jinaynandu.github.io/clothes-app/store/> — see *Published*. The shop wears a Preview bar while placeholder is true; the store a Not locked yet bar until step 8 |
 
@@ -162,6 +165,56 @@ can keep the old copy for up to ten minutes.
   its query and hash intact.
 
 ---
+
+## The database (step 6)
+
+Its own Supabase project — never Milan's, never DEVI's. Built from
+Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
+
+- **Nobody writes a table.** No insert, update or delete grant on any
+  table; every write is a SECURITY DEFINER function that checks itself:
+  `place_order` (the customer's only write), `advance_order` and
+  `set_paid` (staff only), `claim_staff` (the store code). Milan's lets a
+  customer INSERT their own order with any status and `paid` they like,
+  and its two-insert placement can leave an order with no lines behind.
+- **`place_order` re-adds every total** and writes the order and its
+  lines in one transaction, sets owner, status `sent`, `paid` false and
+  the time itself, caps five orders an hour per session, and rejects a
+  delivery promise no rule could produce.
+- ⚠️ **It does not know the prices.** The catalogue is JSON in git, not in
+  the database, so a hand-made request can name its own unit price and
+  coupon. `checkOrderPrices()` flags any such order on the store's board
+  ("These are not today's catalogue prices") — proved with a ₹1 shirt.
+  **A server-side price check must come before taking money from
+  strangers.** See *Open*.
+- **The store code is `claim_staff()`**: a bcrypt compare on the server,
+  8–24 lowercase characters, five tries an hour per session. The code is
+  typed into the SQL editor only; `db.pl` fails if `store-code.sql` holds
+  anything but CHANGE-ME. The store page in database mode shows a code
+  form, and nothing behind it, until the server says yes.
+- **Browsing never touches the server.** A session (anonymous) is made
+  when an order is placed, or when the store page opens; its key is
+  `vastra.auth`, inside this shop's prefix on the shared origin.
+- **`store.js` switches backends with live bindings**, not a top-level
+  await, so the single-file build still bundles — and it stays
+  one-browser from `file://` whatever the config says.
+- **The UI tells the truth in both modes** through `store.shared()`:
+  "Save this order" or "Place order", "has not received this yet" or
+  "Sent to us at…", the account page's notice, the store's board notice.
+- **`tools/db.pl`, the eleventh check**: the order prefix, the statuses
+  and the road agree between `schema.sql` and `domain.js`; every table
+  has RLS and is revoked before any grant; nothing is granted to `anon`;
+  every function is revoked from public, anon and authenticated; every
+  SECURITY DEFINER pins its search_path; no hash, secret table or secret
+  key in `app/`; `config.js` holds a publishable key or nothing (a
+  legacy JWT is decoded and must say `anon`). Each proved by breaking it.
+- **How it was checked without a project:** a fake Supabase API in the
+  browser (a `fetch` stand-in, in temporary pages never committed) took
+  an order through `place_order`, let the store in with the code, and
+  moved the order along; the payload carried every field `schema.sql`
+  reads. And with the config pointed at a dead address: browsing still
+  works, "Place order" says it could not reach the shop and keeps the
+  bag, and the store page fails shut rather than showing local orders.
 
 ## Two pages: the shop and the store
 
@@ -436,7 +489,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 3. ✅ Cart, coupon, totals — `money.pl` green.
 4. ✅ **Checkout and a real order**, still in local storage. The order page tracks it step by step, the store moves it from Confirm to Mark delivered, and `deliveredAt` is a field of its own. 4 November 2026.
 5. ✅ **Freeze the delivery range into the order at placement** — as it reaches the shop, read back everywhere after, with a Late flag on the store's board. 4 November 2026.
-6. ⬜ **Supabase** — follow `kirana/db/SETUP.md`, do not improvise.
+6. 🔶 **Supabase** — built on this side on 4 November 2026 (`db/`, `backend-supabase.js`, `db.pl`); waiting on the owner to make the project, run the two SQL files and send the URL and publishable key. Then: verify from outside, fill `config.js`, publish.
 7. ⬜ **Accounts**, so a parcel can be tracked from a second phone.
 8. ⬜ **The store view, locked**, behind `claim_staff()`. The page and its own link exist since 4 November 2026; what is left is the code check on the server and reading every phone's orders from the database.
 9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.
@@ -446,6 +499,11 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 
 ## Open, and owned by the user
 
+- ⚠️ **The server does not check prices or coupons** (see *The
+  database*). Before real customers: give it the catalogue's prices — a
+  table generated from `catalog.json`, or one the store page refreshes —
+  and have `place_order` price each line itself. Stock belongs there too,
+  so two phones cannot both buy the last one.
 - ⚠️ **`placeholder` is `true`, and `data.pl` FAILS while it is.** The
   brand name, the brand story, the year, every contact field and all
   three prices are **invented** — realistic, not real. The owner has not

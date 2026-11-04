@@ -12,6 +12,7 @@
 //   fonts.googleapis.com        Cormorant Garamond + Manrope
 //   cdnjs.cloudflare.com        qrcodejs 1.0.0
 //   checkout.razorpay.com       v1/checkout.js
+//   cdn.jsdelivr.net            @supabase/supabase-js 2.118.0 (+esm), 2026-11-04
 // ============================================================================
 
 export const CDN = {
@@ -19,6 +20,26 @@ export const CDN = {
   qrcode: 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
   // Loaded only when a gateway key is actually configured.
   razorpay: 'https://checkout.razorpay.com/v1/checkout.js',
+  // Loaded only when SUPABASE below names a project. The same exact version
+  // kirana runs, so it is one that has been followed end to end.
+  supabase: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm',
+};
+
+// ---------------------------------------------------------------------------
+// THE DATABASE -- this shop's own Supabase project. See db/SETUP.md.
+//
+// BOTH EMPTY means one-browser mode: everything in this browser, which keeps
+// `perl tools/serve.pl 8150 app` and the single-file build working with no
+// project at all. store.js switches only when BOTH are filled in.
+//
+// The publishable key BELONGS here. It names the project and nothing more;
+// what guards the data is the rules in db/schema.sql, on the server. ⚠️ NEVER
+// the secret key (sb_secret_... or a legacy service_role key): it ignores every
+// rule. tools/db.pl fails on anything here that is not a publishable key.
+// ---------------------------------------------------------------------------
+export const SUPABASE = {
+  url: '',
+  key: '',
 };
 
 /**

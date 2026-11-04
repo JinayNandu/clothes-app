@@ -1,10 +1,12 @@
 // ============================================================================
 // Checkout.
 //
-// ⚠️ The button says "Save this order", not "Place order" or "Pay now",
-// because that is what it does. An order the merchant has never seen is not
-// placed, and this page cannot send anything anywhere — the next screen is
-// where it is handed over.
+// ⚠️ The button says what it does, and what it does depends on whether a
+// database is connected. With none it says "Save this order": an order the
+// shop has never seen is not placed, and the next screen is where it is
+// handed over. With one it says "Place order", because then that is true --
+// the order is with the shop when the call returns. Never "Pay now": nothing
+// here takes money.
 //
 // ⚠️ NO <form action>. There is nothing to POST to. tools/honesty.pl fails on
 // one, because that is the shape a fake submission takes.
@@ -43,7 +45,9 @@ router.registerScreen('checkout', async (host) => {
   host.innerHTML = `
   ${h1('Checkout', 'Almost there')}
 
-  ${notice('warn', '<b>This page does not take payment and cannot send your '
+  ${store.shared() ? notice('info', '<b>Your order comes straight to us</b> the '
+    + 'moment you place it. This page does not take payment: pay by UPI with the '
+    + 'QR on the next page, or in cash to the courier.') : notice('warn', '<b>This page does not take payment and cannot send your '
     + 'order.</b> Saving it creates a record in this browser with an order '
     + 'code. The next screen is where you hand it to us — on WhatsApp, by '
     + 'phone or by email — and nothing reaches ' + esc(shop.brand.name)
@@ -106,9 +110,11 @@ router.registerScreen('checkout', async (host) => {
 
       <div style="margin-top:var(--s5)">
         <button type="button" class="btn btn-primary btn-block" data-save>
-          Save this order</button>
+          ${store.shared() ? 'Place order' : 'Save this order'}</button>
         <p class="t-micro dim" style="margin-top:var(--s3);text-align:center">
-          You will be able to send it to us on the next screen.</p>
+          ${store.shared()
+            ? 'We confirm every order by hand, and the next page shows it when we have.'
+            : 'You will be able to send it to us on the next screen.'}</p>
       </div>
 
       <div style="margin-top:var(--s4)">
@@ -192,9 +198,31 @@ router.registerScreen('checkout', async (host) => {
     }
 
     await store.profile.save(v);
-    // ⚠️ place() sets status 'draft' and paid false. It cannot do otherwise;
-    // see backend-local.js.
-    const order = await store.orders.place({ customer: v, payMethod: pay });
+    // ⚠️ Disabled for the length of the call: on a database, a second tap is a
+    // second order. place() sets the status and paid itself -- 'draft' in one
+    // browser, 'sent' on the server -- and cannot be told otherwise.
+    const btn = host.querySelector('[data-save]');
+    btn.disabled = true;
+    let order;
+    try {
+      order = await store.orders.place({ customer: v, payMethod: pay });
+    } catch (e) {
+      btn.disabled = false;
+      toast(whyNot(e));
+      return;
+    }
     router.go(`/order/${order.code}`);
   });
 });
+
+/** What to say when an order did not go through: in words, and with the bag
+ *  left exactly as it was, because losing it is worse than a failed tap. */
+function whyNot(e) {
+  const m = String((e && e.message) || e);
+  if (/TOO_MANY_ORDERS/.test(m)) return 'That is a lot of orders in one hour. Please wait a while, or write to us.';
+  if (/GONE_FROM_CATALOGUE/.test(m)) return 'Something in your bag is no longer sold. Please check your bag.';
+  if (/fetch|network|BLOCKED|NO_SESSION|Load failed|anonymous/i.test(m)) {
+    return 'We could not reach the shop just now. Your bag is still here; please try again.';
+  }
+  return 'The order did not go through: ' + m;
+}

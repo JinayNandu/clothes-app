@@ -102,6 +102,9 @@ for my $rel (@FILES) {
     next unless $lines[$i] =~ /setPaid\s*\(/;
     # The definition itself lives in backend-local.js.
     next if $rel eq '/backend-local.js';
+    # The server backend defines it too -- as a call to set_paid(), which the
+    # database refuses to anybody who is not staff. Exempt by name.
+    next if $rel eq '/backend-supabase.js';
     next if $rel eq '/pages/admin.js';
     push @setpaid, "app$rel:" . ($i + 1);
   }
@@ -199,7 +202,9 @@ if (@dwrite != 1) {
 # move with it. arrivalPromise() makes the promise, and only the backend may.
 # ---------------------------------------------------------------------------
 my %MAY_ESTIMATE = map { $_ => 1 } ('/domain.js', '/pages/product.js', '/pages/info.js');
-my %MAY_PROMISE  = map { $_ => 1 } ('/domain.js', '/backend-local.js');
+# The server backend makes the promise in place(), because on a database that
+# IS the moment the order reaches the shop; the database freezes it there.
+my %MAY_PROMISE  = map { $_ => 1 } ('/domain.js', '/backend-local.js', '/backend-supabase.js');
 my (@estimate, @promise, @awrite);
 for my $rel (@FILES) {
   my @lines = split /\n/, $CODE{$rel};
@@ -308,7 +313,9 @@ my %NOTICE = (
   'the preview bar, while shop.json says placeholder'
     => [ '/ui.js',            qr/nothing here can be ordered yet/ ],
   'the not-locked-yet bar on the store page, until a server checks the code'
-    => [ '/owner.html',       qr/Not locked yet/ ],
+    => [ '/owner.js',         qr/Not locked yet/ ],
+  'the element the store page states its lock in'
+    => [ '/owner.html',       qr/id="owner-bar"/ ],
   'the element the preview bar is drawn into'
     => [ '/index.html',       qr/id="preview-bar"/ ],
 );

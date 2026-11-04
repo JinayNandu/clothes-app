@@ -21,6 +21,7 @@ my @CHECKS = (
   ['routes.pl',  'every hash link resolves, shop and store stay apart, imports stay a tree'],
   ['deploy.pl',  'what GitHub Pages serves: root redirect, relative paths, exact case'],
   ['honesty.pl', 'the promise this site makes, enforced structurally'],
+  ['db.pl',      'the database agrees with the app, and no secret is in the repo'],
   ['clock.pl',   'every date read lives in domain.js'],
   ['balance.pl', 'unbalanced brackets and strings'],
 );

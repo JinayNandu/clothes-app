@@ -36,6 +36,14 @@ router.registerScreen('confirm', async (host, r) => {
   ]);
   if (mine !== generation) return;
 
+  if (!first && store.shared()) {
+    host.innerHTML = emptyState(seal(64), 'We cannot find that order here.',
+      'An order opens only in the browser it was placed from: with no sign-in yet, '
+      + 'another phone cannot tell it is yours. If this is that browser, check the '
+      + 'code, or write to us with it.',
+      'Contact us', '#/contact');
+    return;
+  }
   if (!first) {
     host.innerHTML = emptyState(seal(64), 'We cannot find that order.',
       'Orders are saved in the browser they were created in. If you placed this '
@@ -178,6 +186,11 @@ function statusBlock(o, shop) {
       + 'anywhere. It is a record in this browser, with a code, waiting for you '
       + 'to hand it over using one of the buttons below.');
     case 'sent': {
+      if (o.sentVia === 'online') {
+        return notice('good', `<b>Sent to us at ${esc(D.fmtStamp(o.sentAt))}.</b> `
+          + 'We confirm every order by hand, and this page will show it the moment '
+          + 'we have. Until then nothing is confirmed and nothing has been dispatched.');
+      }
       const via = { whatsapp: 'on WhatsApp', phone: 'by phone',
                     email: 'by email', copy: 'by copying it' }[o.sentVia] || '';
       // ⚠️ "Sent", never "confirmed". Only a person at the shop can confirm,

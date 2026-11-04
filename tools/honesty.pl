@@ -153,6 +153,8 @@ if (!$place) {
   fail('place() sets paid to true') if $place =~ /paid:\s*true/;
   fail('place() does not start the order with deliveredAt: null')
     unless $place =~ /deliveredAt:\s*null/;
+  fail('place() does not start the order with arrives: null -- a draft has '
+     . 'reached nobody, so it has been promised nothing') unless $place =~ /arrives:\s*null/;
   # The code a customer quotes on WhatsApp carries the shop's own initials.
   if ($place =~ /['"`][A-Z]{1,4}-['"`]/) {
     fail('place() mints the order code from a literal prefix -- use D.orderCode(SHOP, seq)');
@@ -185,6 +187,48 @@ if (@dwrite != 1) {
 } else {
   ok('deliveredAt is stamped in one place, as an order becomes delivered');
 }
+
+# ---------------------------------------------------------------------------
+# 4c. An order's delivery promise is worked out ONCE, as the order reaches the
+# shop, and only read after that.
+#
+# deliveryEstimate() answers "if I ordered today". That belongs on the product
+# page and the shipping page, where the answer SHOULD move as today moves.
+# Anywhere else it is an order screen re-deriving a promise already made --
+# and the day the owner edits deliveryDays, every open order would quietly
+# move with it. arrivalPromise() makes the promise, and only the backend may.
+# ---------------------------------------------------------------------------
+my %MAY_ESTIMATE = map { $_ => 1 } ('/domain.js', '/pages/product.js', '/pages/info.js');
+my %MAY_PROMISE  = map { $_ => 1 } ('/domain.js', '/backend-local.js');
+my (@estimate, @promise, @awrite);
+for my $rel (@FILES) {
+  my @lines = split /\n/, $CODE{$rel};
+  for my $i (0 .. $#lines) {
+    my $here = "app$rel:" . ($i + 1);
+    push @estimate, $here if $lines[$i] =~ /\bdeliveryEstimate\s*\(/ && !$MAY_ESTIMATE{$rel};
+    push @promise,  $here if $lines[$i] =~ /\barrivalPromise\s*\(/  && !$MAY_PROMISE{$rel};
+    push @awrite,   $here if $lines[$i] =~ /\.arrives\s*=(?!=)/;
+  }
+}
+my $promise_bad = 0;
+if (@estimate) {
+  $promise_bad++;
+  fail('deliveryEstimate() is called where an order is shown -- read order.arrives instead: '
+     . join(', ', @estimate));
+}
+if (@promise) {
+  $promise_bad++;
+  fail('arrivalPromise() is called outside the backend: ' . join(', ', @promise));
+}
+if (@awrite != 1) {
+  $promise_bad++;
+  fail('order.arrives is written in ' . scalar(@awrite) . ' places, not one: ' . join(', ', @awrite));
+} elsif (!$adv || $adv !~ /if\s*\(\s*to\s*===\s*'sent'\s*&&\s*!o\.arrives\s*\)\s*o\.arrives\s*=\s*D\.arrivalPromise\(/) {
+  $promise_bad++;
+  fail("order.arrives is not frozen once, by advance(), as the order is sent ($awrite[0])");
+}
+ok('the delivery promise is made once, as an order is sent, and only read after that')
+  unless $promise_bad;
 
 # ---------------------------------------------------------------------------
 # 5. There is no login, anywhere.

@@ -3,7 +3,7 @@
 Read this before changing anything. Everything here was either
 established by testing or decided deliberately; none of it is a guess.
 
-**Status: steps 1 to 4 of 10 are built** (4 November 2026). Three
+**Status: steps 1 to 5 of 10 are built — the demo** (4 November 2026). Three
 garments, sizes, a bag, and an order that goes from checkout to delivered
 -- all of it in one browser until step 6. See *Where this is* and *The order of work*.
 
@@ -81,7 +81,7 @@ for the store owner**.
 | An order, end to end | **Built (step 4).** Saved → sent by the customer → confirmed, packed, shipped (courier and tracking number optional) and delivered by the store. The customer's order page draws the journey as a timeline and follows it live; `deliveredAt` is stamped on delivery. ⚠️ Shop and store meet only in the same browser until step 6. **Stock is not taken off on ordering** — that belongs on the server, where two phones cannot both buy the last one |
 | Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED. Photographs are Unsplash stand-ins, credited in `shop.json` `photos` and on the About page |
 | Size charts | **Built.** A Size guide panel on the product page, plus a no-tap fit hint under the picker |
-| Delivery range | `deliveryEstimate()` works and the shipping page uses it. **NOT yet frozen into an order** — step 5 |
+| Delivery range | **Frozen into the order (step 5)** as it reaches the shop, and read back everywhere after. Live only where it should be: the product page and the shipping page. The store flags an order **Late** once its last promised day has passed |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
 | Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders with the address, the phone and the next step; catalogue; stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
 | Database, accounts | **Not started** — steps 6, 7 |
@@ -255,14 +255,34 @@ promise is an edit and not a code change. `domain.js` owns
 above `max`, because a range that prints backwards reads as a broken
 shop rather than as a bad number in a file.
 
-⚠️ **NOT YET FROZEN INTO AN ORDER.** Today it is computed live on the
-product page and the shipping page, which is correct *there* — both
-answer "if I order today, when does it arrive", and that answer must
-move as today moves. **Step 5 is to snapshot it onto the order at
-placement and read it back**, never recompute it from `placedAt`. The
-trap is not that the arithmetic drifts; it is that the day the owner
-edits `deliveryDays` from 5–10 to 4–8, every open order silently gets a
-new promise. The customer screenshots the first one.
+**Live on the product page and the shipping page**, which is correct
+*there*: both answer "if I order today, when does it arrive", and that
+answer must move as today moves. **Frozen on the order**, since step 5,
+and read back everywhere else. The trap is not that the arithmetic
+drifts; it is that the day the owner edits `deliveryDays` from 5–10 to
+4–8, every open order would silently get a new promise. The customer
+screenshots the first one.
+
+- **Frozen the moment the order reaches the shop** — `advance()` in the
+  backend, at draft → sent, through `arrivalPromise()`: `{from, to,
+  minDays, maxDays, countedFrom}`. Never overwritten. A saved order that
+  has not been sent has reached nobody, so it has no promise; its page
+  says "Arrives 5–10 working days after you send it to us", in days, not
+  dates. From step 6 an order reaches the shop the moment it is placed,
+  and the two moments become one.
+- **Shown** under the order's title ("Should arrive 10–16 November, once
+  we confirm it", then "Arrives …"), as the due date on the timeline's
+  last step, in *Your orders*, in the text sent to the shop, and on the
+  store's board as "Promised …", with a **Late** flag and a line under
+  *Needs attention* once the last day has passed undelivered.
+- **`honesty.pl` fails** if any order screen calls `deliveryEstimate()`,
+  if anything but the backend calls `arrivalPromise()`, if `arrives` gets
+  a second writer or loses its never-overwrite guard, or if a new order
+  does not start with `arrives: null`. Each proved by breaking it.
+- **Verified by the real trap**, 4 November 2026: an order sent with
+  5–10 days showed 10–16 November; `deliveryDays` was then edited to 4–8
+  on disk. The product page and the strip moved to 4–8 (9–13 November);
+  the order stayed at 10–16. `shop.json` was restored byte for byte.
 
 ### 2. A seven-day return window, counted from DELIVERY
 
@@ -415,7 +435,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 2. ✅ **The size chart on the product page.**
 3. ✅ Cart, coupon, totals — `money.pl` green.
 4. ✅ **Checkout and a real order**, still in local storage. The order page tracks it step by step, the store moves it from Confirm to Mark delivered, and `deliveredAt` is a field of its own. 4 November 2026.
-5. ⬜ **Freeze the delivery range into the order at placement.**
+5. ✅ **Freeze the delivery range into the order at placement** — as it reaches the shop, read back everywhere after, with a Late flag on the store's board. 4 November 2026.
 6. ⬜ **Supabase** — follow `kirana/db/SETUP.md`, do not improvise.
 7. ⬜ **Accounts**, so a parcel can be tracked from a second phone.
 8. ⬜ **The store view, locked**, behind `claim_staff()`. The page and its own link exist since 4 November 2026; what is left is the code check on the server and reading every phone's orders from the database.

@@ -33,6 +33,16 @@ function itemsLine(o) {
     + (rest.length ? ` and ${rest.length} more` : '');
 }
 
+/** "Arrives 10–16 November" while it is on its way, "Delivered 12 November"
+ *  once it is not. Read off the order; nothing here works out a date. */
+function whenLine(o) {
+  if (o.status === 'delivered' && o.deliveredAt) return `Delivered ${D.fmtDate(o.deliveredAt)}`;
+  if (o.arrives && ['sent', 'confirmed', 'packed', 'shipped'].includes(o.status)) {
+    return `Arrives ${D.fmtDateRange(o.arrives.from, o.arrives.to)}`;
+  }
+  return '';
+}
+
 async function paint(host) {
   const [profile, orders, wishIds, shop] = await Promise.all([
     store.profile.get(), store.orders.mine(),
@@ -79,6 +89,7 @@ async function paint(host) {
                 ${o.lines.length} ${o.lines.length === 1 ? 'line' : 'lines'} ·
                 ${D.rupees(o.grand)}</div>
               <div class="ord-meta">${esc(itemsLine(o))}</div>
+              ${whenLine(o) ? `<div class="ord-meta">${esc(whenLine(o))}</div>` : ''}
             </div>
             <span class="pill pill-${D.STATUS_TONE[o.status]}">
               ${esc(D.STATUS_LABEL[o.status])}</span>

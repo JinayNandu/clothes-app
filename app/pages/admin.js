@@ -70,6 +70,7 @@ function renderOverview({ orders, all, shop, cats }) {
   const lowStock = all.filter((p) => p.kind !== 'voucher' && p.stock <= shop.lowStockAt);
   const open = orders.filter((o) => ['sent', 'confirmed', 'packed', 'shipped'].includes(o.status));
   const unpaid = orders.filter((o) => !o.paid && !['draft', 'cancelled', 'abandoned'].includes(o.status));
+  const late = orders.filter((o) => D.isLate(o));
 
   return `
   ${notice('warn', '<b>These are orders placed in THIS browser only.</b> '
@@ -89,8 +90,12 @@ function renderOverview({ orders, all, shop, cats }) {
   <div class="two-col" style="margin-top:var(--s6)">
     <section class="panel">
       <h2 class="t-h3">Needs attention</h2>
-      ${lowStock.length || unpaid.length ? `
+      ${late.length || lowStock.length || unpaid.length ? `
       <div class="totals" style="margin-top:var(--s4)">
+        ${late.map((o) => `<div class="total-row muted">
+          <span><a href="${tabHref('orders')}">${esc(o.code)}</a> —
+            late, promised by ${esc(D.fmtDate(o.arrives.to))}</span>
+          <span>${esc(D.STATUS_LABEL[o.status])}</span></div>`).join('')}
         ${unpaid.map((o) => `<div class="total-row muted">
           <span><a href="${tabHref('orders')}">${esc(o.code)}</a> —
             not marked paid</span>
@@ -99,7 +104,7 @@ function renderOverview({ orders, all, shop, cats }) {
           <span><a href="${tabHref('catalogue', 'p=' + encodeURIComponent(p.id))}">${esc(p.name)}</a></span>
           <span>${p.stock === 0 ? 'out of stock' : p.stock + ' left'}</span></div>`).join('')}
       </div>` : `<p class="t-micro dim" style="margin-top:var(--s3)">
-        Nothing is low on stock and no order is waiting on a payment check.</p>`}
+        Nothing is late, nothing is low on stock and no order is waiting on a payment check.</p>`}
     </section>
 
     <aside>
@@ -165,12 +170,16 @@ function orderPanel(o, shop) {
       <div>
         <a href="./#/order/${esc(o.code)}" class="ord-code">${esc(o.code)}</a>
         <span class="pill pill-${D.STATUS_TONE[o.status]}">${esc(D.STATUS_LABEL[o.status])}</span>
+        ${D.isLate(o) ? '<span class="pill pill-bad">Late</span>' : ''}
         ${o.paid ? '<span class="pill pill-good">Paid</span>'
           : '<span class="pill pill-draft">Not marked paid</span>'}
       </div>
       <div class="ord-meta">${D.fmtStamp(o.createdAt)} ·
         ${o.lines.length} line${o.lines.length === 1 ? '' : 's'} ·
         <b>${D.rupees(o.grand)}</b> · ${esc(D.PAY_LABEL[o.payMethod] || o.payMethod)}</div>
+      ${o.arrives ? `<div class="ord-meta">Promised
+        ${esc(D.fmtDateRange(o.arrives.from, o.arrives.to))}${o.deliveredAt
+          ? ' · delivered ' + esc(D.fmtDate(o.deliveredAt)) : ''}</div>` : ''}
     </header>
 
     ${o.gatewayRef ? notice('warn', `<b>A gateway reported a payment

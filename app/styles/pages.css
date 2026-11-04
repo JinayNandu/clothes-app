@@ -265,6 +265,12 @@
 /* THE TRACKING TIMELINE, on the customer's order page. A column of steps,
    each done, current or still to come. ⚠️ Colour is never the only signal:
    every row also carries its date or "Not yet", and the current one says Now. */
+/* The delivery promise under the order's title: read off the order, never
+   worked out on the page. */
+.arrive{ margin-top:var(--s3); font-size:15px; color:var(--ink-soft); }
+.arrive b{ color:var(--ink); font-weight:700; }
+.arrive:empty{ display:none; }
+
 .track{ list-style:none; margin:var(--s4) 0 0; padding:0; }
 .track li{ position:relative; padding:0 0 var(--s4) 28px; }
 .track li:last-child{ padding-bottom:0; }

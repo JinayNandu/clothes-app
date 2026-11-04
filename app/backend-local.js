@@ -580,7 +580,7 @@ export const orders = {
       paid: false, paidAt: null, paidVia: null,
       gatewayRef: null,
       sent: false, sentAt: null, sentVia: null,
-      shipment: null, deliveredAt: null,
+      shipment: null, deliveredAt: null, arrives: null,
       status: 'draft',
       history: [{ at: now, to: 'draft' }],
     };
@@ -665,6 +665,13 @@ function advance(id, to, mutate, note) {
   // by searching the history is one refactor away from counting from the
   // wrong entry. honesty.pl checks this is the only line that writes it.
   if (to === 'delivered') o.deliveredAt = at;
+  // ⚠️ THE DELIVERY PROMISE IS MADE HERE, ONCE: as the order reaches the shop.
+  // Before that it is a request sitting in a browser, and its page states the
+  // rule in days, not dates. Never overwritten -- nothing may move a promise
+  // already made, which is the whole point of freezing it. From step 6 an
+  // order reaches the shop the moment it is placed, and the two moments are
+  // one. honesty.pl checks this is the only line that writes it.
+  if (to === 'sent' && !o.arrives) o.arrives = D.arrivalPromise(SHOP.shipping);
   if (mutate) mutate(o);
   write(K.orders, all, 'orders');
   return clone(o);

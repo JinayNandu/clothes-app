@@ -70,6 +70,7 @@ router.registerScreen('confirm', async (host, r) => {
     order = fresh;
     for (const [sel, html] of [
       ['[data-title]', title(order)],
+      ['[data-arrive]', arriveLine(order, shop)],
       ['[data-status]', statusBlock(order, shop)],
       ['[data-track]', track(order)],
       ['[data-handoff-head]', handoffHead(order)],
@@ -96,6 +97,7 @@ function page(o, shop) {
       <h1 class="t-h1" style="margin-top:var(--s3)" data-title>${title(o)}</h1>
       <p class="t-micro dim" style="margin-top:var(--s2)">
         Saved ${D.fmtStamp(o.createdAt)}</p>
+      <p class="arrive" data-arrive>${arriveLine(o, shop)}</p>
     </div>
 
     <div data-status>${statusBlock(o, shop)}</div>
@@ -127,6 +129,28 @@ function page(o, shop) {
 
 const title = (o) =>
   `${o.status === 'draft' ? 'Order request saved' : 'Your order'} &mdash; ${esc(o.code)}`;
+
+/**
+ * The delivery promise, as this order stands.
+ *
+ * ⚠️ READ OFF THE ORDER, never worked out here -- see arrivalPromise(), and
+ * honesty.pl, which fails if this file ever calls deliveryEstimate(). A
+ * draft has not reached the shop, so it has no promise yet and gets the rule
+ * in days. An order sent before promises were kept gets nothing, rather than
+ * one invented now.
+ */
+function arriveLine(o, shop) {
+  if (o.status === 'draft') {
+    const dd = (shop.shipping && shop.shipping.deliveryDays) || {};
+    return dd.min && dd.max
+      ? `Arrives ${dd.min}–${dd.max} working days after you send it to us.` : '';
+  }
+  if (!o.arrives || !['sent', 'confirmed', 'packed', 'shipped'].includes(o.status)) return '';
+  const range = esc(D.fmtDateRange(o.arrives.from, o.arrives.to));
+  return o.status === 'sent'
+    ? `Should arrive <b>${range}</b>, once we confirm it.`
+    : `Arrives <b>${range}</b>`;
+}
 
 function handoffHead(o) {
   return o.status === 'draft'
@@ -200,7 +224,9 @@ function track(o) {
     <li class="is-${s.state}">
       <span class="track-l">${esc(D.TRACK_LABEL[s.status])}${s.state === 'now'
         ? ' <span class="track-tag">Now</span>' : ''}</span>
-      <span class="track-at">${s.at ? esc(D.fmtStamp(s.at)) : 'Not yet'}</span>
+      <span class="track-at">${s.at ? esc(D.fmtStamp(s.at))
+        : s.status === 'delivered' && o.arrives
+          ? `Due ${esc(D.fmtDateRange(o.arrives.from, o.arrives.to))}` : 'Not yet'}</span>
       ${s.status === 'shipped' && s.at && ship
         ? `<span class="track-at">${esc(ship)}</span>` : ''}
     </li>`).join('')}</ol>`;

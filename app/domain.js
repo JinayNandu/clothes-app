@@ -119,6 +119,19 @@ export function deliveryEstimate(rules, placedISO = istDate()) {
   };
 }
 
+/**
+ * THE PROMISE AN ORDER CARRIES: the range worked out once, with the rule it
+ * came from and the day it was counted from. If the owner later edits
+ * deliveryDays, the order goes on showing what it was promised, and the
+ * record shows why. Written by the backend as the order reaches the shop,
+ * and only read after that -- honesty.pl fails on any other writer, and on
+ * any order screen that works the dates out again.
+ */
+export function arrivalPromise(shipping, countedFrom = istDate()) {
+  const e = deliveryEstimate(shipping, countedFrom);
+  return { from: e.from, to: e.to, minDays: e.minDays, maxDays: e.maxDays, countedFrom };
+}
+
 /** "10–15 November" when the two dates share a month, "28 November – 3
  *  December" when they do not. An en dash, and the month named once where it
  *  can be: "10 November – 15 November" reads as two separate promises. */
@@ -551,6 +564,14 @@ export const ACTION_LABEL = {
 /** Where an order can stop short of delivery, or after it. No step follows. */
 export const ORDER_ENDS = ['cancelled', 'returned', 'abandoned'];
 
+/** Past the last promised day and still not delivered: the store's "Late".
+ *  Never true for an order that was promised nothing. ISO dates compare as
+ *  strings, and `today` is IST through istDate(). */
+export const isLate = (o, today = istDate()) =>
+  !!(o && o.arrives && o.arrives.to)
+  && o.status !== 'delivered' && !ORDER_ENDS.includes(o.status)
+  && today > o.arrives.to;
+
 /** The road an order walks when nothing goes wrong, in order. The customer's
  *  tracking and the store's board both draw it. */
 export const ORDER_PATH = ['draft', 'sent', 'confirmed', 'packed', 'shipped', 'delivered'];
@@ -627,6 +648,8 @@ export function orderSummaryText(o, shop) {
   L.push(`Total: ${rupees(o.grand)}`);
   L.push('');
   L.push(`Payment: ${PAY_LABEL[o.payMethod] || o.payMethod}`);
+  // The promise as it was made, read off the order. A draft has none yet.
+  if (o.arrives) L.push(`Arrives: ${fmtDateRange(o.arrives.from, o.arrives.to)}`);
   L.push('');
   L.push(`${o.customer.name}`);
   L.push(`${o.customer.mobile}`);

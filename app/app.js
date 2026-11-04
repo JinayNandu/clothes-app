@@ -8,9 +8,9 @@
 
 import * as store from './store.js';
 import * as router from './router.js';
-import { $, $$, drawChrome, refreshCounts, openDrawer, closeDrawer, toast } from './ui.js';
+import { $, $$, drawChrome, refreshCounts, openDrawer, closeDrawer, toast, favicon } from './ui.js';
 import { initSidebar } from './sidebar.js';
-import { logo, seal } from './brand.js';
+import { logo } from './brand.js';
 import { esc } from "./ui.js";
 import * as D from "./domain.js";
 
@@ -24,7 +24,9 @@ import './pages/confirm.js';
 import './pages/wishlist.js';
 import './pages/account.js';
 import './pages/info.js';
-import './pages/admin.js';
+// ⚠️ NO STORE MODULE, EVER. The store is its own page, owner.html, with its
+// own entry, owner.js, and its own link. Importing pages/admin.js here would
+// put the store inside every customer's download; routes.pl fails if it is.
 import './pages/notfound.js';
 
 async function boot() {
@@ -158,24 +160,6 @@ function wireChrome() {
       return;
     }
   });
-}
-
-// The lotus seal as the favicon, inlined.
-//
-// ⚠️ A data: URI SVG is a separate document and cannot read the page's own CSS
-// custom properties, so the colour has to be a literal. Rather than typing one
-// here -- which would be a second source of truth for the brand gold -- it is
-// READ OUT of the computed style, so tokens.css stays the only place it is
-// defined.
-function favicon() {
-  const gold = getComputedStyle(document.documentElement)
-    .getPropertyValue('--gold').trim() || 'currentColor';
-  const svg = seal(32).replace('class="seal"', 'style="color:' + gold + '"');
-  const link = document.createElement('link');
-  link.rel = 'icon';
-  link.type = 'image/svg+xml';
-  link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
-  document.head.appendChild(link);
 }
 
 favicon();

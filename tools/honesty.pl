@@ -4,7 +4,7 @@
 #   perl tools/honesty.pl
 #
 # ---------------------------------------------------------------------------
-# DEVI Collections does not take money and cannot send an order anywhere. Every
+# This shop does not take money and cannot send an order anywhere. Every
 # screen says so. That is easy to write once and very easy to erode -- one
 # well-meant "Thank you for your purchase!" and the site is lying to a real
 # customer about a real payment.
@@ -37,7 +37,7 @@ for my $dir ('', '/pages') {
   push @FILES, map { "$dir/$_" } sort grep { /\.js$/ } readdir $dh;
   closedir $dh;
 }
-push @FILES, '/index.html';
+push @FILES, '/index.html', '/owner.html';
 
 # A file's source with comments stripped. The honesty rules are DISCUSSED at
 # length in the comments of this project -- gateway-razorpay.js explains
@@ -64,7 +64,7 @@ my @BANNED = (
   [ qr/payment\s+(?:was\s+)?(?:successful|received|confirmed|complete)/i,
     'claims a payment this site cannot observe' ],
   [ qr/order\s+(?:confirmed|placed\s+successfully|successfully\s+placed)/i,
-    'claims a confirmation only a human at DEVI can give' ],
+    'claims a confirmation only a human at the shop can give' ],
   [ qr/thank\s+you\s+for\s+your\s+(?:purchase|order|payment)/i,
     'thanks the customer for something that has not happened yet' ],
   [ qr/we(?:'ve|\s+have)\s+received\s+your\s+order/i,
@@ -106,7 +106,7 @@ for my $rel (@FILES) {
 if (@setpaid) {
   fail("setPaid() is called outside the admin at: " . join(', ', @setpaid));
 } else {
-  ok('setPaid() is reachable only from the admin');
+  ok('setPaid() is reachable only from the store page orders board');
 }
 
 # ---------------------------------------------------------------------------
@@ -148,6 +148,14 @@ if (!$place) {
     fail('place() does not set an explicit status');
   }
   fail('place() sets paid to true') if $place =~ /paid:\s*true/;
+  # The code a customer quotes on WhatsApp carries the shop's own initials.
+  if ($place =~ /['"`][A-Z]{1,4}-['"`]/) {
+    fail('place() mints the order code from a literal prefix -- use D.orderCode(SHOP, seq)');
+  } elsif ($place !~ /D\.orderCode\(/) {
+    fail('place() does not mint its code with D.orderCode()');
+  } else {
+    ok("place() takes the order code's prefix from the shop's own name");
+  }
   fail('place() sets sent to true') if $place =~ /sent:\s*true/;
 }
 
@@ -169,6 +177,10 @@ my $auth_hits = 0;
 # backslashes; the block is small and the word has no business in it at all.
 my ($routes_block) = $dom =~ /export const ROUTES = \[(.*?)\n\];/s;
 $routes_block = '' unless defined $routes_block;
+# The store page's table as well: it is the likelier home for a login.
+my ($owner_block) = $dom =~ /export const OWNER_ROUTES = \[(.*?)\n\];/s;
+$routes_block .= $owner_block // '';
+my $ohtml = slurp("$APP/owner.html");
 
 for my $w (@auth) {
   if ($routes_block =~ /\b\Q$w\E\b/i || $dom =~ m{screen:\s*'$w'}i) {
@@ -176,6 +188,9 @@ for my $w (@auth) {
   }
   if ($html =~ /data-screen="$w"/i) {
     $auth_hits++; fail("index.html contains an auth section: $w");
+  }
+  if ($ohtml =~ /data-screen="$w"/i) {
+    $auth_hits++; fail("owner.html contains an auth section: $w");
   }
   for my $rel (@FILES) {
     next unless $CODE{$rel} =~ /registerScreen\s*\(\s*'$w'/i;
@@ -215,12 +230,14 @@ my %NOTICE = (
     => [ '/pages/account.js', qr/This is not an account/ ],
   'the gateway-not-configured reason'
     => [ '/domain.js',        qr/Not set up yet/ ],
-  'the this-browser-only notice on the admin orders board'
+  'the this-browser-only notice on the store orders board'
     => [ '/pages/admin.js',   qr/orders placed in THIS browser only/i ],
   'the demo-UPI strip'
     => [ '/pay.js',           qr/cannot take money/i ],
   'the preview bar, while shop.json says placeholder'
     => [ '/ui.js',            qr/nothing here can be ordered yet/ ],
+  'the not-locked-yet bar on the store page, until a server checks the code'
+    => [ '/owner.html',       qr/Not locked yet/ ],
   'the element the preview bar is drawn into'
     => [ '/index.html',       qr/id="preview-bar"/ ],
 );

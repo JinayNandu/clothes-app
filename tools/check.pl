@@ -18,7 +18,7 @@ my @CHECKS = (
   ['tokens.pl',  'palette parity and no literal colour in a component rule'],
   ['art.pl',     'the same two rules, pointed at the modules that emit SVG'],
   ['canon.pl',   'the data files are already in the admin export form'],
-  ['routes.pl',  'every hash link resolves and no module imports backwards'],
+  ['routes.pl',  'every hash link resolves, shop and store stay apart, imports stay a tree'],
   ['deploy.pl',  'what GitHub Pages serves: root redirect, relative paths, exact case'],
   ['honesty.pl', 'the promise this site makes, enforced structurally'],
   ['clock.pl',   'every date read lives in domain.js'],

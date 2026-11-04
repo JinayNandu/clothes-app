@@ -2,8 +2,8 @@
 // Vastra Apparel — the category tree, and the same tree inside the drawer.
 //
 // ⚠️ A GROUP WITH ONE CHILD -- OR NONE -- RENDERS AS A PLAIN LINK, never as a
-// disclosure. Bedcovers & Quilts and Table Runners have no children at all;
-// they hold their products directly. An expand arrow that reveals a single
+// disclosure. Men has a single child today, Shirts; a category with none
+// holds its products directly. An expand arrow that reveals a single
 // row, or an empty list, reads as a broken menu. Both cases are three lines
 // each and they are the easiest thing here to forget.
 //

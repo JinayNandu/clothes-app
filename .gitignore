@@ -3,7 +3,7 @@
 #   perl tools/mksingle.pl     -> build/clothes-app.html AND docs/
 #   perl tools/mkartifact.pl   -> build/artifact.html
 #
-# docs/ is ignored HERE, unlike in DEVI. This repository is published from its
+# docs/ is ignored. This repository is published from its
 # root -- the index.html there forwards into app/, see "Published" in
 # CLAUDE.md -- so a committed docs/ would be a second copy of the shop, going
 # stale.
@@ -18,6 +18,11 @@ docs/
 # The original brief. It stays on this machine: it carries machine paths and
 # the Windows account name, and this repository is public.
 PROMPT.md
+
+# The notes on what was borrowed from two other projects to get this one
+# started. This is a separate shop with its own links, its own storage and,
+# later, its own database; the notes are for whoever builds it, here.
+FROM-DEVI-AND-MILAN.md
 
 # ---------------------------------------------------------------------------
 # Secrets. There is none in this project today and there must not be one

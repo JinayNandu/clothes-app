@@ -538,7 +538,7 @@ export const orders = {
   async place(draft) {
     const all = read(K.orders, []);
     const seq = (read(K.seq, 0) || 0) + 1;              // contract rule 3
-    const code = 'DC-' + String(seq).padStart(4, '0');
+    const code = D.orderCode(SHOP, seq);
 
     // Re-resolve everything from the catalogue rather than trusting the cart.
     const lines = readCart().map((l) => {

@@ -8,17 +8,13 @@
 // needs — a letter that is also the thing, rather than a garment icon placed
 // next to a letter.
 //
-// It replaces Vastra's jharokha-D, which worked the same way (a temple arch
-// stood on its flat side reads as a D) and said "home linen" while doing it.
-//
 // Everything here is inline SVG using currentColor or a var(--token), so the
 // mark is coloured by whatever its container sets and needs no second
 // definition. No literal colours — tools/art.pl checks this file too.
 //
 // ⚠️ OPTICAL SIZING: one path cannot serve 24px and 120px. Pretending
 // otherwise is why most logos go muddy in a sticky header. There are two
-// variants and `mark()` picks between them on size. Carried from Vastra
-// unchanged, because the reason is about screens and not about bed linen.
+// variants and `mark()` picks between them on size.
 // ============================================================================
 
 // Shared geometry, on a 48×48 grid so a 2-unit stroke renders at exactly 1px

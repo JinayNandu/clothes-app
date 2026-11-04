@@ -45,10 +45,9 @@ const P = {
   // flare. Drawing all three as "a top with sleeves" is how a category menu
   // ends up with three glyphs nobody can tell apart at 20px.
   //
-  // Vastra's bed / quilt / dohar / runner / vase / stool / gift glyphs were
-  // deleted rather than left in place: an unused glyph is one somebody
-  // reaches for later because it is there, and a razai in a shirt shop is
-  // worse than a missing icon.
+  // There are no glyphs here for anything this shop does not sell. An unused
+  // glyph is one somebody reaches for later because it is there, and a razai
+  // in a shirt shop is worse than a missing icon.
   // ---------------------------------------------------------------------
   // The collar is the whole glyph. Notch, stand, placket.
   shirt:   'M8.5 3 12 6.5 15.5 3l3.5 2-1 5h-2v11H8V10H6L5 5l3.5-2ZM12 6.5V21',

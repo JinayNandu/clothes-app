@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Store — Vastra Apparel</title>
+<!-- The owner's page is nobody's search result. -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#FBF8F3">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- tokens.css MUST load first: every other sheet reads from it. -->
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/layout.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/pages.css">
+</head>
+<body>
+
+<!-- ==========================================================================
+     THE STORE PAGE. Its own document and its own link,
+     .../clothes-app/store/ -- never a screen inside the shop.
+
+     ⚠️ The shop (index.html + app.js) imports no store module and links
+     nowhere near this page, so a customer's phone never downloads the store
+     and no customer can wander into it. tools/routes.pl fails if that ever
+     changes. What the two pages share is the data layer, so an order placed
+     in the shop is the order this page shows.
+     ========================================================================== -->
+
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ⚠️ THE LOCK, STATED. There is no store code yet, because a code checked
+     in the browser is a code anyone can read in this public repository: the
+     real lock has to live on the server, and there is no server yet. Until
+     then this page can only ever show what is in the browser it is opened
+     in, which is why it is safe to leave open -- and why it says so. This
+     goes when the server-side code check exists, not before.
+     tools/honesty.pl fails if it disappears. -->
+<div class="preview-bar" id="owner-bar" role="note">
+  <b>Not locked yet</b> — anyone with this link sees only the orders placed
+  in their own browser, never anybody else's. When orders move to a server,
+  this page will ask for the store code before it shows any.
+</div>
+
+<header class="hdr" id="site-header">
+  <div class="hdr-left">
+    <a href="#/" class="logo" id="owner-logo" aria-label="Store overview"></a>
+    <span class="owner-tag">Store</span>
+  </div>
+  <div></div>
+  <div class="hdr-right">
+    <a class="btn btn-sm btn-ghost" href="./">View the shop</a>
+  </div>
+</header>
+
+<div class="shell shell-solo" id="shell">
+  <main class="main main-wide" id="main">
+    <!-- router.js toggles [hidden] on these, exactly as in the shop. -->
+    <section data-screen="admin" hidden></section>
+    <section data-screen="notfound" hidden></section>
+  </main>
+</div>
+
+<noscript>
+  <div style="padding:2rem;text-align:center">
+    The store page needs JavaScript.
+  </div>
+</noscript>
+
+<script type="module" src="owner.js"></script>
+</body>
+</html>

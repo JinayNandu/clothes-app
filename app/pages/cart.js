@@ -2,7 +2,7 @@
 // The bag.
 //
 // ⚠️ Every mutation here takes a LINE KEY (pid|colour|size), never a product
-// id. Two colours of one bed cover are two lines, and keying on the product id
+// id. Two colours of one shirt are two lines, and keying on the product id
 // would silently increment the first — the customer then receives two of the
 // wrong colour and nothing in the UI ever looked wrong.
 // ============================================================================

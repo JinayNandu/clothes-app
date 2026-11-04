@@ -92,7 +92,8 @@ router.registerScreen('home', async (host) => {
   ${rail('r-new', 'New Arrivals', fresh, shop, wishIds, '#/new')}
 
   <!-- WHY THE PRICE IS THE PRICE
-       DEVI had a "Featured collection" panel here pointing at a category.
+       The usual thing here is a "Featured collection" panel pointing at a
+       category.
        This shop has three products, so a curated edit would be two of them
        and a link — merchandising furniture with nothing behind it. The
        manufacturer-direct story is the one thing this shop can say that the

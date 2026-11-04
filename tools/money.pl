@@ -14,8 +14,8 @@
 # is invisible there only because kirana ships fee:0 and freeOver:0, so both
 # branches return zero.
 #
-# DEVI ships a real Rs 99 fee and a real Rs 1,999 threshold, so the same drift
-# would be a live arithmetic error on day one. Case (a) below pins the rule,
+# A shop with a real fee above a real threshold would turn the same drift into
+# a live arithmetic error on day one. Case (a) below pins the rule,
 # and check_source() pins the line of JavaScript that implements it.
 # ---------------------------------------------------------------------------
 use strict;
@@ -187,8 +187,8 @@ print "\n";
 # That is not a hypothetical. It is precisely how kirana hid a real bug for
 # months -- its domain.js measured the threshold AFTER the coupon and its
 # money.pl measured it BEFORE, and both were invisible because both numbers
-# were zero. DEVI inherited a real Rs 99 fee, which is the only reason the
-# disagreement was ever found.
+# were zero. It took a shop with a real Rs 99 fee to bring the
+# disagreement to light.
 #
 # So the threshold cases below run against a SYNTHETIC fee and threshold. The
 # rule stays tested even though the shop does not charge for delivery, and the
@@ -203,9 +203,9 @@ print "\n";
 #
 # ⚠️ Deliberate, not laziness. Nothing in a clothes catalogue is `bulky` and
 # nothing is a `voucher`, but both branches are still live in domain.js and in
-# shop.json. Aiming these cases at a REAL product is what went wrong in DEVI --
-# they pointed at a stool and a gift card, and when those were delisted the
-# suite went on reporting green while testing nothing.
+# shop.json. Aiming these cases at a REAL product is how a suite goes blind:
+# delist the product and the suite goes on reporting green while testing
+# nothing.
 # ---------------------------------------------------------------------------
 $BY{'t-bulky'}   = { id => 't-bulky',   price => 4000, mrp => 4000,
                      kind => 'goods',   shipClass => 'bulky' };

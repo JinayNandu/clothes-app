@@ -1,5 +1,7 @@
 // ============================================================================
-// Admin — the shell, the overview, and the orders board.
+// The STORE page's screen — the overview, the orders board, and the tab bar
+// over the catalogue editor. Imported by owner.js for owner.html, the store's
+// own page; the shop never imports this module, and routes.pl fails if it does.
 //
 // ⚠️ THE ORDERS BOARD LIVES HERE AND NOT IN admin-catalog.js, and that is not
 // a filing decision. tools/honesty.pl allows orders.setPaid() to be called
@@ -33,10 +35,10 @@ const TABS = [
   { id: 'data', label: 'Data' },
 ];
 
-const tabHref = (id, q) => `#/admin/${id}${q ? '?' + q : ''}`;
+const tabHref = (id, q) => `#/${id}${q ? '?' + q : ''}`;
 
 function tabBar(active) {
-  return `<nav class="adm-tabs" aria-label="Admin sections">
+  return `<nav class="adm-tabs" aria-label="Store sections">
     ${TABS.map((t) => `<a href="${tabHref(t.id)}" class="adm-tab${t.id === active ? ' is-on' : ''}"
        ${t.id === active ? 'aria-current="page"' : ''}>${esc(t.label)}</a>`).join('')}
   </nav>`;
@@ -105,7 +107,7 @@ function renderOverview({ orders, all, shop, cats }) {
         <h2 class="t-h3">Where the data lives</h2>
         <p class="t-micro dim" style="margin-top:var(--s2)">
           Everything the business owns is in <code>app/data/shop.json</code>
-          and <code>app/data/catalog.json</code>. This admin edits a
+          and <code>app/data/catalog.json</code>. This page edits a
           <b>patch set</b> over the catalogue rather than a copy of it, so a
           field you have not touched still picks up the next catalogue update.
           <a href="${tabHref('data')}">Export</a> turns the patches back into
@@ -135,13 +137,15 @@ function renderOrders({ orders, shop }) {
     </section>`;
   }
 
+  // The code opens the order IN THE SHOP (./#/order/...), as the customer sees
+  // it. The store page has no order screen of its own yet.
   return `<div class="adm-orders">
     ${orders.map((o) => {
     const next = D.ORDER_NEXT[o.status] || [];
     return `<section class="panel adm-order" data-oid="${esc(o.id)}">
       <header class="adm-order-head">
         <div>
-          <a href="#/order/${esc(o.code)}" class="ord-code">${esc(o.code)}</a>
+          <a href="./#/order/${esc(o.code)}" class="ord-code">${esc(o.code)}</a>
           <span class="pill pill-${D.STATUS_TONE[o.status]}">${esc(D.STATUS_LABEL[o.status])}</span>
           ${o.paid ? '<span class="pill pill-good">Paid</span>'
       : '<span class="pill pill-draft">Not marked paid</span>'}
@@ -282,7 +286,7 @@ router.registerScreen('admin', async (host, r) => {
     if (mine !== generation) return;
 
     host.innerHTML = `
-      ${h1('Admin', 'Owner', 'Catalogue, inventory and order management.')}
+      ${h1('Store', shop.brand.name, 'Orders, the catalogue and stock, for the people who run the shop.')}
       ${tabBar(tab)}
       ${overlayStrip(state, O.countEdits(ov))}
       <div class="adm-body">${body}</div>

@@ -52,7 +52,11 @@ my $html = slurp("$APP/index.html");
 # tagline after a dash, which reads as generated filler beside other cards.
 # The tagline goes in the publish description instead.
 die "no <title> in index.html\n" unless $html =~ m{<title>.*?</title>}s;
-my $title = '<title>DEVI Collections</title>';
+# The name comes from shop.json, so renaming the shop renames this too.
+use JSON::PP;
+my $bname = JSON::PP->new->decode(slurp("$APP/data/shop.json"))->{brand}{name}
+  or die "no brand.name in shop.json\n";
+my $title = "<title>$bname</title>";
 
 my ($fontlinks) = $html =~ m{(<link rel="preconnect".*?rel="stylesheet">)}s;
 die "could not find the font links\n" unless $fontlinks;

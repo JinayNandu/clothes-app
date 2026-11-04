@@ -158,9 +158,9 @@ router.registerScreen('product', async (host, r) => {
           ${shop.returns && shop.returns.days ? `<div class="spec-row">
             <dt>Returns</dt>
             <!-- ⚠️ The number comes from shop.returns.days, never the word
-                 "Seven". DEVI hardcoded it here while its policy page read it
-                 from the JSON, so changing the window in one place would have
-                 left the product page promising the old one -- on the exact
+                 "Seven". Typed in here while the policy page reads the JSON, a
+                 change to the window in one place would leave the product page
+                 promising the old one -- on the exact
                  screen where the customer decides. -->
             <dd>${shop.returns.free ? 'Free' : 'At your cost'}, within
                 ${shop.returns.days} days of delivery &mdash; wrong size

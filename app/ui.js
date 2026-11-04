@@ -9,7 +9,7 @@
 
 import * as store from './store.js';
 import { icon } from './icons.js';
-import { logo, mark, brandBand } from './brand.js';
+import { logo, mark, brandBand, seal } from './brand.js';
 // domain.js is PURE and imports nothing, so this cannot create a cycle --
 // the rule is that ui.js must never import a PAGE.
 import * as D from './domain.js';
@@ -247,4 +247,24 @@ export function drawChrome(shop) {
     strip.innerHTML = esc(D.shippingLine(shop))
       + (ret ? ` &nbsp;·&nbsp; ${esc(ret)}` : '');
   }
+}
+
+// ---------------------------------------------------------------------------
+// THE FAVICON — the button seal, inlined. Both pages call this.
+//
+// ⚠️ A data: URI SVG is a separate document and cannot read the page's own CSS
+// custom properties, so the colour has to be a literal. Rather than typing one
+// here -- which would be a second source of truth for the brand gold -- it is
+// READ OUT of the computed style, so tokens.css stays the only place it is
+// defined.
+// ---------------------------------------------------------------------------
+export function favicon() {
+  const gold = getComputedStyle(document.documentElement)
+    .getPropertyValue('--gold').trim() || 'currentColor';
+  const svg = seal(32).replace('class="seal"', 'style="color:' + gold + '"');
+  const link = document.createElement('link');
+  link.rel = 'icon';
+  link.type = 'image/svg+xml';
+  link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  document.head.appendChild(link);
 }

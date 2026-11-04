@@ -21,6 +21,9 @@ import { parseRoute, buildHash } from './domain.js';
 const SCREENS = {};
 let leaving = [];
 let current = null;
+// The page's route table: domain.js ROUTES for the shop, OWNER_ROUTES for the
+// store page. Handed in by start(), so this module still imports no page.
+let TABLE;
 
 /** Pages call this at module scope. */
 export function registerScreen(name, enter) { SCREENS[name] = enter; }
@@ -69,7 +72,7 @@ async function paint() {
     for (const fn of leaving) { try { fn(); } catch (e) { console.error(e); } }
     leaving = [];
 
-    const r = parseRoute(location.hash);
+    const r = parseRoute(location.hash, TABLE);
     current = r;
 
     for (const el of document.querySelectorAll('[data-screen]')) {
@@ -94,7 +97,8 @@ async function paint() {
 
 export function repaint() { return paint(); }
 
-export function start() {
+export function start(routes) {
+  TABLE = routes;
   window.addEventListener('hashchange', () => {
     paint();
     // A new screen starts at the top. Staying at the old scroll position after

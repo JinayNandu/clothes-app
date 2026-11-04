@@ -312,7 +312,7 @@
   .pdp{ grid-template-columns:1fr; gap:var(--s6); }
   /* ⚠️ minmax(0,1fr), not a bare 1fr. A 1fr track still refuses to shrink
      below its content's min-content width, so one long <select> option in the
-     admin editor ("Home Decor & Furnishings → Bed Covers") pushed this column
+     store's catalogue editor (a long "Category → Subcategory" option) pushed this column
      to 414px inside a 375px phone and scrolled the whole page sideways. The
      desktop rule above already uses minmax; this override had dropped it. */
   .two-col{ grid-template-columns:minmax(0,1fr); gap:var(--s6); }

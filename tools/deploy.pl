@@ -67,6 +67,32 @@ if (!defined $ri) {
   }
 }
 
+# The store's door, store/index.html -> app/owner.html: the same two redirects
+# for the same reason, because the store page routes on the hash too.
+my $si = slurp("$root/store/index.html");
+if (!defined $si) {
+  fail('no store/index.html -- the store link .../clothes-app/store/ would 404');
+} else {
+  if ($si =~ /location\.replace\(\s*(["'])\.\.\/app\/owner\.html\1\s*\+\s*location\.search\s*\+\s*location\.hash\s*\)/) {
+    ok('the store door forwards into app/owner.html carrying the query AND the hash');
+  } else {
+    fail('store/index.html no longer forwards with '
+       . 'location.replace("../app/owner.html" + location.search + location.hash)');
+  }
+  if ($si =~ /<meta\s+http-equiv=["']refresh["']\s+content=["']0;\s*url=\.\.\/app\/owner\.html["']/i) {
+    ok('the store door keeps its <meta refresh> fallback for scripts off');
+  } else {
+    fail('store/index.html has lost its <meta refresh> fallback to ../app/owner.html');
+  }
+}
+my $noidx = 0;
+for my $rel ('app/owner.html', 'store/index.html') {
+  next if (slurp("$root/$rel") // '') =~ /<meta\s+name=["']robots["']\s+content=["'][^"']*\bnoindex\b/i;
+  $noidx++;
+  fail("$rel has no robots noindex -- the store page is nobody's search result");
+}
+ok('the store page and its door both tell search engines to keep out') unless $noidx;
+
 # ---------------------------------------------------------------------------
 # 2. Every path in the app is relative, and matches its file EXACTLY.
 #
@@ -87,6 +113,7 @@ sub walk {
   closedir $dh;
 }
 walk($APP);
+walk("$root/store");
 
 # -e is no use for the case test: on Windows it says yes to any casing. So walk
 # the path a component at a time against what each directory really lists.
@@ -176,7 +203,7 @@ if (opendir my $dd, "$APP/data") {
   }
   closedir $dd;
 }
-ok('no root-relative URL in ' . scalar(@files) . ' files under app/') unless $absolute;
+ok('no root-relative URL in ' . scalar(@files) . ' files under app/ and store/') unless $absolute;
 ok("all $nref references in code and $nimg image paths in data resolve, with exact case") unless $broken;
 
 print "\n";

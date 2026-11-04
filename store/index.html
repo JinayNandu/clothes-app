@@ -1,0 +1,46 @@
+<!doctype html>
+<!--
+  The store's short link: .../clothes-app/store/
+
+  The store page itself is app/owner.html. It has to live in app/, beside the
+  shop, because every relative path the two share -- data/, img/, styles/ --
+  is read against the page's own folder, and a page one folder over would
+  fetch none of them. So this is only a door, the same shape as the root
+  index.html that opens the shop: JavaScript first because it carries the
+  query and the hash, a <meta refresh> for scripts off, a plain link last.
+
+  tools/deploy.pl reads this file, because locally nothing exercises it.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="refresh" content="0; url=../app/owner.html">
+<script>
+  // replace(), not assign(), so the back button does not land on this page
+  // and bounce forward again.
+  location.replace("../app/owner.html" + location.search + location.hash);
+</script>
+<title>Opening the store</title>
+<style>
+  /* Values copied from app/styles/tokens.css: --paper, --ink, --gold-ink. */
+  :root{ --paper:#FBF8F3; --ink:#241C16; --gold-ink:#7A5D1D; color-scheme:light; }
+  html,body{ height:100%; }
+  body{
+    margin:0; display:grid; place-items:center; text-align:center;
+    background:var(--paper); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding:16px;
+  }
+  a{ color:var(--gold-ink); font-weight:600; }
+</style>
+</head>
+<body>
+  <p>Taking you to <a id="go" href="../app/owner.html">the store</a>&hellip;</p>
+  <script>
+    // Only reached if the redirect above was blocked. Same query, same hash.
+    document.getElementById("go").href = "../app/owner.html" + location.search + location.hash;
+  </script>
+</body>
+</html>

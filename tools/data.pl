@@ -86,8 +86,8 @@ my $ncat = scalar keys %cat_ids;
 # edit, an admin export written back with a branch missing -- which otherwise
 # shows up as a sidebar one row shorter that nobody notices for a week.
 #
-# They are declared up here, named, rather than written inline as DEVI had
-# them, because a magic number buried in a condition is one people edit
+# They are declared up here, named, rather than written inline,
+# because a magic number buried in a condition is one people edit
 # without reading and then the check means nothing. If you are changing these,
 # you should be adding or removing a category on purpose.
 # ---------------------------------------------------------------------------

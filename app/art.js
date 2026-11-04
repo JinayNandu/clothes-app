@@ -188,11 +188,10 @@ const MOTIFS = {
 // reads as a shirt on a shirt and as a kurti on a kurti. One mechanism solves
 // both "distinct per product" and "appropriate to the garment" at once.
 //
-// ⚠️ These shapes are the one part of art.js that is NOT inherited from Vastra.
-// Vastra sold bed linen, so its pool was `folded`, `drape` and `runner` — a
-// kurti drawn by those comes out as a folded bedsheet. Its `garment` shape
-// survived the November 2026 narrowing to linen and is the ancestor of `kurti`
-// below; the shirt, the dress and the top are new.
+// ⚠️ These shapes are drawn for clothes and nothing else. Shapes made for
+// linen -- folded, draped, laid flat -- draw a kurti as a folded bedsheet, so
+// every garment here has its own outline: the shirt, the kurti, the dress and
+// the top.
 //
 // `field`     — may a repeating motif fill it?
 // `chest`     — may a small centred device sit on the chest? ('force' = always)
@@ -230,7 +229,6 @@ const SHAPES = {
   },
 
   // A straight kurti — calf length, side slits, short front placket.
-  // The ancestor of this path is Vastra's `garment`, lengthened at the hem.
   kurti: {
     path: 'M152 132 L118 154 L100 214 L134 228 L142 200 V400 H258 V200 L266 228 '
         + 'L300 214 L282 154 L248 132 C236 152, 164 152, 152 132 Z',
@@ -284,8 +282,7 @@ const SHAPES = {
 //
 // ⚠️ THE POOLS ARE NOT INTERCHANGEABLE. A men's shirt never gets a floral
 // buti or a bandhani tie-dye: it gets the woven and geometric prints that
-// actually go on shirting. This is the same decision as Vastra's "a razai never
-// gets an ikat chevron", and it is what stops the grid reading as one print
+// actually go on shirting. It is what stops the grid reading as one print
 // sprayed over four garments.
 const BY_GROUP = {
   'men-shirts':    ['shirt', ['chevron', 'jaali', 'ikat', 'kantha']],
@@ -297,8 +294,8 @@ const BY_GROUP = {
 // ---------------------------------------------------------------------------
 // CHEST DEVICES — a single embroidered motif at the neck, never tiled.
 //
-// Vastra's MEDALLIONS were centred at (200,250) with an outer radius of 70, on
-// a bedsheet 272px wide. A kurti body is 116px wide, so the same device would
+// A MEDALLION centred at (200,250) with an outer radius of 70 suits a flat
+// piece of cloth 272px wide. A kurti body is 116px wide, so the same device would
 // be clipped to a band across its middle and read as a mistake rather than as
 // embroidery. These are the same four ideas at garment scale: ~60px across,
 // sitting high on the chest where a real neck motif goes.
@@ -384,9 +381,7 @@ function axes(id, group) {
   // ⚠️ The fallback is `kurti`, not `shirt`. An unknown group means a
   // subcategory this table has not been taught yet, and a kurti silhouette is
   // the one that reads least wrong on an unknown womenswear garment — which is
-  // what a new subcategory here is most likely to be. Vastra's equivalent
-  // fallback was a folded bedsheet, and it is exactly what drew every table
-  // runner as a sheet until the `sub || cat` bug was found.
+  // what a new subcategory here is most likely to be.
   const [shapeKey, pool] = BY_GROUP[group] || ['kurti', ['bagru', 'jaali']];
   const shape = SHAPES[shapeKey];
 
@@ -524,7 +519,7 @@ export function art(product, view = 0) {
   let v = cache.get(key);
   // ⚠️ sub OR cat. A product in a category with no subcategories has no
   // `sub` at all, and an undefined key here silently falls back to the
-  // default folded-bedsheet shape -- every table runner drawn as a sheet.
+  // default shape -- every product in that category drawn as a kurti.
   if (!v) {
     v = build(product.id, product.sub || product.cat, view);
     cache.set(key, v);
@@ -583,11 +578,10 @@ export function categoryArt(cat) {
 // Seeded on a fixed string, so it is part of the system rather than a one-off
 // asset: re-seeding it is how the hero changes each season.
 // ---------------------------------------------------------------------------
-// A kurta on a hanger on a rail. Vastra's hero was a jharokha arch — right for a
-// linen brand whose whole language was architectural, and wrong here: the first
-// thing a clothes shop must say, in one glance and before any copy is read, is
-// that it sells clothes. The hanger is doing most of that work; the garment
-// alone reads as a flat pattern swatch.
+// A kurta on a hanger on a rail. An architectural hero -- an arch, a doorway --
+// is wrong here: the first thing a clothes shop must say, in one glance and
+// before any copy is read, is that it sells clothes. The hanger is doing most
+// of that work; the garment alone reads as a flat pattern swatch.
 // `src` is a photograph path from shop.json `hero`; without one the drawn
 // hero stands in. Decorative, so no alt text: it is not this shop's floor.
 export function heroArt(seed = 'vastra-hero-aw26', src = '') {
@@ -605,7 +599,7 @@ export function heroArt(seed = 'vastra-hero-aw26', src = '') {
     <clipPath id="${pid}-c"><path d="${BODY}"/></clipPath>
   </defs>
   <rect width="560" height="700" fill="var(--p-sand)"/>
-  <!-- ⚠️ .26, not DEVI's .55. The same pattern fills the garment at full
+  <!-- ⚠️ .26, not .55. The same pattern fills the garment at full
        strength, so a strong background leaves the two at nearly equal
        contrast and the silhouette stops being a silhouette — it reads as one
        flat swatch with a hanger drawn on it. Dropped until the garment was

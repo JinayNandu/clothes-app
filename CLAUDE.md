@@ -21,6 +21,29 @@ working days**, and **free returns for seven days** after it lands.
 
 Personal side-venture of the user, not client work.
 
+### ⚠️ A separate project from DEVI — the owner's instruction, 4 November 2026
+
+The owner was plain about it: this is a completely different project from
+DEVI. Design ideas, a layout, a theme may be taken from it; the project
+itself stays separate, with **its own link for customers and its own link
+for the store owner**.
+
+- **Ideas, never connections.** A component, a rule learned the hard way, a
+  look: yes. A link to DEVI, its storage, its database, its name, its copy
+  or its products: never.
+- **Two links of its own**: the shop at `…/clothes-app/` and the store at
+  `…/clothes-app/store/`. See *Two pages*.
+- **Its own storage keys** (`vastra.*`) and, at step 6, **its own Supabase
+  project** — not DEVI's and not Milan's.
+- **Found and removed the day it was said**, all left over from the copy:
+  DEVI's footer blurb (bed linen, "Rajasthan, Bengal and Kerala"), a Gift
+  Vouchers link to a category this shop does not have, an "Admin" link in
+  every customer's footer, order codes minted as `DC-0001` (DEVI
+  Collections' initials), both build outputs named after DEVI, and comments
+  that a find-and-replace had turned into "Vastra sold bed linen".
+  `routes.pl` now fails on a link to a category or product that does not
+  exist, and `honesty.pl` on an order prefix typed into the code.
+
 ### Settled with the owner, 4 November 2026
 
 | Question | Answer |
@@ -51,16 +74,17 @@ Personal side-venture of the user, not client work.
 
 | Piece | State |
 |---|---|
-| Browse — home, category listing, product page, gallery, variant picker | **Built.** Inherited from DEVI, re-pointed at garments |
+| Browse — home, category listing, product page, gallery, variant picker | **Built.** Started from a copy of DEVI's code and re-pointed at garments; nothing is shared with DEVI now |
 | Cart, coupon, totals | **Built.** `money.pl` green, including the size delta |
-| Checkout, address, pay options | **Built**, still DEVI's: it saves to this browser and hands off on WhatsApp |
+| Checkout, address, pay options | **Built**: it saves to this browser and hands off on WhatsApp |
 | Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED. Photographs are Unsplash stand-ins, credited in `shop.json` `photos` and on the About page |
 | Size charts | **Built.** A Size guide panel on the product page, plus a no-tap fit hint under the picker |
 | Delivery range | `deliveryEstimate()` works and the shipping page uses it. **NOT yet frozen into an order** — step 5 |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
-| Database, accounts, seller view | **Not started** — steps 6, 7, 8 |
+| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders, catalogue, stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
+| Database, accounts | **Not started** — steps 6, 7 |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
-| Public site | <https://jinaynandu.github.io/clothes-app/> — see *Published*. Wears a Preview bar while placeholder is true |
+| Public site | Shop <https://jinaynandu.github.io/clothes-app/>, store <https://jinaynandu.github.io/clothes-app/store/> — see *Published*. The shop wears a Preview bar while placeholder is true; the store a Not locked yet bar until step 8 |
 
 ### Running it
 
@@ -93,6 +117,11 @@ redirect, which is why that redirect must keep the hash:
 `…/clothes-app/#/p/indigo-dobby-cotton-shirt`,
 `…/#/p/bagru-block-print-straight-kurti`, `…/#/p/tiered-cotton-midi-dress`.
 
+**The store has its own link**, `…/clothes-app/store/`. `store/index.html`
+is only a door, the same shape as the root one: it forwards to
+`app/owner.html` carrying the query and the hash, so `…/store/#/orders`
+lands on the Orders tab.
+
 ```bash
 git add -A && git commit -m "what changed, and why" && git push
 ```
@@ -109,8 +138,9 @@ can keep the old copy for up to ten minutes.
   it. The pre-rewrite history is `refs/original/refs/heads/master`, local
   only.
 - **`tools/deploy.pl` checks the deployed path**, because `serve.pl` serves
-  `app/` as the root and so cannot show it: `.nojekyll`, LF endings, the
-  redirect keeping `location.hash`, no root-relative URL, exact-case paths.
+  `app/` as the root and so cannot show it: `.nojekyll`, LF endings, both
+  redirects keeping `location.hash` (the root one and the store door), the
+  store page's `noindex`, no root-relative URL, exact-case paths.
 - **The Preview bar** is on every page while `placeholder` is `true` in
   `shop.json`, and goes with it.
 - **All of `jinaynandu.github.io` is ONE browser origin.** kirana,
@@ -131,9 +161,51 @@ can keep the old copy for up to ten minutes.
 
 ---
 
-## ⚠️ The storefront is DEVI's, the database will be Milan's
+## Two pages: the shop and the store
 
-`devi-collections` is a home-linen storefront that had already solved,
+| | Page | Entry | Route table | Link |
+|---|---|---|---|---|
+| **Shop**, for customers | `app/index.html` | `app/app.js` | `ROUTES` | `…/clothes-app/` |
+| **Store**, for whoever runs it | `app/owner.html` | `app/owner.js` | `OWNER_ROUTES` | `…/clothes-app/store/` |
+
+- **Two documents, not one with a hidden screen.** The shop imports no
+  store module and links nowhere near the store, so a customer's phone
+  never downloads the store and no customer can wander into it. The store
+  links out to the shop ("View the shop"); the reverse never.
+- **What they share is the data layer** (`store.js`), the router (handed a
+  table by `start()`), the pure modules and the styles — so an order placed
+  in the shop is the order the store lists. Today that means the same
+  browser; from step 6, the same database.
+- **`owner.html` lives in `app/`, not `store/`**, because `data/`, `img/`
+  and `styles/` are read relative to the PAGE. One folder over, it would
+  fetch none of them; so `store/index.html` is only a door.
+- **The store's tabs are spelled out** in `OWNER_ROUTES`, not matched as
+  any word: a catch-all would accept a stray `#/shop` and show the
+  overview without a murmur. `routes.pl` checks the list against `TABS` in
+  `pages/admin.js`.
+- **`routes.pl` checks each page against its own table**, over the modules
+  its own entry imports, and fails if the shop loads a store module or names
+  `owner.html` or `store/`. Proved by breaking it: an admin import in
+  `app.js`, an `owner.html` link in the footer, an old `#/admin` link, and
+  `#/shop` inside the store each fail by name.
+- ⚠️ **Not locked, and it says so** in a bar on every tab (`honesty.pl`
+  keeps it there). There is deliberately no code check in the browser: this
+  repository is public, so a code the page can check is a code anyone can
+  read. The lock is step 8, on the server. Until then the page can only
+  show the orders in the browser it is opened in — which is why it is safe
+  to leave open. Both store pages carry `noindex`.
+- An order's code on the board opens it **in the shop** (`./#/order/CODE`),
+  as the customer sees it. The store has no order screen of its own yet.
+- Locally: `http://localhost:8150/owner.html`, or
+  `http://localhost:8152/store/` to go through the door as Pages does.
+
+---
+
+## Where the code came from
+
+A copy, taken once, at the start — not a dependency, and not a link: see
+*A separate project from DEVI*. `devi-collections` is a home-linen
+storefront that had already solved,
 in production, every structural problem a clothes shop has and a grocery
 does not: variant-aware cart lines, a size axis that may carry a price
 delta, a product page, a listing page, a wishlist, a seller admin, and
@@ -145,7 +217,9 @@ it has that DEVI does not is a **working Supabase layer** — schema, row
 level security, SECURITY DEFINER functions, email sign-in, and a
 288-line setup walkthrough that has been followed end to end.
 
-`FROM-DEVI-AND-MILAN.md` has the file-by-file detail and the traps.
+`FROM-DEVI-AND-MILAN.md` has the file-by-file detail and the traps. It
+stays on this machine, git-ignored since 4 November 2026, like `PROMPT.md`:
+the published repository is this shop's own.
 
 ---
 
@@ -328,7 +402,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 5. ⬜ **Freeze the delivery range into the order at placement.**
 6. ⬜ **Supabase** — follow `kirana/db/SETUP.md`, do not improvise.
 7. ⬜ **Accounts**, so a parcel can be tracked from a second phone.
-8. ⬜ **The seller view**, behind `claim_staff()`.
+8. ⬜ **The store view, locked**, behind `claim_staff()`. The page and its own link exist since 4 November 2026; what is left is the code check on the server and reading every phone's orders from the database.
 9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.
 10. ⬜ **Real photographs**, whenever the owner can supply them. Stand-ins have been in place since 4 November 2026, and `data.pl` will not let `placeholder` go false while one is still shown.
 

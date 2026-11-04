@@ -28,7 +28,7 @@ const SHIP_CLASSES = ['std', 'bulky'];
 const num = (v) => (v === '' || v == null ? NaN : Number(v));
 const isInt = (v) => Number.isInteger(v);
 const splitList = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
-const href = (tab, q) => `#/admin/${tab}${q ? '?' + q : ''}`;
+const href = (tab, q) => `#/${tab}${q ? '?' + q : ''}`;
 
 /** Which fields of this product the overlay is currently patching. */
 const patchedFields = (ov, pid) => new Set(Object.keys((ov && ov.patch && ov.patch[pid]) || {}));
@@ -591,7 +591,7 @@ function wireCatalogue(host, ctx, repaint) {
       // Filtering is a view change, so it replaces rather than pushes: back
       // should leave the admin, not walk every keystroke.
       const q = search.value.trim();
-      const url = '#/admin/catalogue' + (q ? '?q=' + encodeURIComponent(q) : '');
+      const url = '#/catalogue' + (q ? '?q=' + encodeURIComponent(q) : '');
       try {
         if (location.hash !== url) history.replaceState(null, '', url);
       } catch {
@@ -643,7 +643,7 @@ function wireCatalogue(host, ctx, repaint) {
   on(form, 'revert-all', async () => {
     await store.catalog.revertProduct(pid);
     toast('Back to the shipped product.');
-    location.hash = '#/admin/catalogue';
+    location.hash = '#/catalogue';
   });
   on(form, 'retire', async () => {
     await store.catalog.retire(pid);
@@ -711,7 +711,7 @@ async function createProduct(ctx) {
     badges: [], tags: [], specs: [], variants: {},
   });
   toast('Created. It is live in this browser until you export.');
-  location.hash = '#/admin/catalogue?p=' + encodeURIComponent(created.id);
+  location.hash = '#/catalogue?p=' + encodeURIComponent(created.id);
 }
 
 function wireInventory(host, repaint) {

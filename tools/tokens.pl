@@ -4,7 +4,7 @@
 #   perl tools/tokens.pl
 #
 # Adapted from kirana's, which reads the <style> block of one index.html.
-# DEVI splits its CSS across app/styles/*.css, so this reads them all -- and
+# This app splits its CSS across app/styles/*.css, so this reads them all -- and
 # enforces that ALL THREE :root blocks live in tokens.css and nowhere else.
 #
 # Two halves, both of which matter:
@@ -120,7 +120,7 @@ if (@names == 3) {
     ok('the two dark blocks are identical');
   }
 
-  # DEVI ships light-only. That is honest ONLY if color-scheme says light in
+  # This shop ships light-only. That is honest ONLY if color-scheme says light in
   # every block -- otherwise the page renders ivory while the browser renders
   # scrollbars and date pickers dark on top of it.
   my %scheme;

@@ -216,8 +216,8 @@ export const variantMrp = (p, sel) => {
   return p.mrp + (s ? (s.delta || 0) : 0);
 };
 
-/** ⚠️ Line identity is pid|colour|size, NOT pid. Two colours of one bed cover
- *  are two lines. Without this, adding Indigo then Madder silently increments
+/** ⚠️ Line identity is pid|colour|size, NOT pid. Two colours of one shirt
+ *  are two lines. Without this, adding Indigo then Ecru silently increments
  *  the first and the customer receives two of the wrong thing. */
 export const lineKey = (line) =>
   [line.pid, (line.variant && line.variant.colour) || '',
@@ -248,7 +248,8 @@ export const matchCoupon = (code, coupons) => {
  *    A discount code must not win free shipping a basket had not earned.
  *    ⚠️ kirana's domain.js measures it on the post-coupon total while its
  *    money.pl measures it pre-coupon. They disagree, and it is dormant there
- *    only because both its numbers are zero. Vastra's are not.
+ *    only because both its numbers are zero -- and this shop's are zero too,
+ *    which is why tools/money.pl tests the rule on a SYNTHETIC fee.
  * 2. The discount is rounded ONCE, on the basket total — never per line.
  *    Per-line rounding lets the sum of the parts disagree with the total.
  * 3. maxOff caps the discount AFTER rounding.
@@ -421,14 +422,45 @@ export const ROUTES = [
   { re: /^\/returns$/,               screen: 'info',     keys: [], page: 'returns' },
   { re: /^\/privacy$/,               screen: 'info',     keys: [], page: 'privacy' },
   { re: /^\/terms$/,                 screen: 'info',     keys: [], page: 'terms' },
-  { re: /^\/admin$/,                 screen: 'admin',    keys: [] },
-  { re: /^\/admin\/([a-z-]+)$/,      screen: 'admin',    keys: ['tab'] },
 ];
+
+// THE STORE PAGE'S TABLE. owner.html is its own document with its own link
+// (.../clothes-app/store/) and routes on this instead of ROUTES -- so no shop
+// link can reach a store screen, and the store's tabs need no /admin prefix to
+// keep out of the shop's way. routes.pl checks each page's links against its
+// own table.
+//
+// ⚠️ The tabs are spelled out, not matched as any word. A catch-all would
+// accept #/shop -- a shop link that strayed into a store module -- and show
+// the overview without a murmur; spelled out, it is a not-found here and a
+// FAIL in routes.pl, which also checks this list against TABS in admin.js.
+export const OWNER_ROUTES = [
+  { re: /^\/?$/,                     screen: 'admin',    keys: [] },
+  { re: /^\/(overview|orders|catalogue|inventory|categories|data)$/, screen: 'admin', keys: ['tab'] },
+];
+
+// ---------------------------------------------------------------------------
+// THE ORDER CODE. The prefix is the initials of the shop's name, so Vastra
+// Apparel's orders are VA-0001, VA-0002, and a new name brings its own letters
+// with no second place to change.
+//
+// ⚠️ Never a literal. A prefix typed into the backend is how this shop's first
+// orders came out wearing another shop's initials. honesty.pl fails if place()
+// mints a code any other way.
+// ---------------------------------------------------------------------------
+export function orderPrefix(shop) {
+  const name = String((shop && shop.brand && shop.brand.name) || '');
+  const initials = name.split(/\s+/)
+    .map((w) => w.replace(/[^A-Za-z]/g, '').charAt(0)).join('').toUpperCase();
+  return initials.slice(0, 3) || 'ORD';
+}
+export const orderCode = (shop, seq) =>
+  `${orderPrefix(shop)}-${String(seq).padStart(4, '0')}`;
 
 /** "#/shop?sort=price-asc&min=500" -> { screen, params, query, path }.
  *  Query lives AFTER the hash so a filtered view is shareable and the browser
  *  back button undoes a filter, which is what people expect. */
-export function parseRoute(hash) {
+export function parseRoute(hash, routes = ROUTES) {
   const raw = String(hash || '').replace(/^#/, '');
   const qi = raw.indexOf('?');
   const path = (qi === -1 ? raw : raw.slice(0, qi)) || '/';
@@ -436,7 +468,7 @@ export function parseRoute(hash) {
   if (qi !== -1) {
     for (const [k, v] of new URLSearchParams(raw.slice(qi + 1))) query[k] = v;
   }
-  for (const r of ROUTES) {
+  for (const r of routes) {
     const m = path.match(r.re);
     if (!m) continue;
     const params = {};

@@ -46,9 +46,12 @@ push @FILES, '/index.html', '/owner.html';
 sub code_of {
   my ($rel) = @_;
   my $src = slurp("$APP$rel");
-  $src =~ s{/\*.*?\*/}{}gs;
-  $src =~ s{^\s*//.*$}{}gm;
-  $src =~ s{<!--.*?-->}{}gs;
+  # Each comment is replaced by the newlines it held, and a // line keeps its
+  # own, so a line number in a FAIL still points at the line it names. (`\s*`
+  # at the start of a // match used to swallow the blank lines above it.)
+  $src =~ s{/\*.*?\*/}{"\n" x (() = $& =~ /\n/g)}gse;
+  $src =~ s{^[ \t]*//[^\n]*}{}gm;
+  $src =~ s{<!--.*?-->}{"\n" x (() = $& =~ /\n/g)}gse;
   return $src;
 }
 
@@ -148,6 +151,8 @@ if (!$place) {
     fail('place() does not set an explicit status');
   }
   fail('place() sets paid to true') if $place =~ /paid:\s*true/;
+  fail('place() does not start the order with deliveredAt: null')
+    unless $place =~ /deliveredAt:\s*null/;
   # The code a customer quotes on WhatsApp carries the shop's own initials.
   if ($place =~ /['"`][A-Z]{1,4}-['"`]/) {
     fail('place() mints the order code from a literal prefix -- use D.orderCode(SHOP, seq)');
@@ -157,6 +162,28 @@ if (!$place) {
     ok("place() takes the order code's prefix from the shop's own name");
   }
   fail('place() sets sent to true') if $place =~ /sent:\s*true/;
+}
+
+# ---------------------------------------------------------------------------
+# 4b. deliveredAt is written in ONE place: the line in advance() that runs as
+# an order becomes delivered. The seven-day return window counts from it, so
+# a second writer -- a page stamping it on display, a timer -- would move the
+# day a customer can no longer send something back.
+# ---------------------------------------------------------------------------
+my @dwrite;
+for my $rel (@FILES) {
+  my @lines = split /\n/, $CODE{$rel};
+  for my $i (0 .. $#lines) {
+    push @dwrite, "app$rel:" . ($i + 1) if $lines[$i] =~ /\.deliveredAt\s*=(?!=)/;
+  }
+}
+my ($adv) = $bl =~ /\nfunction advance\s*\([^)]*\)\s*\{(.*?)\n\}/s;
+if (@dwrite != 1) {
+  fail('deliveredAt is written in ' . scalar(@dwrite) . ' places, not one: ' . join(', ', @dwrite));
+} elsif (!$adv || $adv !~ /if\s*\(\s*to\s*===\s*'delivered'\s*\)\s*o\.deliveredAt\s*=\s*at\s*;/) {
+  fail("deliveredAt is not stamped by advance() as the order becomes delivered ($dwrite[0])");
+} else {
+  ok('deliveredAt is stamped in one place, as an order becomes delivered');
 }
 
 # ---------------------------------------------------------------------------

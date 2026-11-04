@@ -518,8 +518,8 @@ export const canAdvance = (from, to) => (ORDER_NEXT[from] || []).includes(to);
 
 export const STATUS_LABEL = {
   draft: 'Not sent yet',
-  sent: 'Sent to Vastra',
-  confirmed: 'Confirmed by Vastra',
+  sent: 'Sent',
+  confirmed: 'Confirmed',
   packed: 'Packed',
   shipped: 'Shipped',
   delivered: 'Delivered',
@@ -532,6 +532,76 @@ export const STATUS_TONE = {
   draft: 'draft', sent: 'sent', confirmed: 'good', packed: 'good',
   shipped: 'good', delivered: 'good',
   returned: 'bad', cancelled: 'bad', abandoned: 'bad',
+};
+
+/** What the STORE's button says to move an order INTO each status. A status
+ *  is a fact and a button is an instruction, so they are worded apart: a
+ *  button reading "Shipped" looks like a report, not something to do. */
+export const ACTION_LABEL = {
+  sent: 'Mark as sent',            // the customer phoned or wrote instead
+  confirmed: 'Confirm',
+  packed: 'Mark packed',
+  shipped: 'Mark shipped',
+  delivered: 'Mark delivered',
+  returned: 'Mark returned',
+  cancelled: 'Cancel order',
+  abandoned: 'Mark abandoned',
+};
+
+/** Where an order can stop short of delivery, or after it. No step follows. */
+export const ORDER_ENDS = ['cancelled', 'returned', 'abandoned'];
+
+/** The road an order walks when nothing goes wrong, in order. The customer's
+ *  tracking and the store's board both draw it. */
+export const ORDER_PATH = ['draft', 'sent', 'confirmed', 'packed', 'shipped', 'delivered'];
+
+/** The customer's words for each step -- "us" is the shop. */
+export const TRACK_LABEL = {
+  draft: 'Saved in this browser',
+  sent: 'Sent to us',
+  confirmed: 'Confirmed by us',
+  packed: 'Packed',
+  shipped: 'Handed to the courier',
+  delivered: 'Delivered',
+  returned: 'Returned',
+  cancelled: 'Cancelled',
+  abandoned: 'Closed without being sent',
+};
+
+/** When the order ENTERED a status, from its own history; null if it never
+ *  did. The latest entry wins. */
+export function statusAt(order, status) {
+  const h = (order && order.history) || [];
+  for (let i = h.length - 1; i >= 0; i--) if (h[i].to === status) return h[i].at;
+  return null;
+}
+
+/**
+ * The tracking timeline: one row per step of ORDER_PATH, each `done`, `now`
+ * or `todo`, with the moment it happened.
+ *
+ * ⚠️ Every date comes out of the order's own history, written when the step
+ * was taken -- never worked out from the date it was saved. An order that
+ * left the road (cancelled, returned, abandoned) stops where it left it, and
+ * its last row says how it ended: a timeline that went on promising
+ * "Shipped: not yet" under a cancelled order would be inventing a future.
+ */
+export function trackSteps(order) {
+  const ended = ORDER_ENDS.includes(order.status);
+  const rows = [];
+  for (const s of ORDER_PATH) {
+    const at = statusAt(order, s);
+    if (ended && !at) break;
+    const state = !at ? 'todo'
+      : (s === order.status && s !== 'delivered' ? 'now' : 'done');
+    rows.push({ status: s, at, state });
+  }
+  if (ended) rows.push({ status: order.status, at: statusAt(order, order.status), state: 'end' });
+  return rows;
+}
+
+export const PAY_LABEL = {
+  upi: 'UPI', cod: 'Cash on delivery', card: 'Card', netbanking: 'Net banking',
 };
 
 // ---------------------------------------------------------------------------
@@ -556,7 +626,7 @@ export function orderSummaryText(o, shop) {
   if (o.bulky) L.push(`Bulky item handling: ${rupees(o.bulky)}`);
   L.push(`Total: ${rupees(o.grand)}`);
   L.push('');
-  L.push(`Payment: ${o.payMethod === 'cod' ? 'Cash on delivery' : 'UPI'}`);
+  L.push(`Payment: ${PAY_LABEL[o.payMethod] || o.payMethod}`);
   L.push('');
   L.push(`${o.customer.name}`);
   L.push(`${o.customer.mobile}`);
@@ -574,8 +644,12 @@ export const whatsappLink = (text, shop) => {
   return `https://wa.me/${n.length === 10 ? '91' + n : n}?text=${encodeURIComponent(text)}`;
 };
 
-export const telLink = (shop) => {
-  const n = digits(shop.contact.phone);
+export const telLink = (shop) => telTo(shop.contact.phone);
+
+/** A tel: link to any Indian mobile -- the shop's own, or a customer's on the
+ *  store's board. */
+export const telTo = (number) => {
+  const n = digits(number);
   return n ? `tel:+${n.length === 10 ? '91' + n : n}` : null;
 };
 

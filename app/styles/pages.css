@@ -262,6 +262,35 @@
 .ord-code{ font-weight:700; font-variant-numeric:tabular-nums; }
 .ord-meta{ font-size:12px; color:var(--ink-dim); }
 
+/* THE TRACKING TIMELINE, on the customer's order page. A column of steps,
+   each done, current or still to come. ⚠️ Colour is never the only signal:
+   every row also carries its date or "Not yet", and the current one says Now. */
+.track{ list-style:none; margin:var(--s4) 0 0; padding:0; }
+.track li{ position:relative; padding:0 0 var(--s4) 28px; }
+.track li:last-child{ padding-bottom:0; }
+.track li::before{
+  content:''; position:absolute; left:3px; top:4px;
+  width:12px; height:12px; border-radius:50%;
+  border:2px solid var(--edge); background:var(--paper);
+}
+.track li::after{
+  content:''; position:absolute; left:8px; top:20px; bottom:0;
+  width:2px; background:var(--edge);
+}
+.track li:last-child::after{ display:none; }
+.track .is-done::before{ background:var(--good); border-color:var(--good); }
+.track .is-done::after{ background:var(--good); }
+.track .is-now::before{ background:var(--gold-wash); border-color:var(--gold); }
+.track .is-end::before{ background:var(--alert); border-color:var(--alert); }
+.track-l{ display:block; font-weight:600; color:var(--ink); }
+.track .is-todo .track-l{ font-weight:500; color:var(--ink-dim); }
+.track-at{ display:block; font-size:12px; color:var(--ink-dim); margin-top:2px; }
+.track-tag{
+  margin-left:var(--s2); padding:1px 6px; border-radius:var(--r1);
+  font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--gold-ink); background:var(--gold-wash);
+}
+
 /* ---------------------------------------------------------------------------
    NEWSLETTER
    ------------------------------------------------------------------------ */
@@ -442,6 +471,22 @@
 }
 .adm-order-acts{ display:flex; gap:var(--s2); flex-wrap:wrap; align-items:center; }
 .adm-paid-why{ margin-top:var(--s2); max-width:62ch; }
+/* Where it goes and who to call: what the owner needs to ship it at all. */
+.adm-shipto{
+  display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr);
+  gap:var(--s3) var(--s5); margin-bottom:var(--s4);
+}
+.adm-shipto p{ margin-top:var(--s1); font-size:14px; line-height:1.6; }
+.adm-history{ margin-bottom:var(--s4); }
+.adm-ship{
+  display:flex; flex-wrap:wrap; gap:var(--s3); align-items:flex-end;
+  width:100%; padding:var(--s3);
+  border:1px solid var(--edge); border-radius:var(--r2); background:var(--sunk);
+}
+.adm-ship .field{ flex:1 1 160px; min-width:0; }
+@media (max-width:599px){
+  .adm-shipto{ grid-template-columns:minmax(0,1fr); }
+}
 
 .adm-cat-head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); flex-wrap:wrap; }
 .adm-cat-grid{

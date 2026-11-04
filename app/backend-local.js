@@ -580,6 +580,7 @@ export const orders = {
       paid: false, paidAt: null, paidVia: null,
       gatewayRef: null,
       sent: false, sentAt: null, sentVia: null,
+      shipment: null, deliveredAt: null,
       status: 'draft',
       history: [{ at: now, to: 'draft' }],
     };
@@ -599,8 +600,20 @@ export const orders = {
     });
   },
 
-  /** An admin moved it along. Throws on an invalid transition. */
+  /** The store moved it along. Throws on an invalid transition. */
   async advance(id, to, note) { return advance(id, to, null, note); },
+
+  /**
+   * The store handed it to a courier: -> shipped, with the courier and the
+   * tracking number if it has them. Both optional, because who ships is still
+   * not settled with the owner, and an empty field is better than an invented
+   * one. The customer's order page shows whatever is here.
+   */
+  async ship(id, { courier = '', ref = '' } = {}) {
+    const c = String(courier || '').trim().slice(0, 60);
+    const r = String(ref || '').trim().slice(0, 60);
+    return advance(id, 'shipped', (o) => { o.shipment = c || r ? { courier: c, ref: r } : null; });
+  },
 
   /**
    * ⚠️ Razorpay's success handler returns razorpay_payment_id IN THE BROWSER,
@@ -644,8 +657,14 @@ function advance(id, to, mutate, note) {
   if (!D.canAdvance(o.status, to)) {
     throw new Error(`BAD_TRANSITION ${o.status} -> ${to}`);
   }
+  const at = D.nowStamp();
   o.status = to;
-  o.history.push({ at: D.nowStamp(), to, note: note || undefined });
+  o.history.push({ at, to, note: note || undefined });
+  // ⚠️ deliveredAt is a FIELD, stamped here and nowhere else. The seven-day
+  // return window counts from it (domain.js returnWindow), and a window found
+  // by searching the history is one refactor away from counting from the
+  // wrong entry. honesty.pl checks this is the only line that writes it.
+  if (to === 'delivered') o.deliveredAt = at;
   if (mutate) mutate(o);
   write(K.orders, all, 'orders');
   return clone(o);

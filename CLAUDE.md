@@ -3,8 +3,9 @@
 Read this before changing anything. Everything here was either
 established by testing or decided deliberately; none of it is a guess.
 
-**Status: step 1 of 10 is built.** A walkable skeleton with three
-garments. See *Where this is* and *The order of work*.
+**Status: steps 1 to 4 of 10 are built** (4 November 2026). Three
+garments, sizes, a bag, and an order that goes from checkout to delivered
+-- all of it in one browser until step 6. See *Where this is* and *The order of work*.
 
 ---
 
@@ -77,11 +78,12 @@ for the store owner**.
 | Browse — home, category listing, product page, gallery, variant picker | **Built.** Started from a copy of DEVI's code and re-pointed at garments; nothing is shared with DEVI now |
 | Cart, coupon, totals | **Built.** `money.pl` green, including the size delta |
 | Checkout, address, pay options | **Built**: it saves to this browser and hands off on WhatsApp |
+| An order, end to end | **Built (step 4).** Saved → sent by the customer → confirmed, packed, shipped (courier and tracking number optional) and delivered by the store. The customer's order page draws the journey as a timeline and follows it live; `deliveredAt` is stamped on delivery. ⚠️ Shop and store meet only in the same browser until step 6. **Stock is not taken off on ordering** — that belongs on the server, where two phones cannot both buy the last one |
 | Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED. Photographs are Unsplash stand-ins, credited in `shop.json` `photos` and on the About page |
 | Size charts | **Built.** A Size guide panel on the product page, plus a no-tap fit hint under the picker |
 | Delivery range | `deliveryEstimate()` works and the shipping page uses it. **NOT yet frozen into an order** — step 5 |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
-| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders, catalogue, stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
+| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders with the address, the phone and the next step; catalogue; stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
 | Database, accounts | **Not started** — steps 6, 7 |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
 | Public site | Shop <https://jinaynandu.github.io/clothes-app/>, store <https://jinaynandu.github.io/clothes-app/store/> — see *Published*. The shop wears a Preview bar while placeholder is true; the store a Not locked yet bar until step 8 |
@@ -196,6 +198,19 @@ can keep the old copy for up to ten minutes.
   to leave open. Both store pages carry `noindex`.
 - An order's code on the board opens it **in the shop** (`./#/order/CODE`),
   as the customer sees it. The store has no order screen of its own yet.
+- **How an order moves** (step 4). The customer saves it, then sends it
+  (WhatsApp, phone, email or copied text); that is the only step that is
+  theirs. Everything after is a button on the store's board: *Confirm*,
+  *Mark packed*, *Mark shipped* (with an optional courier and tracking
+  number), *Mark delivered*. Cancel, returned and abandoned are ends and take
+  two taps. `domain.js` owns the road (`ORDER_PATH`, `ORDER_NEXT`), the words
+  (`STATUS_LABEL` for the store, `TRACK_LABEL` for the customer,
+  `ACTION_LABEL` for the buttons) and `trackSteps()`, which takes every date
+  from the order's own history and never works one out.
+- **The customer's order page follows the order live**, and redraws only
+  the parts a status can change. A full redraw would also rebuild the
+  handoff block, and the Copy button's fallback text box would vanish the
+  instant the same tap marked the order sent. Verified: the box stayed.
 - Locally: `http://localhost:8150/owner.html`, or
   `http://localhost:8152/store/` to go through the door as Pages does.
 
@@ -257,8 +272,9 @@ window on a parcel that takes ten working days to arrive would expire
 before it landed — the customer receives a garment they were already
 unable to send back.
 
-So `deliveredAt` must be stored the moment the status becomes
-`delivered`, and the window counted from that stamp. `returnWindow()`
+So `deliveredAt` is stored the moment the status becomes `delivered`
+-- by `advance()` in the backend, the one writer `honesty.pl` allows --
+and the window is counted from that stamp. `returnWindow()`
 returns `null` while the parcel has not landed, deliberately: there is
 no window to show, and inventing one from `placedAt` is the bug the
 signature exists to prevent.
@@ -398,7 +414,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 1. ✅ **Copy DEVI, strip to a skeleton, serve it.**
 2. ✅ **The size chart on the product page.**
 3. ✅ Cart, coupon, totals — `money.pl` green.
-4. ⬜ **Checkout and a real order**, still in local storage.
+4. ✅ **Checkout and a real order**, still in local storage. The order page tracks it step by step, the store moves it from Confirm to Mark delivered, and `deliveredAt` is a field of its own. 4 November 2026.
 5. ⬜ **Freeze the delivery range into the order at placement.**
 6. ⬜ **Supabase** — follow `kirana/db/SETUP.md`, do not improvise.
 7. ⬜ **Accounts**, so a parcel can be tracked from a second phone.

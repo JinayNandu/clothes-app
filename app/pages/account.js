@@ -25,6 +25,14 @@ router.registerScreen('account', async (host) => {
   router.onLeave(store.live.subscribe('orders', () => paint(host)));
 });
 
+/** "Band-Collar Linen Shirt (Ecru · L) and 1 more" -- which order is which. */
+function itemsLine(o) {
+  const [a, ...rest] = o.lines || [];
+  if (!a) return '';
+  return `${a.name}${a.variantLabel ? ' (' + a.variantLabel + ')' : ''}`
+    + (rest.length ? ` and ${rest.length} more` : '');
+}
+
 async function paint(host) {
   const [profile, orders, wishIds, shop] = await Promise.all([
     store.profile.get(), store.orders.mine(),
@@ -70,6 +78,7 @@ async function paint(host) {
               <div class="ord-meta">${D.fmtStamp(o.createdAt)} ·
                 ${o.lines.length} ${o.lines.length === 1 ? 'line' : 'lines'} ·
                 ${D.rupees(o.grand)}</div>
+              <div class="ord-meta">${esc(itemsLine(o))}</div>
             </div>
             <span class="pill pill-${D.STATUS_TONE[o.status]}">
               ${esc(D.STATUS_LABEL[o.status])}</span>

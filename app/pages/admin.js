@@ -136,68 +136,122 @@ function renderOrders({ orders, shop }) {
         own phone reaches you on WhatsApp.</p>
     </section>`;
   }
-
-  // The code opens the order IN THE SHOP (./#/order/...), as the customer sees
-  // it. The store page has no order screen of its own yet.
-  return `<div class="adm-orders">
-    ${orders.map((o) => {
-    const next = D.ORDER_NEXT[o.status] || [];
-    return `<section class="panel adm-order" data-oid="${esc(o.id)}">
-      <header class="adm-order-head">
-        <div>
-          <a href="./#/order/${esc(o.code)}" class="ord-code">${esc(o.code)}</a>
-          <span class="pill pill-${D.STATUS_TONE[o.status]}">${esc(D.STATUS_LABEL[o.status])}</span>
-          ${o.paid ? '<span class="pill pill-good">Paid</span>'
-      : '<span class="pill pill-draft">Not marked paid</span>'}
-        </div>
-        <div class="ord-meta">${D.fmtStamp(o.createdAt)} ·
-          ${esc(o.customer.name || 'No name given')} ·
-          ${o.lines.length} line${o.lines.length === 1 ? '' : 's'} ·
-          <b>${D.rupees(o.grand)}</b></div>
-      </header>
-
-      ${o.gatewayRef ? notice('warn', `<b>A gateway reported a payment
-        (${esc(o.gatewayRef.paymentId)}).</b> It is recorded as
-        <b>unverified</b> and does not mark this order paid. Verifying it needs
-        an HMAC over the key secret on a server, which does not exist yet — so
-        check the bank yourself before marking it paid.`) : ''}
-
-      <div class="adm-order-lines">
-        ${o.lines.map((l) => `<div class="total-row muted">
-          <span>${esc(l.name)}${l.variantLabel ? ' · ' + esc(l.variantLabel) : ''}
-            × ${l.qty}</span>
-          <span>${D.rupees(l.lineTotal)}</span></div>`).join('')}
-      </div>
-
-      <div class="adm-order-acts">
-        ${next.length ? next.map((to) => `<button class="btn btn-sm btn-secondary"
-            data-advance="${esc(to)}">${esc(D.STATUS_LABEL[to])}</button>`).join('')
-      : '<span class="t-micro dim">This order is finished — no further step.</span>'}
-
-        <button class="btn btn-sm ${o.paid ? 'btn-ghost' : 'btn-primary'}"
-          data-paid="${o.paid ? '0' : '1'}">
-          ${o.paid ? 'Unmark paid' : 'Mark paid'}</button>
-      </div>
-      <p class="t-micro dim adm-paid-why">
-        ${o.paid
-      ? `Marked paid ${D.fmtStamp(o.paidAt)}${o.paidVia ? ' · ' + esc(o.paidVia) : ''}.
-           Only you can set this, and only you can unset it.`
-      : 'Mark this only after you have seen the money arrive. Nothing on this '
-        + 'site can tell you that — there is no gateway and no server.'}</p>
-    </section>`;
-  }).join('')}
-  </div>`;
+  return `<div class="adm-orders">${orders.map((o) => orderPanel(o, shop)).join('')}</div>`;
 }
+
+// History records what happened, so a saved order reads "Saved", not the
+// status label "Not sent yet".
+const stepName = (s) => (s === 'draft' ? 'Saved' : D.STATUS_LABEL[s]);
+
+/**
+ * One order: what is in it, where it goes, who to call, what has happened,
+ * and the next step. Everything the owner needs to put it in a parcel, on
+ * one panel -- before this, the board showed the name and the total and
+ * left the address on the customer's own page.
+ */
+function orderPanel(o, shop) {
+  const next = D.ORDER_NEXT[o.status] || [];
+  const main = next.find((to) => D.ORDER_PATH.includes(to));
+  const c = o.customer || {};
+  const tel = D.telTo(c.mobile);
+  const s = o.shipment;
+  const ship = s && (s.courier || s.ref)
+    ? `${s.courier || 'courier not named'}${s.ref ? ', tracking number ' + s.ref : ''}` : '';
+
+  // The code opens the order IN THE SHOP (./#/order/...), as the customer
+  // sees it. The store page has no order screen of its own.
+  return `<section class="panel adm-order" data-oid="${esc(o.id)}">
+    <header class="adm-order-head">
+      <div>
+        <a href="./#/order/${esc(o.code)}" class="ord-code">${esc(o.code)}</a>
+        <span class="pill pill-${D.STATUS_TONE[o.status]}">${esc(D.STATUS_LABEL[o.status])}</span>
+        ${o.paid ? '<span class="pill pill-good">Paid</span>'
+          : '<span class="pill pill-draft">Not marked paid</span>'}
+      </div>
+      <div class="ord-meta">${D.fmtStamp(o.createdAt)} ·
+        ${o.lines.length} line${o.lines.length === 1 ? '' : 's'} ·
+        <b>${D.rupees(o.grand)}</b> · ${esc(D.PAY_LABEL[o.payMethod] || o.payMethod)}</div>
+    </header>
+
+    ${o.gatewayRef ? notice('warn', `<b>A gateway reported a payment
+      (${esc(o.gatewayRef.paymentId)}).</b> It is recorded as
+      <b>unverified</b> and does not mark this order paid. Verifying it needs
+      an HMAC over the key secret on a server, which does not exist yet — so
+      check the bank yourself before marking it paid.`) : ''}
+
+    <div class="adm-order-lines">
+      ${o.lines.map((l) => `<div class="total-row muted">
+        <span>${esc(l.name)}${l.variantLabel ? ' · ' + esc(l.variantLabel) : ''}
+          × ${l.qty}</span>
+        <span>${D.rupees(l.lineTotal)}</span></div>`).join('')}
+    </div>
+
+    <div class="adm-shipto">
+      <div>
+        <div class="t-eyebrow">Ship to</div>
+        <p class="user-text">${esc(c.name || 'No name given')}<br>${esc(c.addr || '')}<br>
+          ${esc([c.city, c.state].filter(Boolean).join(', '))} ${esc(c.pin || '')}</p>
+      </div>
+      <div>
+        <div class="t-eyebrow">Contact</div>
+        <p>${tel ? `<a href="${esc(tel)}">${esc(c.mobile)}</a>` : esc(c.mobile || 'No number')}${c.email
+          ? `<br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''}</p>
+      </div>
+    </div>
+
+    <p class="t-micro dim adm-history">${(o.history || []).map((h) =>
+      `${esc(stepName(h.to))} ${esc(D.fmtStamp(h.at))}`).join(' · ')}${ship
+      ? `<br>Shipped with ${esc(ship)}.` : ''}</p>
+
+    <div class="adm-order-acts">
+      ${next.includes('shipped') ? shipForm(o) : ''}
+      ${next.filter((to) => to !== 'shipped').map((to) => `<button type="button"
+          class="btn btn-sm ${to === main ? 'btn-primary'
+            : D.ORDER_ENDS.includes(to) ? 'btn-ghost' : 'btn-secondary'}"
+          data-advance="${esc(to)}">${esc(D.ACTION_LABEL[to])}</button>`).join('')}
+      ${next.length ? '' : '<span class="t-micro dim">This order is finished — no further step.</span>'}
+      <button type="button" class="btn btn-sm ${o.paid ? 'btn-ghost' : 'btn-secondary'}"
+        data-paid="${o.paid ? '0' : '1'}" data-method="${esc(o.payMethod)}">
+        ${o.paid ? 'Unmark paid' : 'Mark paid'}</button>
+    </div>
+    <p class="t-micro dim adm-paid-why">
+      ${o.paid
+    ? `Marked paid ${D.fmtStamp(o.paidAt)}${o.paidVia ? ' · ' + esc(o.paidVia) : ''}.
+         Only you can set this, and only you can unset it.`
+    : 'Mark this only after you have seen the money arrive. Nothing on this '
+      + 'site can tell you that — there is no gateway and no server.'}</p>
+  </section>`;
+}
+
+/** Courier and tracking number travel with "Mark shipped"; both optional. */
+const shipForm = (o) => `<div class="adm-ship">
+  <div class="field"><label for="sc-${esc(o.id)}">Courier <span class="opt">(optional)</span></label>
+    <input id="sc-${esc(o.id)}" data-courier maxlength="60" autocomplete="off"
+      placeholder="Delhivery, India Post…"></div>
+  <div class="field"><label for="sr-${esc(o.id)}">Tracking number <span class="opt">(optional)</span></label>
+    <input id="sr-${esc(o.id)}" data-ref maxlength="60" autocomplete="off"></div>
+  <button type="button" class="btn btn-sm btn-primary" data-advance="shipped">
+    ${esc(D.ACTION_LABEL.shipped)}</button>
+</div>`;
 
 /** Status changes and the one human-asserted field in the project. */
 function wireOrders(host, repaint) {
   for (const btn of $$('[data-advance]', host)) {
     btn.addEventListener('click', async () => {
-      const id = btn.closest('[data-oid]').dataset.oid;
+      const box = btn.closest('[data-oid]');
       const to = btn.dataset.advance;
+      // An end is final -- nothing follows a cancellation -- so it takes two taps.
+      if (D.ORDER_ENDS.includes(to) && !twoTap(btn, 'Sure? Tap again')) return;
       try {
-        await store.orders.advance(id, to);
-        toast(`Moved to ${D.STATUS_LABEL[to]}.`);
+        if (to === 'shipped') {
+          await store.orders.ship(box.dataset.oid, {
+            courier: box.querySelector('[data-courier]').value,
+            ref: box.querySelector('[data-ref]').value,
+          });
+        } else {
+          await store.orders.advance(box.dataset.oid, to);
+        }
+        toast(`Now ${D.STATUS_LABEL[to].toLowerCase()}.`);
         repaint();
       } catch (e) {
         // ⚠️ Shown, never swallowed. domain.js refuses an invalid transition
@@ -211,7 +265,8 @@ function wireOrders(host, repaint) {
     btn.addEventListener('click', async () => {
       const id = btn.closest('[data-oid]').dataset.oid;
       const to = btn.dataset.paid === '1';
-      if (to && !confirmPaid(btn)) return;
+      const ask = btn.dataset.method === 'cod' ? 'Cash in hand?' : 'Seen it in the bank?';
+      if (to && !twoTap(btn, ask)) return;
       await store.orders.setPaid(id, to, to ? 'checked by hand' : null);
       toast(to ? 'Marked paid.' : 'No longer marked paid.');
       repaint();
@@ -224,11 +279,11 @@ function wireOrders(host, repaint) {
  * single-file viewers return false from it immediately without showing
  * anything, so a dialog there would silently cancel every attempt.
  */
-function confirmPaid(btn) {
+function twoTap(btn, prompt) {
   if (btn.dataset.armed === '1') return true;
   btn.dataset.armed = '1';
   const was = btn.textContent;
-  btn.textContent = 'Seen it in the bank?';
+  btn.textContent = prompt;
   setTimeout(() => {
     if (!btn.isConnected) return;
     btn.dataset.armed = '0';

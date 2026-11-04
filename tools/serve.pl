@@ -116,6 +116,13 @@ while (1) {
     my @parts = grep { length && $_ ne '.' && $_ ne '..' } split m{/}, $path;
     my $file  = join('/', $root, @parts);
 
+    # A directory serves its index.html, which is what GitHub Pages does
+    # and what this did not -- taken from kirana's serve.pl, where it was
+    # learned. Serving app/ as the root hid it: there was never a directory
+    # to resolve, so the repo-root redirect into app/ could not be followed
+    # locally at all (clothes-as-deployed answered 404 at /app/).
+    $file .= ($file =~ m{/$} ? '' : '/') . 'index.html' if -d $file;
+
     if (index($file, $root) != 0 || !-f $file) {
       print $c "HTTP/1.1 404 Not Found\r\n"
              . "Content-Length: 9\r\nConnection: close\r\n\r\nNot found";

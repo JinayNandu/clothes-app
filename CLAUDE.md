@@ -113,6 +113,21 @@ can keep the old copy for up to ten minutes.
   redirect keeping `location.hash`, no root-relative URL, exact-case paths.
 - **The Preview bar** is on every page while `placeholder` is `true` in
   `shop.json`, and goes with it.
+- **All of `jinaynandu.github.io` is ONE browser origin.** kirana,
+  devi-collections and this shop share `localStorage`. Every key here is
+  `vastra.*` (the table at the top of `backend-local.js`), so nothing
+  collides today; keep one prefix through any rename, or a visitor's DEVI
+  cart turns up in this one.
+- **`clothes-as-deployed` (port 8152) serves the repository root as Pages
+  does**: the root page, the redirect, the app under `/app/`. Use it for
+  anything that touches the redirect. `serve.pl` serves a folder's
+  `index.html` for this, taken from kirana's; before that `/app/` was a
+  404 locally. The launch entry lives in `Projects/.claude/launch.json`,
+  outside this repository.
+- **Verified live on 4 November 2026**: all 39 served files byte-identical
+  to the repository, modules served as `application/javascript`, and a
+  shared product link (`/?ref=whatsapp#/p/...`) arriving at `/app/` with
+  its query and hash intact.
 
 ---
 

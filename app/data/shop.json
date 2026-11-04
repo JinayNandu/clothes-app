@@ -56,6 +56,10 @@
     "provider": "razorpay",
     "serverBase": ""
   },
+  "hero": {
+    "direct": "img/site/hero-floor.jpg",
+    "main": "img/site/hero-rail.jpg"
+  },
   "lowStockAt": 3,
   "measureNotes": {
     "Hip": {
@@ -71,7 +75,7 @@
       "on": "garment"
     },
     "Sleeve": {
-      "how": "Measured on the garment, from the shoulder seam to the end of the cuff.",
+      "how": "Measured on the garment, from the shoulder seam to the end of the sleeve.",
       "on": "garment"
     },
     "To fit bust": {
@@ -89,6 +93,153 @@
   },
   "measureNotesNote": "⚠️ SOME COLUMNS ARE YOUR BODY AND SOME ARE THE GARMENT, and confusing the two is the single most common way a customer orders the wrong size. A 'To fit chest' of 40 means the shirt is cut to fit a 40 in CHEST; the garment itself measures more than that, because it needs ease to be wearable. A customer who measures a shirt they already own against a body column reads every size as too small and orders up. So every column declares `on`, the chart prints that next to the heading, and data.pl FAILS if a column in any chart has no note here or if a note is orphaned. Keyed by the column heading exactly as sizeCharts spells it -- rename a column and the check tells you immediately rather than the table quietly losing its guidance.",
   "newDays": 45,
+  "photos": {
+    "img/products/dress-dove-detail.jpg": {
+      "by": "Kate Skumen",
+      "fetched": "https://images.unsplash.com/photo-1585487000143-9bcec9b8e483?w=1000&h=1250&fit=crop&crop=focalpoint&fp-x=0.45&fp-y=0.58&fp-z=2.2&q=72&fm=jpg",
+      "handle": "skumen",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/woman-in-white-long-sleeve-dress-standing-near-green-plant-XsFiUIamdTo",
+      "stock": true,
+      "what": "Tiered dress, dove grey, close up"
+    },
+    "img/products/dress-dove.jpg": {
+      "by": "Kate Skumen",
+      "fetched": "https://images.unsplash.com/photo-1585487000143-9bcec9b8e483?w=1000&h=1250&fit=crop&crop=bottom&q=72&fm=jpg",
+      "handle": "skumen",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/woman-in-white-long-sleeve-dress-standing-near-green-plant-XsFiUIamdTo",
+      "stock": true,
+      "what": "Tiered dress, dove grey"
+    },
+    "img/products/dress-green-detail.jpg": {
+      "by": "Centre for Ageing Better",
+      "fetched": "https://images.unsplash.com/photo-1685703203919-0c2cfc893c60?w=1000&h=1250&fit=crop&crop=focalpoint&fp-x=0.5&fp-y=0.72&fp-z=2.2&q=72&fm=jpg",
+      "handle": "ageing_better",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-woman-in-a-long-green-dress-wxLEHGeZKic",
+      "stock": true,
+      "what": "Tiered dress, green, close up"
+    },
+    "img/products/dress-green.jpg": {
+      "by": "Centre for Ageing Better",
+      "fetched": "https://images.unsplash.com/photo-1685703203919-0c2cfc893c60?w=1000&h=1250&fit=crop&crop=bottom&q=72&fm=jpg",
+      "handle": "ageing_better",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-woman-in-a-long-green-dress-wxLEHGeZKic",
+      "stock": true,
+      "what": "Tiered dress, green"
+    },
+    "img/products/kurti-indigo-detail.jpg": {
+      "by": "Zayed Ahmed Zadu",
+      "fetched": "https://images.unsplash.com/photo-1760287364219-160c234ded00?w=1000&h=1250&fit=crop&crop=focalpoint&fp-x=0.5&fp-y=0.4&fp-z=2.2&q=72&fm=jpg",
+      "handle": "zayed_ahmed_zadu",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/dark-blue-dress-with-paisley-pattern-on-display-dYMt4ug7Vxs",
+      "stock": true,
+      "what": "Kurti, indigo print, close up"
+    },
+    "img/products/kurti-indigo.jpg": {
+      "by": "Zayed Ahmed Zadu",
+      "fetched": "https://images.unsplash.com/photo-1760287364219-160c234ded00?w=1000&h=1250&fit=crop&crop=top&q=72&fm=jpg",
+      "handle": "zayed_ahmed_zadu",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/dark-blue-dress-with-paisley-pattern-on-display-dYMt4ug7Vxs",
+      "stock": true,
+      "what": "Kurti, indigo print"
+    },
+    "img/products/kurti-turmeric-detail.jpg": {
+      "by": "Zayed Ahmed Zadu",
+      "fetched": "https://images.unsplash.com/photo-1760287363878-1a09af715b80?w=1000&h=1250&fit=crop&crop=focalpoint&fp-x=0.5&fp-y=0.22&fp-z=2.4&q=72&fm=jpg",
+      "handle": "zayed_ahmed_zadu",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-yellow-tiered-dress-with-embroidered-neckline-e_Ha_TxDlG0",
+      "stock": true,
+      "what": "Kurti, turmeric, close up"
+    },
+    "img/products/kurti-turmeric.jpg": {
+      "by": "Zayed Ahmed Zadu",
+      "fetched": "https://images.unsplash.com/photo-1760287363878-1a09af715b80?w=1000&h=1250&fit=crop&crop=top&q=72&fm=jpg",
+      "handle": "zayed_ahmed_zadu",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-yellow-tiered-dress-with-embroidered-neckline-e_Ha_TxDlG0",
+      "stock": true,
+      "what": "Kurti, turmeric"
+    },
+    "img/products/shirt-ecru.jpg": {
+      "by": "tian dayong",
+      "fetched": "https://images.unsplash.com/photo-1713881587420-113c1c43e28a?w=1000&h=1250&fit=crop&crop=center&q=72&fm=jpg",
+      "handle": "tonnnyj",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-white-shirt-hanging-on-a-clothes-line-S4f4apZd-hA",
+      "stock": true,
+      "what": "Linen shirt, ecru"
+    },
+    "img/products/shirt-indigo-detail.jpg": {
+      "by": "tian dayong",
+      "fetched": "https://images.unsplash.com/photo-1713881649391-a1c8ddaf83cd?w=1000&h=1250&fit=crop&crop=focalpoint&fp-x=0.5&fp-y=0.3&fp-z=2.4&q=72&fm=jpg",
+      "handle": "tonnnyj",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-blue-shirt-hanging-on-a-clothes-line-8UsQoiJLNNQ",
+      "stock": true,
+      "what": "Linen shirt, indigo, close up"
+    },
+    "img/products/shirt-indigo.jpg": {
+      "by": "tian dayong",
+      "fetched": "https://images.unsplash.com/photo-1713881649391-a1c8ddaf83cd?w=1000&h=1250&fit=crop&crop=center&q=72&fm=jpg",
+      "handle": "tonnnyj",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-blue-shirt-hanging-on-a-clothes-line-8UsQoiJLNNQ",
+      "stock": true,
+      "what": "Linen shirt, indigo"
+    },
+    "img/products/shirt-sky.jpg": {
+      "by": "tian dayong",
+      "fetched": "https://images.unsplash.com/photo-1713881842156-3d9ef36418cc?w=1000&h=1250&fit=crop&crop=center&q=72&fm=jpg",
+      "handle": "tonnnyj",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-blue-shirt-hanging-on-a-clothes-line-SI7Hmk8MXQU",
+      "stock": true,
+      "what": "Linen shirt, sky"
+    },
+    "img/site/cat-men.jpg": {
+      "by": "Pew Nguyen",
+      "fetched": "https://images.unsplash.com/photo-1687226426086-2d83ce4165f8?w=900&h=1200&fit=crop&crop=center&q=72&fm=jpg",
+      "handle": "nguyentrungnguyen",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-row-of-white-shirts-hanging-on-a-rack-GdYCQJpD76U",
+      "stock": true,
+      "what": "Men's category tile"
+    },
+    "img/site/cat-women.jpg": {
+      "by": "Alyssa DeGarde",
+      "fetched": "https://images.unsplash.com/photo-1640923160720-35dddb6348ab?w=900&h=1200&fit=crop&crop=center&q=72&fm=jpg",
+      "handle": "lyssa739",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/a-dress-hangs-on-a-hanger-in-front-of-a-mirror-xhOPvP536sI",
+      "stock": true,
+      "what": "Women's category tile"
+    },
+    "img/site/hero-floor.jpg": {
+      "by": "Soroush H. Zargarbashi",
+      "fetched": "https://images.unsplash.com/photo-1567429159658-8c4f96a3d756?w=1000&h=1250&fit=crop&crop=center&q=72&fm=jpg",
+      "handle": "soroushzargar",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/brown-electronic-device-Tviv9s8vSMg",
+      "stock": true,
+      "what": "Home page, why it costs less"
+    },
+    "img/site/hero-rail.jpg": {
+      "by": "charlesdeluvio",
+      "fetched": "https://images.unsplash.com/photo-1555529771-835f59fc5efe?w=1000&h=1250&fit=crop&crop=center&q=72&fm=jpg",
+      "handle": "charlesdeluvio",
+      "license": "Unsplash License",
+      "source": "https://unsplash.com/photos/assorted-color-clothes-hanging-on-metal-racks-_4K7BwaHUGc",
+      "stock": true,
+      "what": "Home page, top"
+    }
+  },
+  "photosNote": "Every photograph the site shows, keyed by its path: who took it, where it came from, and the exact crop fetched, so it can be fetched again at another size. data.pl FAILS if a photograph is shown with no entry here, if an entry names a file nothing shows, or if a file in app/img is shown by nothing. ⚠️ stock:true MEANS A STAND-IN -- a photograph of somebody else's garment, used under the Unsplash License until this shop's own are taken. data.pl FAILS if placeholder goes false while any stock photograph is still shown, because on a real shop a stand-in is a picture of a garment the customer will not receive. The About page draws its credits from this same list, so a credit cannot go missing when a photograph is added.",
   "placeholder": true,
   "placeholderNote": "WHILE THIS IS TRUE, data.pl FAILS. The brand name, the brand story, the year, every contact field and all three prices are INVENTED -- realistic, not real. The owner has not chosen a name yet. A phone number that does not dial and a GSTIN that is not yours are the worst things to ship by accident on a real business site, so this flag makes shipping them impossible rather than merely inadvisable. Set it to false only when every field in `contact` is real and the prices have been checked. data.pl then checks every contact field is non-empty -- including returnsAddr, which a shop selling to strangers must publish and a kirana delivering down the lane never needed. The Preview only bar at the top of every page is shown by this same flag, and goes when it does.",
   "returns": {
@@ -120,37 +271,37 @@
         "Sleeve",
         "Length"
       ],
-      "fit": "Regular fit. Measure around the fullest part of your chest, keeping the tape level. If you are between two sizes, take the larger.",
+      "fit": "Relaxed fit. Measure around the fullest part of your chest, keeping the tape level. If you are between two sizes, take the larger.",
       "label": "Men's shirts",
       "rows": {
         "l": [
           42,
           18.5,
-          25,
+          9.5,
           30
         ],
         "m": [
           40,
           17.5,
-          24.5,
+          9,
           29
         ],
         "s": [
           38,
           16.5,
-          24,
+          8.5,
           28
         ],
         "xl": [
           44,
           19.5,
-          25.5,
+          10,
           31
         ],
         "xxl": [
           46,
           20.5,
-          26,
+          10.5,
           32
         ]
       },

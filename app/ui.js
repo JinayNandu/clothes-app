@@ -232,7 +232,7 @@ export function drawChrome(shop) {
   const pv = $('#preview-bar');
   if (pv) {
     pv.innerHTML = shop.placeholder
-      ? '<b>Preview only</b> — the name, prices and sizes are placeholders, '
+      ? '<b>Preview only</b> — the name, prices, sizes and photos are placeholders, '
         + 'and nothing here can be ordered yet.'
       : '';
     pv.hidden = !shop.placeholder;

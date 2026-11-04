@@ -27,7 +27,7 @@ Personal side-venture of the user, not client work.
 |---|---|
 | What do they make? | **Men's shirts, and womenswear across the board** — tops, kurtis, dresses. The skeleton carries one shirt, one kurti, one dress. |
 | One manufacturer or several? | **One.** Milan's `db/MULTISTORE.md` is there for the day it is more, and that day is cheaper to reach than to start from. |
-| Photographs? | **None.** `art.js` carries the whole catalogue. ⚠️ Still the single biggest risk to the idea — see *Open*. |
+| Photographs? | **None of their own yet.** Since 4 November 2026 the site shows Unsplash stand-ins, on the owner's word that the drawn garments looked "too kiddish". `art.js` is now only the fallback. ⚠️ Still the biggest risk to the idea -- see *Open*. |
 | How do they pay? | **UPI and cash on delivery.** Both. The UPI id is a demo one that cannot resolve, and the checkout says so. |
 
 ### Still not answered, and each one blocks something
@@ -54,7 +54,7 @@ Personal side-venture of the user, not client work.
 | Browse — home, category listing, product page, gallery, variant picker | **Built.** Inherited from DEVI, re-pointed at garments |
 | Cart, coupon, totals | **Built.** `money.pl` green, including the size delta |
 | Checkout, address, pay options | **Built**, still DEVI's: it saves to this browser and hands off on WhatsApp |
-| Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED |
+| Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED. Photographs are Unsplash stand-ins, credited in `shop.json` `photos` and on the About page |
 | Size charts | **Built.** A Size guide panel on the product page, plus a no-tap fit hint under the picker |
 | Delivery range | `deliveryEstimate()` works and the shipping page uses it. **NOT yet frozen into an order** — step 5 |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
@@ -330,7 +330,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 7. ⬜ **Accounts**, so a parcel can be tracked from a second phone.
 8. ⬜ **The seller view**, behind `claim_staff()`.
 9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.
-10. ⬜ **Real photographs**, whenever the owner can supply them.
+10. ⬜ **Real photographs**, whenever the owner can supply them. Stand-ins have been in place since 4 November 2026, and `data.pl` will not let `placeholder` go false while one is still shown.
 
 ---
 
@@ -346,12 +346,37 @@ Steps 1–5 are the demo. 6–10 make it a shop.
   `returnsAddr` and `gstin` — check the prices, set `placeholder` to
   false.
 
-- ⚠️ **No photographs, and this is the biggest risk to the whole idea.**
-  `art.js` is good enough that the catalogue does not look broken, and
-  it is not good enough to sell a garment. Nothing sells a garment like
-  a photograph of it. The swap path is live per product *and* per view,
-  so a partial shoot stays coherent, and adding one is a data edit plus
-  a file.
+- ⚠️ **The photographs are stand-ins, and that is still the biggest risk
+  to the whole idea.** Since 4 November 2026 every product, both category
+  tiles and both hero panels show photographs from Unsplash, chosen
+  because the drawn garments looked "too kiddish" to the owner. They are
+  of other people's garments: on a real shop a stand-in is a picture of
+  a garment the customer will not receive. So every one is marked
+  `stock: true` in `shop.json` `photos`, the Preview bar says "photos",
+  and `data.pl` FAILS if `placeholder` goes false while any stock
+  photograph is still shown.
+
+  How they are laid out, so the real shoot can drop straight in:
+  - **Four photographs per product**, `img[0..3]`. Each colour's `img`
+    index points at its own photograph; the remaining slot is a close-up.
+    `viewCount()` follows the length of `img`, so more photographs simply
+    mean more thumbnails.
+  - **4:5 for products, 3:4 for category tiles, 4:5 for the hero**, at
+    1000 px wide. Unsplash crops and sizes on its own servers, so each
+    entry's `fetched` URL is the exact crop -- fetch it again with another
+    `w`/`h` and nothing else changes.
+  - **Every colour name and swatch was taken from its photograph.** The
+    swatch hex is the median of a patch of plain cloth in the image, so
+    the dot under a card matches the photo above it. The shirt is
+    short-sleeved in its photographs, so its size chart's Sleeve column
+    is short-sleeve lengths now.
+  - **No faces where it could be helped.** The shirts hang on a branch,
+    the kurtis are on a dress form, the dresses are cropped below the
+    chin, the tiles and hero are rails and machines. A model's face on a
+    shop that is not theirs reads as an endorsement nobody gave.
+  - **Credits are owed even where the licence does not demand them.**
+    The About page lists them from the same `photos` list the check
+    reads, so a photograph cannot be added without its credit.
 
 - **The palette is still DEVI's** — warm ivory, antique gold,
   terracotta, light-only, 67 tokens. It survives the move to apparel

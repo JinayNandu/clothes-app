@@ -1,9 +1,12 @@
 // ============================================================================
 // Vastra Apparel — the procedural artwork engine.
 //
-// There are no product photographs. Rather than ship grey boxes or depend on a
-// stock-photo host that Zscaler may block, every product gets a distinct piece
-// of generated craft artwork, drawn deterministically from its id.
+// Products, categories and the hero all carry PHOTOGRAPHS now -- stand-ins
+// from Unsplash until the shop's own are taken, every one credited in
+// shop.json `photos`. This engine is the FALLBACK: anything without a
+// photograph gets a distinct piece of generated craft artwork, drawn
+// deterministically from its id, so a missing file is a drawing and never a
+// grey box.
 //
 // THE GRAMMAR IS REAL. Indian textiles are laid out as zameen (the ground
 // field), buta (the repeated motif), pallu (the border band) and selvedge.
@@ -529,9 +532,12 @@ export function art(product, view = 0) {
   return stamp(v);   // fresh ids per insertion; see uid()
 }
 
-// How many views a product actually has: the alt colourway is only drawn when
-// the product declares more than one colour.
+// How many views a product has. A photographed product shows exactly the
+// photographs it carries -- a fourth thumbnail drawn in a different style
+// beside three photographs reads as a mistake. Otherwise the alt colourway
+// is only drawn when the product declares more than one colour.
 export function viewCount(product) {
+  if (Array.isArray(product.img) && product.img.length) return product.img.length;
   const colours = product.variants && product.variants.colour;
   return (colours && colours.length > 1) ? 4 : 3;
 }
@@ -539,7 +545,14 @@ export function viewCount(product) {
 // ---------------------------------------------------------------------------
 // CATEGORY TILES — 3:4, one signature motif per category, no silhouette.
 // ---------------------------------------------------------------------------
+// One photograph, the same markup everywhere. `eager` is for the one image a
+// page opens on: lazy-loading the hero only delays the first thing seen.
+const photo = (src, alt, eager = false) =>
+  `<img src="${src}" alt="${String(alt || '').replace(/"/g, '&quot;')}" `
+  + `${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+
 export function categoryArt(cat) {
+  if (cat.img) return photo(cat.img, cat.name);
   const key = `cat:${cat.id}`;
   let v = cache.get(key);
   if (v) return v;
@@ -575,7 +588,10 @@ export function categoryArt(cat) {
 // thing a clothes shop must say, in one glance and before any copy is read, is
 // that it sells clothes. The hanger is doing most of that work; the garment
 // alone reads as a flat pattern swatch.
-export function heroArt(seed = 'vastra-hero-aw26') {
+// `src` is a photograph path from shop.json `hero`; without one the drawn
+// hero stands in. Decorative, so no alt text: it is not this shop's floor.
+export function heroArt(seed = 'vastra-hero-aw26', src = '') {
+  if (src) return photo(src, '', seed === 'vastra-hero-aw26');
   const m = MOTIFS.jaali(1.5);
   const [tw, th] = m.tile;
   const pid = uid(seed, 8, 'hero');

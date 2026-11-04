@@ -157,8 +157,27 @@ for my $f (@files) {
     }
   }
 }
+# Data files name images too, and the browser fetches those paths the same
+# way -- so they get the same exact-case test.
+my $nimg = 0;
+if (opendir my $dd, "$APP/data") {
+  for my $jf (sort grep { /\.json$/ } readdir $dd) {
+    my $t = slurp("$APP/data/$jf");
+    next unless defined $t;
+    while ($t =~ m{"(img/[^"]+\.(?:jpe?g|png|webp|avif|svg))"}g) {
+      my ($as, $p) = ($1, norm("app/$1"));
+      $nimg++;
+      next if exact($p);
+      $broken++;
+      fail(-e "$root/$p"
+        ? "app/data/$jf: '$as' differs in case from the file on disk -- Windows forgives it, GitHub Pages 404s it"
+        : "app/data/$jf: '$as' does not exist");
+    }
+  }
+  closedir $dd;
+}
 ok('no root-relative URL in ' . scalar(@files) . ' files under app/') unless $absolute;
-ok("all $nref relative references resolve, with exact case") unless $broken;
+ok("all $nref references in code and $nimg image paths in data resolve, with exact case") unless $broken;
 
 print "\n";
 if ($fails) { print "$fails FAILED\n"; exit 1; }

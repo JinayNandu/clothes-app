@@ -37,7 +37,14 @@
         },
         {
           "t": "p",
-          "v": "The brand name, the prices and the contact details on this site are placeholders while it is being built. Nothing here is a real offer yet."
+          "v": "The brand name, the prices, the contact details and the photographs on this site are placeholders while it is being built. Nothing here is a real offer yet."
+        },
+        {
+          "t": "h2",
+          "v": "Photographs"
+        },
+        {
+          "t": "credits"
         }
       ],
       "eyebrow": "Who we are",

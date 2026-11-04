@@ -5,29 +5,39 @@
       "addedOn": "2026-10-18",
       "badges": [],
       "cat": "men",
-      "desc": "A dobby weave gives the cloth a fine raised grid you can see from a foot away and feel at once — it is woven in, not printed on. Cut regular through the chest with a slight taper at the waist, so it sits under a jacket without bunching and still looks right untucked. The same shirting we run for two export labels; this one carries our own name.",
+      "desc": "Linen washed before it is cut, so it arrives soft rather than stiff and keeps its size after the first wash. A band collar instead of a spread one, a short placket, and sleeves that stop above the elbow — a shirt for heat, not for an office.",
       "id": "p-ms-indigo-dobby",
+      "img": [
+        "img/products/shirt-indigo.jpg",
+        "img/products/shirt-indigo-detail.jpg",
+        "img/products/shirt-ecru.jpg",
+        "img/products/shirt-sky.jpg"
+      ],
       "kind": "goods",
       "mrp": 1799,
-      "name": "Indigo Dobby Cotton Shirt",
+      "name": "Band-Collar Linen Shirt",
       "popularity": 78,
       "price": 1299,
       "shipClass": "std",
-      "shortDesc": "Woven dobby grid, regular fit, classic spread collar.",
+      "shortDesc": "Pure linen, band collar, short sleeves, relaxed through the body.",
       "sizeChart": "men-shirt",
       "slug": "indigo-dobby-cotton-shirt",
       "specs": [
         {
           "k": "Material",
-          "v": "100% cotton dobby, 120 GSM"
+          "v": "100% linen, garment washed"
         },
         {
           "k": "Fit",
-          "v": "Regular, slight waist taper"
+          "v": "Relaxed, straight hem"
         },
         {
           "k": "Collar",
-          "v": "Classic spread, fused"
+          "v": "Band collar, short placket"
+        },
+        {
+          "k": "Sleeve",
+          "v": "Short, above the elbow"
         },
         {
           "k": "Care",
@@ -42,11 +52,11 @@
       "sub": "men-shirts",
       "tags": [
         "shirt",
-        "dobby",
-        "cotton",
-        "indigo",
-        "formal",
-        "casual"
+        "linen",
+        "band-collar",
+        "short-sleeve",
+        "casual",
+        "summer"
       ],
       "variants": {
         "colour": [
@@ -55,20 +65,21 @@
             "id": "indigo",
             "img": 0,
             "label": "Indigo",
-            "swatch": "#38506E"
+            "swatch": "#303F4F"
           },
           {
             "delta": 0,
             "id": "ecru",
-            "img": 3,
+            "img": 2,
             "label": "Ecru",
-            "swatch": "#D9CFBC"
+            "swatch": "#EAE6DD"
           },
           {
             "delta": 0,
-            "id": "olive",
-            "label": "Olive",
-            "swatch": "#6B7355"
+            "id": "sky",
+            "img": 3,
+            "label": "Sky",
+            "swatch": "#CBCAD1"
           }
         ],
         "size": [
@@ -104,15 +115,21 @@
       "addedOn": "2026-09-22",
       "badges": [],
       "cat": "women",
-      "desc": "Hand-blocked in Bagru in madder and iron black, on a cotton that has already been washed once so it will not shrink away from the size you chose. Straight cut, side slits to mid-thigh, and a length that works over leggings or trousers. The print sits a little unevenly from panel to panel, which is what a wooden block does and a roller never would.",
+      "desc": "Cut as an A-line from the yoke down, so it moves when you walk and sits flat when you sit. The indigo is block printed; the turmeric is plain, with the colour carried up into an embroidered yoke. Both are cotton washed once before cutting, so neither shrinks on you.",
       "id": "p-wk-bagru-straight",
+      "img": [
+        "img/products/kurti-indigo.jpg",
+        "img/products/kurti-indigo-detail.jpg",
+        "img/products/kurti-turmeric.jpg",
+        "img/products/kurti-turmeric-detail.jpg"
+      ],
       "kind": "goods",
       "mrp": 1499,
-      "name": "Bagru Block Print Straight Kurti",
+      "name": "A-Line Cotton Kurti",
       "popularity": 85,
       "price": 999,
       "shipClass": "std",
-      "shortDesc": "Hand-blocked in madder and iron black, pre-shrunk cotton.",
+      "shortDesc": "An indigo block print, or plain turmeric with an embroidered yoke. Pre-shrunk cotton.",
       "sizeChart": "women-kurti",
       "slug": "bagru-block-print-straight-kurti",
       "specs": [
@@ -122,7 +139,7 @@
         },
         {
           "k": "Fit",
-          "v": "Straight, side slits"
+          "v": "A-line from the yoke, flared hem"
         },
         {
           "k": "Length",
@@ -134,33 +151,35 @@
         },
         {
           "k": "Made in",
-          "v": "Our own unit, printed in Bagru"
+          "v": "Our own unit"
         }
       ],
       "stock": 31,
       "sub": "women-kurtis",
       "tags": [
         "kurti",
-        "bagru",
-        "block print",
         "cotton",
-        "straight"
+        "a-line",
+        "block-print",
+        "embroidered",
+        "indigo",
+        "turmeric"
       ],
       "variants": {
         "colour": [
           {
             "delta": 0,
-            "id": "madder",
+            "id": "indigo",
             "img": 0,
-            "label": "Madder",
-            "swatch": "#A6503C"
+            "label": "Indigo print",
+            "swatch": "#363453"
           },
           {
             "delta": 0,
-            "id": "indigo",
-            "img": 3,
-            "label": "Indigo",
-            "swatch": "#38506E"
+            "id": "turmeric",
+            "img": 2,
+            "label": "Turmeric",
+            "swatch": "#E6B311"
           }
         ],
         "size": [
@@ -196,33 +215,35 @@
       "addedOn": "2026-11-01",
       "badges": [],
       "cat": "women",
-      "desc": "Three tiers, each gathered onto the one above, so the weight of the cloth does the shaping and nothing needs to be tight to hold its line. Midi length, a hidden side zip, and pockets deep enough to actually use. Cotton voile — light enough for a Mumbai October and opaque enough not to need a slip.",
+      "desc": "Each tier is gathered onto the one above, so the weight of the cloth does the shaping and nothing needs fitting at the waist. Long enough to wear with flats, and cut generously through the body, so the size you choose is about the bust and not the hips.",
       "id": "p-wd-tiered-midi",
+      "img": [
+        "img/products/dress-green.jpg",
+        "img/products/dress-green-detail.jpg",
+        "img/products/dress-dove.jpg",
+        "img/products/dress-dove-detail.jpg"
+      ],
       "kind": "goods",
       "mrp": 2599,
-      "name": "Tiered Cotton Midi Dress",
+      "name": "Tiered Cotton Dress",
       "popularity": 64,
       "price": 1899,
       "shipClass": "std",
-      "shortDesc": "Three gathered tiers in cotton voile, with real pockets.",
+      "shortDesc": "Gathered tiers that do the shaping, in soft cotton.",
       "sizeChart": "women-dress",
       "slug": "tiered-cotton-midi-dress",
       "specs": [
         {
           "k": "Material",
-          "v": "Cotton voile, 90 GSM"
+          "v": "Cotton, soft finish"
         },
         {
           "k": "Fit",
-          "v": "Relaxed through the body, three tiers"
+          "v": "Relaxed through the body, gathered tiers"
         },
         {
           "k": "Length",
-          "v": "Midi, 46 in from shoulder"
-        },
-        {
-          "k": "Details",
-          "v": "Hidden side zip, two side pockets"
+          "v": "46 to 48 in from shoulder, by size"
         },
         {
           "k": "Care",
@@ -233,27 +254,25 @@
       "sub": "women-dresses",
       "tags": [
         "dress",
-        "midi",
         "tiered",
         "cotton",
-        "voile",
-        "pockets"
+        "summer"
       ],
       "variants": {
         "colour": [
           {
             "delta": 0,
-            "id": "sage",
+            "id": "green",
             "img": 0,
-            "label": "Sage",
-            "swatch": "#7D8C6A"
+            "label": "Green",
+            "swatch": "#5B9D5C"
           },
           {
             "delta": 0,
-            "id": "blush",
-            "img": 3,
-            "label": "Blush",
-            "swatch": "#C98B86"
+            "id": "dove",
+            "img": 2,
+            "label": "Dove grey",
+            "swatch": "#C5C1C7"
           }
         ],
         "size": [

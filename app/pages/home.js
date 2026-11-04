@@ -62,7 +62,7 @@ router.registerScreen('home', async (host) => {
         ${icon('truck', 14)} ${esc(D.shippingLine(shop))} &nbsp;·&nbsp;
         ${esc(D.returnsLine(shop))}</p>
     </div>
-    <div class="hero-art">${heroArt()}</div>
+    <div class="hero-art">${heroArt(undefined, shop.hero && shop.hero.main)}</div>
   </section>
 
   <div style="margin:var(--s7) 0">${ornament()}</div>
@@ -119,7 +119,7 @@ router.registerScreen('home', async (host) => {
           </div>
         </div>
         <div class="hero-art" style="height:340px;min-height:0">
-          ${heroArt('vastra-direct')}
+          ${heroArt('vastra-direct', shop.hero && shop.hero.direct)}
         </div>
       </div>
     </div>

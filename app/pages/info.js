@@ -51,6 +51,22 @@ function block(b, shop, pageKey, bulky = []) {
     case 'p':  return `<p>${esc(b.v)}</p>`;
     case 'ul': return `<ul>${b.v.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
 
+    // Every photograph's credit, read from shop.json `photos` -- the list
+    // data.pl checks against the files on disk, so a photograph added without
+    // its credit fails a check instead of quietly going uncredited here.
+    case 'credits': {
+      const all = Object.values(shop.photos || {});
+      const bySource = new Map();
+      for (const v of all) if (!bySource.has(v.source)) bySource.set(v.source, v);
+      if (!bySource.size) return '';
+      const intro = all.some((v) => v.stock)
+        ? `<p>Every photograph here is a stand-in until our own are taken, used under
+           the <a href="https://unsplash.com/license" target="_blank" rel="noopener">Unsplash
+           License</a>. With thanks to:</p>` : '';
+      return `${intro}<ul>${[...bySource.values()].map((v) => `<li>${esc(v.what.replace(/, close up$/, ''))}:
+        <a href="${esc(v.source)}" target="_blank" rel="noopener">${esc(v.by)}</a></li>`).join('')}</ul>`;
+    }
+
     case 'fromShop': {
       // Resolve a dotted path into shop.json. data.pl has already proved it
       // resolves, so a miss here means the JSON changed without the check

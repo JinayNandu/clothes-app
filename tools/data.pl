@@ -442,6 +442,53 @@ if ($logo eq '') {
   ok("brand.logo $logo is on disk");
 }
 
+# Photographs. Every one shown is on disk and credited, every credit is shown,
+# every file in app/img is used -- and a stock stand-in cannot outlive the
+# placeholder flag. On a real shop a stand-in is a picture of a garment the
+# customer will not receive, the one image a shop must never show.
+{
+  my $ph = $shop->{photos} || {};
+  my (%used, $bad);
+  for my $p (@{ $cl->{products} || [] }) {
+    $used{$_} //= "product $p->{id}" for grep { defined && length } @{ $p->{img} || [] };
+  }
+  for my $c (@{ $cat->{categories} || [] }) { $used{ $c->{img} } //= "category $c->{id}" if $c->{img} }
+  for my $k (sort keys %{ $shop->{hero} || {} }) { $used{ $shop->{hero}{$k} } //= "hero.$k" if $shop->{hero}{$k} }
+  for my $path (sort keys %used) {
+    my $who = $used{$path};
+    if ($path !~ m{^img/[A-Za-z0-9_./-]+\.(?:jpe?g|png|webp|avif)$}) {
+      $bad++; fail("$who: '$path' must be a relative path under img/ -- a leading slash breaks on GitHub Pages");
+    } elsif (!-f "$APP/$path") { $bad++; fail("$who: photograph '$path' is not on disk at app/$path") }
+    unless ($ph->{$path}) { $bad++; fail("$who: '$path' has no entry in shop.json photos -- every photograph shown needs its credit") }
+  }
+  for my $path (sort keys %$ph) {
+    my $e = $ph->{$path};
+    unless ($used{$path}) { $bad++; fail("photos: '$path' is credited but nothing shows it") }
+    for my $f (qw(what by source license)) { unless (($e->{$f} // '') ne '') { $bad++; fail("photos: '$path' has no $f") } }
+    if (($e->{source} // '') !~ m{^https://}) { $bad++; fail("photos: '$path' source is not an https link") }
+  }
+  my @files; my $walk; $walk = sub {
+    my ($rel) = @_;
+    opendir my $dh, "$APP/$rel" or return;
+    for my $n (sort grep { !/^\./ } readdir $dh) {
+      if (-d "$APP/$rel/$n") { $walk->("$rel/$n") } elsif ($n =~ /\.(?:jpe?g|png|webp|avif)$/i) { push @files, "$rel/$n" }
+    }
+    closedir $dh;
+  };
+  $walk->('img');
+  for my $f (@files) {
+    next if $used{$f} || $f eq ($shop->{brand}{logo} // '');
+    $bad++; fail("app/$f is shown by nothing -- it would ship and never appear");
+  }
+  my @stock = grep { $ph->{$_} && $ph->{$_}{stock} } sort keys %used;
+  if (@stock && !$shop->{placeholder}) {
+    $bad++; fail(scalar(@stock) . ' stock photograph(s) still shown with placeholder false -- '
+      . 'a stand-in shows a garment the customer will not receive: ' . join(', ', @stock));
+  }
+  ok(scalar(keys %used) . ' photographs shown, each on disk and credited'
+     . (@stock ? '; ' . scalar(@stock) . ' are stock stand-ins, allowed only while placeholder is true' : '')) unless $bad;
+}
+
 if ($shop->{placeholder}) {
   fail("shop.json placeholder is TRUE -- the brand details, phone, address, "
      . "GSTIN and all prices are invented.\n"

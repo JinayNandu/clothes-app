@@ -3,14 +3,21 @@
 #   perl tools/mksingle.pl     -> build/clothes-app.html AND docs/
 #   perl tools/mkartifact.pl   -> build/artifact.html
 #
-# ⚠️ docs/ is GENERATED but is NOT ignored. GitHub Pages serves what is in the
-# branch and cannot run a build step, so the built page has to be committed.
+# docs/ is ignored HERE, unlike in DEVI. This repository is published from its
+# root -- the index.html there forwards into app/, see "Published" in
+# CLAUDE.md -- so a committed docs/ would be a second copy of the shop, going
+# stale.
 # ---------------------------------------------------------------------------
 build/
+docs/
 
 # Machine-specific: absolute paths, and the Windows account name along with
 # them. CLAUDE.md documents the serve commands, so nothing is lost.
 .claude/
+
+# The original brief. It stays on this machine: it carries machine paths and
+# the Windows account name, and this repository is public.
+PROMPT.md
 
 # ---------------------------------------------------------------------------
 # Secrets. There is none in this project today and there must not be one

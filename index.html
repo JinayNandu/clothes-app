@@ -1,0 +1,59 @@
+<!doctype html>
+<!--
+  Repository root, not the app.
+
+  GitHub Pages serves this repository from its root, and the shop lives in
+  app/ because tools/ and the notes are not things to publish. So the short
+  URL lands here and goes on. Same shape as kirana -- see kirana/DEPLOY.md.
+
+  TWO redirects, in this order.
+
+  1. JavaScript first, because it is the only one that can carry the query
+     AND THE HASH across. This shop routes on the hash -- a product link is
+     .../clothes-app/#/p/<slug> -- so a redirect that drops it turns every
+     product link anybody shares into a link to the home page. A <meta
+     refresh> on its own drops both.
+  2. The <meta refresh>, for scripts off. It lands on the home page, which is
+     the right default for whoever that is.
+
+  The link in the body is for the case where even the meta is ignored.
+
+  tools/serve.pl serves app/ AS the root, so locally there is no redirect to
+  lose anything: this page exists only on the deployed path. tools/deploy.pl
+  reads it for that reason, instead of trusting a local click-through.
+
+  Relative paths throughout: this has to work at
+  jinaynandu.github.io/clothes-app/ and at a bare domain alike.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="0; url=./app/">
+<script>
+  // replace(), not assign(), so the back button does not land on this page
+  // and bounce forward again.
+  location.replace("./app/" + location.search + location.hash);
+</script>
+<title>Opening the shop</title>
+<style>
+  /* Values copied from app/styles/tokens.css: --paper, --ink, --gold-ink. */
+  :root{ --paper:#FBF8F3; --ink:#241C16; --gold-ink:#7A5D1D; color-scheme:light; }
+  html,body{ height:100%; }
+  body{
+    margin:0; display:grid; place-items:center; text-align:center;
+    background:var(--paper); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding:16px;
+  }
+  a{ color:var(--gold-ink); font-weight:600; }
+</style>
+</head>
+<body>
+  <p>Taking you to <a id="go" href="./app/">the shop</a>&hellip;</p>
+  <script>
+    // Only reached if the redirect above was blocked. Same query, same hash.
+    document.getElementById("go").href = "./app/" + location.search + location.hash;
+  </script>
+</body>
+</html>

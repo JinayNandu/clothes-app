@@ -19,6 +19,7 @@ my @CHECKS = (
   ['art.pl',     'the same two rules, pointed at the modules that emit SVG'],
   ['canon.pl',   'the data files are already in the admin export form'],
   ['routes.pl',  'every hash link resolves and no module imports backwards'],
+  ['deploy.pl',  'what GitHub Pages serves: root redirect, relative paths, exact case'],
   ['honesty.pl', 'the promise this site makes, enforced structurally'],
   ['clock.pl',   'every date read lives in domain.js'],
   ['balance.pl', 'unbalanced brackets and strings'],

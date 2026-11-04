@@ -73,7 +73,7 @@ for a phone on the same Wi-Fi — opt-in, and it will often fail on a
 managed network, which is not a bug in the server.
 
 ```bash
-perl tools/check.pl        # nine checks
+perl tools/check.pl        # ten checks
 ```
 
 ⚠️ **`data.pl` fails on a clean tree, on purpose.** See *Open*.

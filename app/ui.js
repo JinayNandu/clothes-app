@@ -222,6 +222,22 @@ export function drawChrome(shop) {
     if (el) el.innerHTML = icon(name, 20);
   }
 
+  // ⚠️ THE PREVIEW BAR rides on shop.placeholder, the same flag that makes
+  // data.pl fail, so one switch tells both the checks and whoever is reading
+  // the page that this is not real yet. Without it, somebody sent the link
+  // meets an invented name, invented prices and invented sizes, and a
+  // checkout that cannot send an order anywhere. It goes when the flag goes,
+  // and data.pl only lets the flag go once the contact details are real.
+  // tools/honesty.pl fails if the sentence or its element disappears.
+  const pv = $('#preview-bar');
+  if (pv) {
+    pv.innerHTML = shop.placeholder
+      ? '<b>Preview only</b> — the name, prices and sizes are placeholders, '
+        + 'and nothing here can be ordered yet.'
+      : '';
+    pv.hidden = !shop.placeholder;
+  }
+
   // ⚠️ Both halves come from domain.js, not from shop.shipping directly. See
   // shippingLine() for why: three screens stating one promise in three
   // hand-built sentences is three sentences that drift.

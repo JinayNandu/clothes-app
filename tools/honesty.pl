@@ -219,6 +219,10 @@ my %NOTICE = (
     => [ '/pages/admin.js',   qr/orders placed in THIS browser only/i ],
   'the demo-UPI strip'
     => [ '/pay.js',           qr/cannot take money/i ],
+  'the preview bar, while shop.json says placeholder'
+    => [ '/ui.js',            qr/nothing here can be ordered yet/ ],
+  'the element the preview bar is drawn into'
+    => [ '/index.html',       qr/id="preview-bar"/ ],
 );
 my $missing = 0;
 for my $what (sort keys %NOTICE) {

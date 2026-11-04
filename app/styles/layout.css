@@ -37,6 +37,26 @@
 .strip b{ color:var(--gold-ink); font-weight:600; }
 
 /* ---------------------------------------------------------------------------
+   PREVIEW BAR -- above the strip, and only while shop.json says
+   placeholder:true. ui.js shows it; the reason is written there.
+
+   NOT sticky, like the strip and the brand band below it, so nothing that
+   sticks moves. It is on screen when a page is first opened, which is when a
+   link somebody was sent gets read. Warn tokens, as on the checkout's own
+   notice: --warn-ink on --warn-wash is 6.33:1.
+   ------------------------------------------------------------------------ */
+.preview-bar{
+  background:var(--warn-wash);
+  color:var(--warn-ink);
+  border-bottom:1px solid var(--warn);
+  padding:6px var(--gutter);
+  font-size:12px; font-weight:500; line-height:1.4;
+  text-align:center;
+  text-wrap:balance;
+}
+.preview-bar b{ font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+
+/* ---------------------------------------------------------------------------
    BRAND BAND -- the logo, above the navigation.
 
    Deliberately NOT sticky. It scrolls away and the header below keeps the

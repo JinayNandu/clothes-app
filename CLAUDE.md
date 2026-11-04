@@ -60,6 +60,7 @@ Personal side-venture of the user, not client work.
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
 | Database, accounts, seller view | **Not started** — steps 6, 7, 8 |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
+| Public site | <https://jinaynandu.github.io/clothes-app/> — see *Published*. Wears a Preview bar while placeholder is true |
 
 ### Running it
 
@@ -77,6 +78,41 @@ perl tools/check.pl        # ten checks
 ```
 
 ⚠️ **`data.pl` fails on a clean tree, on purpose.** See *Open*.
+
+### Published
+
+**At <https://jinaynandu.github.io/clothes-app/>**, from the `main` branch
+of <https://github.com/JinayNandu/clothes-app>. Pages has to be switched on
+once: *Settings → Pages → Deploy from a branch → `main` → `/ (root)`*. Same
+shape as kirana (`kirana/DEPLOY.md`): Pages serves the repository root, the
+root `index.html` forwards into `app/` carrying the query **and the hash**,
+and there is no build step on either side.
+
+Product links, for sending to someone — each one goes through the root
+redirect, which is why that redirect must keep the hash:
+`…/clothes-app/#/p/indigo-dobby-cotton-shirt`,
+`…/#/p/bagru-block-print-straight-kurti`, `…/#/p/tiered-cotton-midi-dress`.
+
+```bash
+git add -A && git commit -m "what changed, and why" && git push
+```
+
+Pages rebuilds within a minute or two; a phone that already opened the site
+can keep the old copy for up to ten minutes.
+
+- **The repository is public** — Pages on a free account requires it.
+  Nothing secret is in it; `.claude/` and `PROMPT.md` (the original brief,
+  which carries machine paths) are git-ignored and stay on this machine.
+- **Commits use the GitHub no-reply address**, set in this repo's
+  `.git/config`. History was rewritten on 4 November 2026, before the first
+  push, to take a work email, the Windows account name and the brief out of
+  it. The pre-rewrite history is `refs/original/refs/heads/master`, local
+  only.
+- **`tools/deploy.pl` checks the deployed path**, because `serve.pl` serves
+  `app/` as the root and so cannot show it: `.nojekyll`, LF endings, the
+  redirect keeping `location.hash`, no root-relative URL, exact-case paths.
+- **The Preview bar** is on every page while `placeholder` is `true` in
+  `shop.json`, and goes with it.
 
 ---
 

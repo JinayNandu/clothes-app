@@ -183,7 +183,10 @@ create or replace function place_order(p jsonb) returns jsonb
   language plpgsql volatile security definer set search_path = public as $fn$
 declare
   c         jsonb := p->'customer';
-  ln        jsonb;
+  item      jsonb;
+  q         int;
+  up        int;
+  um        int;
   items     int := 0;
   mrp       int := 0;
   disc      int := coalesce((p->>'discount')::int, 0);
@@ -205,25 +208,29 @@ begin
     raise exception 'TOO_MANY_ORDERS';
   end if;
 
-  if jsonb_typeof(p->'lines') is distinct from 'array'
-     or jsonb_array_length(p->'lines') not between 1 and 20 then
-    raise exception 'BAD_LINES';
-  end if;
+  -- Two checks, not one with an OR: SQL does not promise to test the left
+  -- side first, and jsonb_array_length() of a non-array is an error of its
+  -- own rather than this refusal.
+  if jsonb_typeof(p->'lines') is distinct from 'array' then raise exception 'BAD_LINES'; end if;
+  if jsonb_array_length(p->'lines') not between 1 and 20 then raise exception 'BAD_LINES'; end if;
 
-  for ln in select value from jsonb_array_elements(p->'lines') loop
-    if (ln->>'qty')::int not between 1 and 10
-       or (ln->>'unitPrice')::int <= 0
-       or (ln->>'unitMrp')::int < (ln->>'unitPrice')::int then
-      raise exception 'BAD_LINE';
-    end if;
-    items := items + (ln->>'unitPrice')::int * (ln->>'qty')::int;
-    mrp   := mrp   + (ln->>'unitMrp')::int   * (ln->>'qty')::int;
+  -- ⚠️ coalesce() before every test. A missing number is NULL, a test on
+  -- NULL is neither true nor false, and an IF reads "unknown" as false -- so
+  -- without it a line with no price would walk past every check here.
+  for item in select value from jsonb_array_elements(p->'lines') loop
+    q  := coalesce((item->>'qty')::int, 0);
+    up := coalesce((item->>'unitPrice')::int, 0);
+    um := coalesce((item->>'unitMrp')::int, 0);
+    if q not between 1 and 10 or up <= 0 or um < up then raise exception 'BAD_LINE'; end if;
+    items := items + up * q;
+    mrp   := mrp   + um * q;
   end loop;
 
-  -- Re-added, never taken on trust.
-  if items <> (p->>'itemsTotal')::int then raise exception 'ITEMS_DO_NOT_ADD_UP'; end if;
+  -- Re-added, never taken on trust. `is distinct from`, so a total that is
+  -- missing is refused rather than waved through as unknown.
+  if items is distinct from (p->>'itemsTotal')::int then raise exception 'ITEMS_DO_NOT_ADD_UP'; end if;
   if disc < 0 or disc > items or ship < 0 or bulk < 0 then raise exception 'BAD_TOTALS'; end if;
-  if (p->>'grand')::int <> items - disc + ship + bulk then
+  if (p->>'grand')::int is distinct from items - disc + ship + bulk then
     raise exception 'TOTAL_DOES_NOT_ADD_UP';
   end if;
 
@@ -282,6 +289,8 @@ begin
   if not is_staff() then raise exception 'NOT_STAFF'; end if;
   select status into cur from orders where id = p_oid for update;
   if cur is null then raise exception 'NO_SUCH_ORDER'; end if;
+  -- A NULL step would test as unknown below and slip past the list.
+  if p_to is null then raise exception 'BAD_TRANSITION'; end if;
 
   -- ⚠️ THE ROAD, WRITTEN A SECOND TIME: the same pairs as ORDER_NEXT in
   -- app/domain.js, less the draft, which never reaches this database.
@@ -320,6 +329,7 @@ create or replace function set_paid(p_oid uuid, p_paid boolean, p_via text defau
   returns void language plpgsql volatile security definer set search_path = public as $fn$
 begin
   if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  if p_paid is null then raise exception 'BAD_PAID'; end if;
   update orders set
     paid     = p_paid,
     paid_at  = case when p_paid then now() else null end,

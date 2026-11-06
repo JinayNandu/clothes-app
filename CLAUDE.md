@@ -5,9 +5,8 @@ established by testing or decided deliberately; none of it is a guess.
 
 **Status: steps 1 to 5 of 10 are built — the demo** (4 November 2026). Three
 garments, sizes, a bag, and an order that goes from checkout to delivered
--- all of it in one browser until step 6. **Step 6 is built on this side and
-waits on the owner's Supabase project**: `app/config.js` is empty, so the
-live site is still one-browser. See *Where this is* and *The order of work*.
+-- all of it in one browser until step 6. **Step 6 is connected** (7 November
+2026): the live site sends orders to the shop's own Supabase project. See *Where this is* and *The order of work*.
 
 ---
 
@@ -86,7 +85,7 @@ for the store owner**.
 | Delivery range | **Frozen into the order (step 5)** as it reaches the shop, and read back everywhere after. Live only where it should be: the product page and the shipping page. The store flags an order **Late** once its last promised day has passed |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
 | Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders with the address, the phone and the next step; catalogue; stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
-| Database | **Built, waiting on the project (step 6).** `db/schema.sql`, `db/store-code.sql`, `db/SETUP.md`, `app/backend-supabase.js`. Empty `SUPABASE` in `config.js` = one-browser mode, which is what is live. Clicked through against a fake server in the browser; ⚠️ **the SQL has not yet run on a real Postgres** — see *The database* |
+| Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
 | Accounts | **Not started** — step 7 |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
 | Public site | Shop <https://jinaynandu.github.io/clothes-app/>, store <https://jinaynandu.github.io/clothes-app/store/> — see *Published*. The shop wears a Preview bar while placeholder is true; the store a Not locked yet bar until step 8 |
@@ -208,6 +207,20 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   SECURITY DEFINER pins its search_path; no hash, secret table or secret
   key in `app/`; `config.js` holds a publishable key or nothing (a
   legacy JWT is decoded and must say `anon`). Each proved by breaking it.
+- **Probed from outside on 7 November 2026**, with the publishable key
+  and a throwaway anonymous visitor, creating no order: no session reads
+  nothing and cannot call `place_order` (401); the visitor's `is_staff()`
+  is false, its own orders and the staff list are empty, `shop_secret`,
+  `claim_attempts`, a direct INSERT into `orders` and `iso_now()` are all
+  refused (403); a wrong store code returns false; `place_order` refuses
+  BAD_LINES, BAD_LINE, ITEMS_DO_NOT_ADD_UP and BAD_PROMISE by name;
+  `advance_order` and `set_paid` say NOT_STAFF. In the browser: browsing
+  makes no session and no request to Supabase; checkout says "Place
+  order"; the store page signs in, asks, shows the code form, refuses a
+  wrong code and shows nothing behind it; the Realtime websocket opens
+  through the office network.
+- **The Preview bar** now says an order placed here "is a test, not a
+  purchase", because with a database connected it does reach the shop.
 - **How it was checked without a project:** a fake Supabase API in the
   browser (a `fetch` stand-in, in temporary pages never committed) took
   an order through `place_order`, let the store in with the code, and
@@ -489,7 +502,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 3. ✅ Cart, coupon, totals — `money.pl` green.
 4. ✅ **Checkout and a real order**, still in local storage. The order page tracks it step by step, the store moves it from Confirm to Mark delivered, and `deliveredAt` is a field of its own. 4 November 2026.
 5. ✅ **Freeze the delivery range into the order at placement** — as it reaches the shop, read back everywhere after, with a Late flag on the store's board. 4 November 2026.
-6. 🔶 **Supabase** — built on this side on 4 November 2026 (`db/`, `backend-supabase.js`, `db.pl`); waiting on the owner to make the project, run the two SQL files and send the URL and publishable key. Then: verify from outside, fill `config.js`, publish.
+6. ✅ **Supabase** — built 4 November 2026, connected 7 November 2026 to the shop's own project. Left: the owner's first real test order, from a phone, seen on the store page.
 7. ⬜ **Accounts**, so a parcel can be tracked from a second phone.
 8. ⬜ **The store view, locked**, behind `claim_staff()`. The page and its own link exist since 4 November 2026; what is left is the code check on the server and reading every phone's orders from the database.
 9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.

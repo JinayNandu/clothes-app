@@ -226,14 +226,17 @@ export function drawChrome(shop) {
   // data.pl fail, so one switch tells both the checks and whoever is reading
   // the page that this is not real yet. Without it, somebody sent the link
   // meets an invented name, invented prices and invented sizes, and a
-  // checkout that cannot send an order anywhere. It goes when the flag goes,
-  // and data.pl only lets the flag go once the contact details are real.
+  // checkout whose orders nobody should fulfil. ⚠️ It used to say nothing
+  // could be ordered; with a database connected an order DOES reach the
+  // shop, so the sentence now says what is true in both modes: an order
+  // placed here is a test. It goes when the flag goes, and data.pl only lets
+  // the flag go once the contact details are real.
   // tools/honesty.pl fails if the sentence or its element disappears.
   const pv = $('#preview-bar');
   if (pv) {
     pv.innerHTML = shop.placeholder
       ? '<b>Preview only</b> — the name, prices, sizes and photos are placeholders, '
-        + 'and nothing here can be ordered yet.'
+        + 'and an order placed here is a test, not a purchase.'
       : '';
     pv.hidden = !shop.placeholder;
   }

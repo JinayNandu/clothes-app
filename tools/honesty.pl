@@ -311,7 +311,7 @@ my %NOTICE = (
   'the demo-UPI strip'
     => [ '/pay.js',           qr/cannot take money/i ],
   'the preview bar, while shop.json says placeholder'
-    => [ '/ui.js',            qr/nothing here can be ordered yet/ ],
+    => [ '/ui.js',            qr/an order placed here is a test, not a purchase/ ],
   'the not-locked-yet bar on the store page, until a server checks the code'
     => [ '/owner.js',         qr/Not locked yet/ ],
   'the element the store page states its lock in'

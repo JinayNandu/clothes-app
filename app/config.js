@@ -38,8 +38,8 @@ export const CDN = {
 // rule. tools/db.pl fails on anything here that is not a publishable key.
 // ---------------------------------------------------------------------------
 export const SUPABASE = {
-  url: '',
-  key: '',
+  url: 'https://tquymsewhzfawjkyysax.supabase.co',
+  key: 'sb_publishable_KrRjRgDAdgtBbzEKcuAGdw_Saeci61h',
 };
 
 /**

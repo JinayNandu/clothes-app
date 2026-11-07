@@ -10,8 +10,11 @@ it: no server to run, no monthly bill.
 Followed from Milan's `kirana/db/SETUP.md`, which has been walked end
 to end — but this is **its own project**. Not Milan's, not DEVI's.
 
-Every dashboard link below contains `_`, which Supabase turns into your
-project once you are signed in.
+Every dashboard link below opens **this shop's own project**, ref
+`tquymsewhzfawjkyysax` (8 November 2026). They used to carry `_`, which
+Supabase turns into whichever project was used LAST -- Milan's, as like
+as not. ⚠️ Before running any SQL, look at the project name at the top
+left of the editor.
 
 ---
 
@@ -38,7 +41,7 @@ already have two, pause one first, or this one will not be created.
 
 ## 2. Create the tables — 1 min
 
-[SQL Editor](https://supabase.com/dashboard/project/_/sql/new) → paste
+[SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new) → paste
 **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
 → **Run**. Expect *"Success. No rows returned."* It is safe to run again.
 
@@ -64,7 +67,7 @@ with your code → **Run**.
 
 ## 4. One auth switch — 1 min
 
-[Authentication → Sign In / Providers](https://supabase.com/dashboard/project/_/auth/providers)
+[Authentication → Sign In / Providers](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/auth/providers)
 → **Allow anonymous sign-ins: on.**
 
 Every customer gets a quiet session at the moment they place an order,
@@ -74,7 +77,7 @@ sends, is step 7 below.
 
 ## 5. Send two values — 1 min
 
-[Settings → API Keys](https://supabase.com/dashboard/project/_/settings/api-keys/)
+[Settings → API Keys](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/settings/api-keys/)
 
 - **Project URL** — `https://xxxxxxxxxxxxxxxxxxxx.supabase.co`
 - **Publishable key** — begins `sb_publishable_…` (an older project may
@@ -107,7 +110,7 @@ was walked end to end — with this shop's **own** sender.
 
 ### 7a. Run `schema.sql` again — 1 min
 
-As in step 2: [SQL Editor](https://supabase.com/dashboard/project/_/sql/new)
+As in step 2: [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new)
 → paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
 → **Run** → *"Success. No rows returned."*
 
@@ -133,7 +136,7 @@ no domain:
    ⚠️ An **SMTP key**, not an API key: the wrong one fails with *535
    Authentication failed*. It is shown **once** — paste it straight into
    the next step, and **never into the chat**.
-4. [Supabase → Authentication → SMTP](https://supabase.com/dashboard/project/_/auth/smtp)
+4. [Supabase → Authentication → SMTP](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/auth/smtp)
    → **Enable custom SMTP**:
 
    | | |
@@ -145,13 +148,13 @@ no domain:
    | Sender email | the address added in step 2 |
    | Sender name | the shop's name, as customers should read it |
 
-5. [Authentication → Rate Limits](https://supabase.com/dashboard/project/_/auth/rate-limits)
+5. [Authentication → Rate Limits](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/auth/rate-limits)
    → raise the cap on emails sent per hour; it starts low even with your
    own SMTP.
 
 ### 7c. Four switches — 2 min
 
-[Authentication → Sign In / Providers](https://supabase.com/dashboard/project/_/auth/providers):
+[Authentication → Sign In / Providers](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/auth/providers):
 
 | | |
 |---|---|
@@ -175,7 +178,7 @@ The first is the common one, and the surprising one: the guest session
 a phone already has *takes* the email, so the orders placed on it stay
 theirs, and Supabase calls that an email change.
 
-[Authentication → Emails](https://supabase.com/dashboard/project/_/auth/templates)
+[Authentication → Emails](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/auth/templates)
 → **both** of those templates → **Source**, the same body in each:
 
 ```html
@@ -204,7 +207,7 @@ Since 7 November 2026 the store can move or cancel **one item** of an
 order, and note a refund when a paid item is cancelled. The page shows
 none of it until the database has it.
 
-1. [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) →
+1. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new) →
    paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
    → **Run** → *"Success. No rows returned."* It adds a status to every
    item (orders already placed get theirs from the order), and the
@@ -229,7 +232,7 @@ to an earlier step after a wrong tap — Shipped back to Packed. Until the
 database has it, the store page says so when you try: *"Going back needs
 the latest database update."* Everything else works as before.
 
-1. [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) →
+1. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new) →
    paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
    → **Run** → *"Success. No rows returned."* It adds the two functions
    that step back (`step_back_order`, `step_back_line`) and teaches the
@@ -250,18 +253,22 @@ To clear out every test order and account and begin as a new customer
 refuses to run after 9 November 2026 unless its LATCH date is changed
 on purpose — so an old copy cannot empty a shop with real customers.
 
-1. [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) →
+1. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new) →
    paste **all** of [`db/reset.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/reset.sql)
    → **Run** → the editor warns that the query deletes rows → **Run
    this query**. It shows what is left: every count **0**, the next
    order **VA-0001**, the store code **kept**. If the accounts row says
    *NOT DELETED*, open **Authentication → Users**, tick them all, and
-   delete them there.
+   delete them there. If it says *NOTHING DELETED: this is not the Vastra
+   Apparel database*, the editor was open on another project — the name
+   at the top left tells you which — and nothing anywhere was touched.
 2. On every phone that used the shop: open it → the person icon →
    **Sign out of this phone** → **Clear this browser**. The phone may
    otherwise still think it is signed in to an account that is gone.
-3. Open the store page and type the store code again: the reset took
-   every phone out of the store. It keeps the code itself.
+3. Open the store page — reload it if it was already open — and type
+   the store code again: the reset took every phone out of the store,
+   and keeps the code itself. ⚠️ **A store page that still shows orders
+   after a reload means the reset did not run on this project.**
 4. Shop as a new customer: the first order is **VA-0001**.
 
 ## Renaming the shop, later

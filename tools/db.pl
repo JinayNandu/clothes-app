@@ -267,8 +267,20 @@ if (-e "$root/db/reset.sql") {
   } elsif ($first >= 0 && $first < $latch) {
     $rbad++; fail('reset.sql deletes something before its LATCH is checked');
   }
-  ok('reset.sql keeps the store code, changes no table or rule, and refuses after its latch date')
-    unless $rbad;
+  # Which database it is in, before a single row goes: a dashboard link can
+  # open the project used last, and Milan's has tables of the same names.
+  my $fp = index($rs, "raise exception 'NOTHING DELETED: this is not the");
+  my ($fpre) = $rs =~ /generation_expression\s+like\s+'%''([A-Z]+)-''%'/;
+  if ($fp < 0 || !defined $fpre) {
+    $rbad++; fail("reset.sql no longer checks that it is in this shop's database -- run in Milan's "
+                . 'project by mistake, it would empty that one');
+  } elsif ($fpre ne $want) {
+    $rbad++; fail("reset.sql looks for order codes $fpre- but this shop mints $want-");
+  } elsif ($first >= 0 && $first < $fp) {
+    $rbad++; fail('reset.sql deletes something before it checks which database it is in');
+  }
+  ok("reset.sql keeps the store code, changes no table or rule, refuses after its latch date, "
+     . "and refuses any database whose orders are not $want-") unless $rbad;
 }
 
 print "\n";

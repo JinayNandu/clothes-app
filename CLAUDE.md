@@ -244,9 +244,18 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   to delete them in Authentication → Users. ⚠️ A LATCH date (9 November
   2026) makes an old copy refuse — the owner runs SQL "from the files in
   the folder", and a reset picked up for `schema.sql` on a live shop would
-  be the worst mistake on offer. `db.pl` section 9 fails if it touches the
-  store code, changes the database itself, or deletes before the latch;
-  each proved by breaking it. Afterwards a phone may think it is still
+  be the worst mistake on offer. **It also refuses any database but this
+  shop's** (orders minted `VA-`, `handovers`, `claim_attempts` and
+  `step_back_order` all present): added the same day, when the owner still
+  saw two orders on the store after "running" it. SETUP.md's links carried
+  `project/_/`, which Supabase resolves to the project used LAST — likely
+  Milan's, whose tables share the names. There it would have stopped at
+  `handovers`, a table Milan never had, and rolled back: luck, not design,
+  so now it is design, and every link in SETUP.md names this project's
+  ref. `db.pl` section 9 fails if it touches the store code, changes the
+  database itself, deletes before the latch or before the database check,
+  or looks for another prefix than `schema.sql` mints; each proved by
+  breaking it. Afterwards a phone may think it is still
   signed in to an account that is gone: Sign out of this phone, then Clear
   this browser (which removes only `vastra.*` keys on the shared origin).
 - **Verified 8 November 2026 that `schema.sql` (step 9) ran** without

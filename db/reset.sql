@@ -12,6 +12,12 @@
 --  cannot empty a shop that has real customers in it. To use it again on
 --  purpose, change that date, and only that.
 --
+--  ⚠️ AND IT REFUSES ANY DATABASE BUT THIS SHOP'S. Check the project name
+--  at the top left of the SQL editor first: the clothes shop's project,
+--  ref tquymsewhzfawjkyysax -- never Milan's. Opened from
+--  https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new
+--  it is the right one.
+--
 --  WHAT IT EMPTIES
 --    orders, order_lines   every order and its items
 --    addresses             every saved address
@@ -49,6 +55,19 @@ begin
   -- LATCH: the last day this file empties anything.
   if (now() at time zone 'Asia/Kolkata')::date > date '2026-11-09' then
     raise exception 'NOTHING DELETED: reset.sql only runs until 9 November 2026, so an old copy cannot empty a shop with real customers. To run it again on purpose, change the date on the LATCH line.';
+  end if;
+
+  -- THIS SHOP'S DATABASE AND NO OTHER (8 November 2026). A dashboard link
+  -- can open whichever project was used last, and Milan's has tables of
+  -- the same names. So before a single row goes: order codes minted as
+  -- VA-, and the tables and functions only this shop has.
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'orders'
+                    and column_name = 'code' and generation_expression like '%''VA-''%')
+     or to_regclass('public.handovers') is null
+     or to_regclass('public.claim_attempts') is null
+     or to_regprocedure('public.step_back_order(uuid, text)') is null then
+    raise exception 'NOTHING DELETED: this is not the Vastra Apparel database. Look at the project name at the top left of the SQL editor: it must be the clothes shop''s project (tquymsewhzfawjkyysax). Open that one and run this there.';
   end if;
 
   delete from order_lines;

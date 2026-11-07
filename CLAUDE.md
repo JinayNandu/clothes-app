@@ -258,6 +258,26 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   breaking it. Afterwards a phone may think it is still
   signed in to an account that is gone: Sign out of this phone, then Clear
   this browser (which removes only `vastra.*` keys on the shared origin).
+- **A phone's sign-in can outlive its account** — found 8 November 2026,
+  straight after the owner's reset: the store page asked for the code and
+  then failed with `insert or update on table "staff" violates foreign key
+  constraint "staff_user_id_fkey"`. The phone still held the deleted
+  account's session; its token stays signature-valid for up to an hour, so
+  `begin()` used it, and every table that names a user refers to
+  `auth.users`. Now `liveSession()` asks the server once per token
+  (`auth.getUser()`) whether the account exists; a definite no
+  (`user_not_found`, `session_not_found`, `bad_jwt`) signs this browser
+  out locally and the caller starts afresh — never on a network failure.
+  `begin()` and `whoami()` go through it, so the store makes a new guest
+  session and the profile stops saying "Signed in". Belt and braces: the
+  store code retries once on that foreign-key refusal, and an order or an
+  address refused so says ACCOUNT_GONE ("sign in again") — never a quiet
+  retry as a guest, because the customer believes the order is theirs. The
+  store code form now says "could not reach its server" only for a network
+  failure. Tested against the stand-in: the owner's exact sequence (signed
+  in with an email, let into the store, every account deleted, the store
+  reloaded, the code typed) opens the store; with the account check itself
+  failing, the code's retry opens it; the profile shows Sign in.
 - **Verified 8 November 2026 that `schema.sql` (step 9) ran** without
   making a session: `step_back_order` and `step_back_line` answer 401 to
   the anonymous role — they exist and are refused to it — while a made-up

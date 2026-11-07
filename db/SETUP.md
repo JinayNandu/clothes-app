@@ -263,8 +263,9 @@ on purpose — so an old copy cannot empty a shop with real customers.
    Apparel database*, the editor was open on another project — the name
    at the top left tells you which — and nothing anywhere was touched.
 2. On every phone that used the shop: open it → the person icon →
-   **Sign out of this phone** → **Clear this browser**. The phone may
-   otherwise still think it is signed in to an account that is gone.
+   **Clear this browser**. Since 8 November 2026 the page notices by
+   itself that its sign-in belongs to an account that is gone, and lets
+   go of it; before that, the store code failed with *staff_user_id_fkey*.
 3. Open the store page — reload it if it was already open — and type
    the store code again: the reset took every phone out of the store,
    and keeps the code itself. ⚠️ **A store page that still shows orders

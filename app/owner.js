@@ -126,9 +126,15 @@ function lock() {
         msg.textContent = 'That is not the store code.';
         input.select();
       } catch (err) {
-        msg.textContent = /TOO_MANY_TRIES/.test(String(err.message))
+        // Said as what it is: a network failure is "could not reach", and
+        // anything the server answered is the server's own words -- the
+        // two used to share "could not reach", which a refusal is not.
+        const m = String((err && err.message) || err);
+        msg.textContent = /TOO_MANY_TRIES/.test(m)
           ? 'Too many tries from this browser. Wait an hour, then try again.'
-          : 'The store could not reach its server: ' + String(err.message || err);
+          : /fetch|network|Load failed|BLOCKED/i.test(m)
+            ? 'The store could not reach its server. Check the connection, then try again.'
+            : 'The server could not let this browser in: ' + m;
       } finally {
         btn.disabled = false;
       }

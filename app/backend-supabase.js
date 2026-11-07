@@ -65,6 +65,19 @@ async function rpc(fn, args) {
   return data;
 }
 
+/** A customer's write: if the account behind this session no longer exists,
+ *  out of it, and ACCOUNT_GONE -- never a quiet retry as a guest, because
+ *  the person believes they are signed in and the order must be theirs. */
+async function rpcOrGone(fn, args) {
+  try {
+    return await rpc(fn, args);
+  } catch (e) {
+    if (!refusedAsGone(e)) throw e;
+    await dropSession();
+    throw new Error('ACCOUNT_GONE');
+  }
+}
+
 async function session() {
   const sb = await client();
   const { data } = await sb.auth.getSession();
@@ -72,18 +85,72 @@ async function session() {
 }
 
 /**
+ * ⚠️ THE SESSION THIS BROWSER HOLDS, IF ITS ACCOUNT STILL EXISTS. A session
+ * outlives its account in storage: delete the account on the server --
+ * db/reset.sql, or a person removed in the dashboard -- and the token in
+ * this browser stays signature-valid for up to an hour, the page goes on
+ * saying "Signed in", and every write made with it fails on a foreign key.
+ * Found 8 November 2026: the owner ran the reset, typed the store code, and
+ * got "insert or update on table staff violates foreign key constraint
+ * staff_user_id_fkey".
+ *
+ * So the server is asked, once per token, whether the account is there. A
+ * definite no drops the session from this browser (and the details that
+ * went with it, as signing out does), and the caller starts afresh. A
+ * network failure is NOT a no: nobody is signed out over a dropped signal.
+ */
+let checked = { token: null, ok: false };
+const accountGone = (e) => !!e && (
+  ['user_not_found', 'session_not_found', 'bad_jwt'].includes(e.code)
+  || /User from sub claim in JWT does not exist|Session from session_id claim in JWT does not exist/i
+    .test(e.message || ''));
+
+async function liveSession() {
+  const s = await session();
+  if (!s) return null;
+  if (checked.token === s.access_token && checked.ok) return s;
+  const sb = await client();
+  const { error } = await sb.auth.getUser();
+  if (error && accountGone(error)) {
+    await dropSession();
+    return null;
+  }
+  checked = { token: s.access_token, ok: true };
+  return s;
+}
+
+/** Out of this browser, locally, with what was kept for the person. */
+async function dropSession() {
+  const sb = await client();
+  checked = { token: null, ok: false };
+  try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* gone either way */ }
+  handover = null;
+  await local.profile.clear();
+  fire('session');
+  fire('orders');
+}
+
+/** A write refused because the account behind this session no longer
+ *  exists: every table that names a user refers to auth.users. */
+const refusedAsGone = (e) => /violates foreign key constraint "\w*_user_id_fkey"/.test(
+  String((e && e.message) || e));
+
+/**
  * A session for this visitor, made silently if there is none. Anonymous:
  * nobody is asked to sign in to buy a shirt, and every order still has an
  * owner, which is what lets each read rule be one line. Signing in with an
  * email (account, below) makes this SAME user permanent, so the orders
- * placed before it stay theirs.
+ * placed before it stay theirs. A session whose account was deleted on the
+ * server counts as none (liveSession).
  */
 export async function begin() {
-  const s = await session();
+  const s = await liveSession();
   if (s) return s;
   const sb = await client();
   const { data, error } = await sb.auth.signInAnonymously();
   oops(error);
+  // Made this moment: its account exists, with no need to ask.
+  checked = { token: data.session.access_token, ok: true };
   return data.session;
 }
 
@@ -176,7 +243,7 @@ export const orders = {
     if (lines.some((l) => !byId(l.pid))) throw new Error('GONE_FROM_CATALOGUE');
     const t = D.totals(lines, byId, shop.shipping, coupon);
 
-    const res = await rpc('place_order', { p: {
+    const res = await rpcOrGone('place_order', { p: {
       customer: draft.customer,
       payMethod: draft.payMethod,
       lines: lines.map((l) => {
@@ -323,7 +390,18 @@ export const staff = {
    */
   async claim(code) {
     await begin();
-    return !!(await rpc('claim_staff', { p_code: String(code || '').trim().toLowerCase() }));
+    const args = { p_code: String(code || '').trim().toLowerCase() };
+    try {
+      return !!(await rpc('claim_staff', args));
+    } catch (e) {
+      // The account behind this browser's session was deleted after the
+      // check above said it was there (or the check could not be made):
+      // out of it, a fresh guest session, and the code once more.
+      if (!refusedAsGone(e)) throw e;
+      await dropSession();
+      await begin();
+      return !!(await rpc('claim_staff', args));
+    }
   },
 };
 
@@ -360,10 +438,13 @@ let handover = null;
 
 export const account = {
   /** Who this phone is: null (no session yet), a guest, or an account.
-   *  Read from the session this browser holds -- no request -- and decides
-   *  only what the page offers. The server asks auth.users for itself. */
+   *  Read from the session this browser holds, asked of the server once per
+   *  token whether its account still exists (liveSession) -- a phone must
+   *  not go on saying "Signed in" to an account that was deleted -- and
+   *  decides only what the page offers. The server asks auth.users for
+   *  itself. */
   async whoami() {
-    const s = await session();
+    const s = await liveSession();
     if (!s) return null;
     const u = s.user || {};
     const m = u.user_metadata || {};
@@ -481,7 +562,7 @@ export const addresses = {
 
   /** New without an id, a change with one. Returns the id. */
   async save(a) {
-    const id = await rpc('save_address', { p: {
+    const id = await rpcOrGone('save_address', { p: {
       id: a.id || null, name: a.name, mobile: a.mobile, addr: a.addr,
       city: a.city, state: a.state, pin: a.pin, isDefault: !!a.isDefault,
     } });

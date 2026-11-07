@@ -329,6 +329,9 @@ router.registerScreen('checkout', async (host) => {
     } catch (e) {
       btn.disabled = false;
       toast(whyNot(e));
+      // The account this phone was signed in to no longer exists, and the
+      // backend has taken it off: drawn again, the page asks to sign in.
+      if (/ACCOUNT_GONE/.test(String((e && e.message) || e))) router.repaint();
       return;
     }
     // Kept to the account once the order is in -- an order that failed must
@@ -378,6 +381,7 @@ const shipNew = (sel) => `
  *  left exactly as it was, because losing it is worse than a failed tap. */
 function whyNot(e) {
   const m = String((e && e.message) || e);
+  if (/ACCOUNT_GONE/.test(m)) return 'This phone was signed in to an account that no longer exists. Sign in again; your bag is still here.';
   if (/TOO_MANY_ORDERS/.test(m)) return 'That is a lot of orders in one hour. Please wait a while, or write to us.';
   if (/GONE_FROM_CATALOGUE/.test(m)) return 'Something in your bag is no longer sold. Please check your bag.';
   if (/fetch|network|BLOCKED|NO_SESSION|Load failed|anonymous/i.test(m)) {

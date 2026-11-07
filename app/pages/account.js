@@ -494,7 +494,7 @@ function checkAddr(v) {
 
 function addrWhyNot(e) {
   const m = String((e && e.message) || e);
-  if (/NOT_SIGNED_IN/.test(m)) return 'You are not signed in any more. Sign in again, then save it.';
+  if (/NOT_SIGNED_IN|ACCOUNT_GONE/.test(m)) return 'You are not signed in any more. Sign in again, then save it.';
   if (/TOO_MANY_ADDRESSES/.test(m)) return 'Ten is as many as an account keeps. Remove one first.';
   if (/NO_SUCH_ADDRESS/.test(m)) return 'That address is not there any more.';
   if (/fetch|network|load failed/i.test(m)) return 'We could not reach the shop just now. Please try again.';

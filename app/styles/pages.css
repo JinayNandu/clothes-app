@@ -776,3 +776,54 @@
   .adm-tab{ padding:var(--s3) var(--s3); font-size:12px; }
   .adm-save .btn{ width:100%; }
 }
+
+/* ---------------------------------------------------------------------------
+   REVIEWS (8 November 2026)
+   ------------------------------------------------------------------------ */
+/* The product page: the average under the name, a tap to the reviews. */
+.pdp-rating{
+  display:inline-flex; align-items:center; gap:6px; margin-top:var(--s2);
+  font-size:13px; color:var(--ink-soft);
+}
+.pdp-rating b{ color:var(--ink); }
+.pdp-rating:hover .dim{ text-decoration:underline; text-underline-offset:3px; }
+.pdp-reviews{ margin-top:var(--s7); }
+.rv-sum{ display:flex; align-items:center; gap:var(--s4); margin-bottom:var(--s5); }
+.rv-avg{ font-family:var(--f-display); font-size:48px; font-weight:500; line-height:1; color:var(--ink); }
+.rv-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+.rv{ padding:var(--s4) 0; border-top:1px solid var(--edge); display:flex; flex-direction:column; gap:var(--s2); }
+.rv-top{ display:flex; align-items:center; flex-wrap:wrap; gap:6px var(--s3); font-size:13px; }
+.rv-by{ font-weight:600; color:var(--ink); }
+.rv-at{ color:var(--ink-dim); }
+.rv-text{ font-size:15px; line-height:1.6; color:var(--ink); max-width:70ch; white-space:pre-line; }
+.rv-tag{ display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:var(--good-ink); }
+
+/* The order page: rate the delivery and each item delivered. */
+.rate-lead{ margin:var(--s2) 0 var(--s2); max-width:62ch; }
+.rate-block{ padding:var(--s4) 0; border-top:1px solid var(--edge); display:flex; flex-direction:column; gap:var(--s3); }
+.rate-block:first-of-type{ margin-top:var(--s3); }
+.rate-head{ display:flex; align-items:center; gap:var(--s3); }
+.rate-pic{ display:block; width:44px; aspect-ratio:4/5; overflow:hidden; flex:none;
+  background:var(--sunk); border:1px solid var(--edge); border-radius:var(--r1); }
+.rate-pic img,.rate-pic svg{ display:block; width:100%; height:100%; object-fit:cover; }
+.rate-what{ display:block; font-size:14px; font-weight:600; color:var(--ink); }
+.rate-sub{ display:block; font-size:12px; color:var(--ink-dim); }
+.rate-words{
+  width:100%; padding:var(--s3); font-size:14px; line-height:1.5; resize:vertical;
+  background:var(--card); border:1px solid var(--edge-2); border-radius:var(--r1); color:var(--ink);
+}
+.rate-acts{ display:flex; gap:var(--s3); }
+.rate-done{ display:flex; align-items:center; flex-wrap:wrap; gap:var(--s2) var(--s3); font-size:14px; }
+.rate-said{ color:var(--ink-soft); }
+
+/* The store's Reviews tab. */
+.adm-rv-head{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:var(--s2) var(--s4); }
+.adm-rv-avg{ display:inline-flex; align-items:center; gap:6px; font-size:13px; }
+.adm-rv-list{ display:flex; flex-direction:column; margin-top:var(--s3); }
+.adm-rv{ display:flex; flex-direction:column; align-items:flex-start; gap:var(--s1);
+  padding:var(--s3) 0; border-top:1px solid var(--edge); }
+.adm-rv.is-hidden{ opacity:.6; }
+.adm-rv-top{ display:flex; align-items:center; flex-wrap:wrap; gap:6px var(--s2); font-size:13px; }
+.adm-rv-text{ font-size:14px; line-height:1.55; color:var(--ink); white-space:pre-line; }
+.adm-rv-prod + .adm-rv-prod{ margin-top:var(--s5); }
+.adm-rv-name{ font-weight:600; color:var(--ink); }

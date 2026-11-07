@@ -972,3 +972,31 @@
   .sc thead th{ white-space:normal; }
   .sc-on{ font-size:9px; letter-spacing:0; }
 }
+
+/* ---------------------------------------------------------------------------
+   STARS (components.js stars / starsInput), 8 November 2026. Outlines in the
+   quiet edge colour, filled gold once on. The CSS fills the outline icon --
+   the svg carries fill="none", and a presentation attribute loses to any
+   rule -- so a star is one glyph whether it is shown or given.
+   ------------------------------------------------------------------------ */
+.stars{ display:inline-flex; gap:1px; vertical-align:-2px; }
+.star{ display:inline-flex; color:var(--edge-2); }
+.star.on{ color:var(--gold); }
+.star.on svg{ fill:currentColor; }
+
+/* A card's line: the stars, the average, and how many. Empty until rated. */
+.card-rating{ display:flex; align-items:center; gap:6px; margin-top:var(--s1); font-size:12px; color:var(--ink-soft); }
+.card-rating:empty{ display:none; }
+.rating-n{ font-weight:600; font-variant-numeric:tabular-nums; }
+
+/* Giving a rating: five radios drawn as stars, 44px to a finger. */
+.stars-in{ display:flex; gap:2px; }
+.stars-in label{
+  width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; border-radius:var(--r1);
+  transition:color var(--t-micro) var(--e-enter), transform var(--t-micro) var(--e-enter);
+}
+.stars-in label:hover{ color:var(--gold-ink); }
+.stars-in label:active{ transform:scale(.92); }
+.stars-in input{ position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
+.stars-in label:focus-within{ outline:2px solid var(--gold); outline-offset:1px; }

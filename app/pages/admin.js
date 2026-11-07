@@ -24,12 +24,14 @@ import { ornament } from '../brand.js';
 import * as D from '../domain.js';
 import * as O from '../overlay.js';
 import { icon } from '../icons.js';
+import { stars } from '../components.js';
 import { renderCatalogue, renderInventory, renderCategories, renderData, wireCatalogTab }
   from './admin-catalog.js';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'orders', label: 'Orders' },
+  { id: 'reviews', label: 'Reviews' },
   { id: 'catalogue', label: 'Catalogue' },
   { id: 'inventory', label: 'Inventory' },
   { id: 'categories', label: 'Categories' },
@@ -462,6 +464,95 @@ function priceNotice(o, shop, all) {
     can be made by hand to name its own price.`);
 }
 
+// ---------------------------------------------------------------------------
+// REVIEWS (8 November 2026). What customers said once their orders were
+// delivered: the delivery, with the courier it went by, and each product.
+// A product's reviews are on its page in the shop; Hide takes one out of the
+// shop (and out of its average) -- the words stay here, and Show puts it
+// back. Nothing is ever edited or deleted from this side.
+// ---------------------------------------------------------------------------
+function renderReviews({ rv, orders, all }) {
+  if (!store.reviews) {
+    return `<section class="panel"><h2 class="t-h3">Reviews need the database</h2>
+      <p class="t-micro dim" style="margin-top:var(--s3)">In one browser there is nobody
+        to send a review to, so customers are never asked for one.</p></section>`;
+  }
+  if (!rv || rv.error) {
+    return notice('warn', '<b>Reviews are not switched on in the database yet.</b> Run '
+      + '<code>db/schema.sql</code> again (db/SETUP.md, step 10), and this tab fills itself.');
+  }
+  const { deliveries, products } = rv;
+  if (!deliveries.length && !products.length) {
+    return `<section class="panel"><h2 class="t-h3">No ratings yet</h2>
+      <p class="t-micro dim" style="margin-top:var(--s3);max-width:60ch">Once you mark an
+        item delivered, its customer can rate the delivery and the product, out of five,
+        with a few words if they like. Each one appears here, and a product's reviews on
+        its page in the shop.</p></section>`;
+  }
+  const code = (oid) => (orders.find((o) => o.id === oid) || {}).code || '';
+  const avg = (xs) => (xs.length ? xs.reduce((n, x) => n + x.rating, 0) / xs.length : 0);
+  const summary = (xs, what) => (xs.length
+    ? `<span class="adm-rv-avg">${stars(avg(xs), 15)}<b>${avg(xs).toFixed(1)}</b>
+        <span class="dim">from ${xs.length} ${xs.length === 1 ? what : what + 's'}</span></span>`
+    : '<span class="dim">None on show</span>');
+  const when = (at) => esc(D.fmtDate(at));
+  const orderLink = (oid) => (code(oid)
+    ? `<a class="ord-code" href="./#/order/${esc(code(oid))}">${esc(code(oid))}</a>` : '');
+
+  const deliveryPanel = `<section class="panel">
+    <div class="adm-rv-head"><h2 class="t-h3">The delivery</h2>${summary(deliveries, 'rating')}</div>
+    ${deliveries.length ? `<div class="adm-rv-list">${deliveries.map((d) => `<div class="adm-rv">
+        <div class="adm-rv-top">${stars(d.rating, 14)} ${orderLink(d.orderId)}
+          <span class="dim">· ${esc(d.courier || 'courier not named')} · ${when(d.at)}</span></div>
+        ${d.comment ? `<p class="adm-rv-text user-text">${esc(d.comment)}</p>` : ''}
+      </div>`).join('')}</div>`
+      : '<p class="t-micro dim" style="margin-top:var(--s3)">No delivery rated yet.</p>'}
+  </section>`;
+
+  // Products in catalogue order, each with its average over the reviews on show.
+  const pids = [...new Set(products.map((x) => x.pid))]
+    .sort((a, b) => all.findIndex((p) => p.id === a) - all.findIndex((p) => p.id === b));
+  const productPanel = `<section class="panel" style="margin-top:var(--s4)">
+    <h2 class="t-h3">The products</h2>
+    ${pids.length ? pids.map((pid) => {
+      const p = all.find((x) => x.id === pid);
+      const mine = products.filter((x) => x.pid === pid);
+      const shown = mine.filter((x) => !x.hidden);
+      return `<div class="adm-rv-prod">
+        <div class="adm-rv-head">${p ? `<a class="adm-rv-name" href="./#/p/${esc(p.slug)}">${esc(p.name)}</a>`
+          : `<span class="adm-rv-name">${esc(pid)}</span>`}${summary(shown, 'review')}</div>
+        <div class="adm-rv-list">${mine.map((x) => `<div class="adm-rv${x.hidden ? ' is-hidden' : ''}">
+          <div class="adm-rv-top">${stars(x.rating, 14)} <b>${esc(x.author)}</b> ${orderLink(x.orderId)}
+            <span class="dim">· ${when(x.at)}</span>
+            ${x.hidden ? '<span class="pill pill-draft">Hidden from the shop</span>' : ''}</div>
+          ${x.comment ? `<p class="adm-rv-text user-text">${esc(x.comment)}</p>` : ''}
+          <button type="button" class="btn-ghost" data-rv-hide="${esc(String(x.id))}"
+            data-to="${x.hidden ? '0' : '1'}">${x.hidden ? 'Show it in the shop again'
+              : 'Hide from the shop'}</button>
+        </div>`).join('')}</div>
+      </div>`;
+    }).join('') : '<p class="t-micro dim" style="margin-top:var(--s3)">No product reviewed yet.</p>'}
+  </section>`;
+
+  return deliveryPanel + productPanel;
+}
+
+function wireReviews(host) {
+  for (const btn of $$('[data-rv-hide]', host)) {
+    btn.addEventListener('click', async () => {
+      const hide = btn.dataset.to === '1';
+      btn.disabled = true;
+      try {
+        await store.reviews.hide(Number(btn.dataset.rvHide), hide);
+        toast(hide ? 'Hidden from the shop. It is still here.' : 'Back on the shop.');
+      } catch (e) {
+        btn.disabled = false;
+        toast(String(e.message || e));
+      }
+    });
+  }
+}
+
 /** Courier and tracking number, asked for in the pop-up of any step that
  *  passes through Shipped. Both optional: who ships is still not settled. */
 const shipFields = () => `
@@ -788,9 +879,15 @@ router.registerScreen('admin', async (host, r) => {
     ]);
     if (mine !== generation) return;   // a newer entry owns the host now
     const ctx = { orders, all, shop, cats, ov, state, query: r.query || {} };
+    // The reviews, on their own tab only: every other tab draws without them.
+    if (tab === 'reviews' && store.reviews) {
+      try { ctx.rv = await store.reviews.all(); } catch (e) { ctx.rv = { error: e }; }
+      if (mine !== generation) return;
+    }
 
     let body;
     if (tab === 'orders') body = renderOrders(ctx);
+    else if (tab === 'reviews') body = renderReviews(ctx);
     else if (tab === 'catalogue') body = renderCatalogue(ctx);
     else if (tab === 'inventory') body = renderInventory(ctx);
     else if (tab === 'categories') body = renderCategories(ctx);
@@ -809,6 +906,7 @@ router.registerScreen('admin', async (host, r) => {
       <div style="margin-top:var(--s7)">${ornament()}</div>`;
 
     if (tab === 'orders') wireOrders(host, draw, ctx.orders);
+    else if (tab === 'reviews') wireReviews(host);
     else wireCatalogTab(tab, host, ctx, draw);
   };
 
@@ -818,5 +916,6 @@ router.registerScreen('admin', async (host, r) => {
   // forgets it fires N times after N visits.
   const offCat = store.live.subscribe('catalog', draw);
   const offOrd = store.live.subscribe('orders', draw);
-  router.onLeave(() => { offCat(); offOrd(); });
+  const offRev = store.live.subscribe('reviews', draw);
+  router.onLeave(() => { offCat(); offOrd(); offRev(); });
 });

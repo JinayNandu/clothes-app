@@ -477,7 +477,7 @@ export const ROUTES = [
 // FAIL in routes.pl, which also checks this list against TABS in admin.js.
 export const OWNER_ROUTES = [
   { re: /^\/?$/,                     screen: 'admin',    keys: [] },
-  { re: /^\/(overview|orders|catalogue|inventory|categories|data)$/, screen: 'admin', keys: ['tab'] },
+  { re: /^\/(overview|orders|reviews|catalogue|inventory|categories|data)$/, screen: 'admin', keys: ['tab'] },
 ];
 
 // ---------------------------------------------------------------------------

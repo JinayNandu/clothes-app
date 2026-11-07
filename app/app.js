@@ -10,7 +10,8 @@ import * as store from './store.js';
 import * as router from './router.js';
 import { $, $$, drawChrome, refreshCounts, openDrawer, closeDrawer, toast, favicon,
          flyToBag, openSheet } from './ui.js';
-import { setBag, paintCtas, sizePanel, setCardColour, sizeChart, chartFor } from './components.js';
+import { setBag, paintCtas, sizePanel, setCardColour, sizeChart, chartFor,
+         setRatings, paintRatings } from './components.js';
 import { initSidebar } from './sidebar.js';
 import { logo } from './brand.js';
 import { esc } from "./ui.js";
@@ -70,6 +71,18 @@ async function boot() {
     toast('This browser is out of storage space. Some changes were not saved.'));
 
   wireChrome();
+
+  // Every product's average rating, for the cards (8 November 2026). Asked
+  // once, never awaited: the shop draws first and the stars arrive after.
+  // Without a database, or before schema.sql has reviews, nothing shows.
+  if (store.reviews) {
+    const loadRatings = () => store.reviews.summary()
+      .then((m) => { setRatings(m); paintRatings(); })
+      .catch(() => { /* no reviews to show -- the cards simply carry none */ });
+    loadRatings();
+    store.live.subscribe('reviews', loadRatings);
+  }
+
   await router.start();
 }
 

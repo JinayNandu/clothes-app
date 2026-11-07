@@ -1,11 +1,11 @@
 -- =====================================================================
 --  Vastra Apparel -- a self-test of each item's status, cancelling one
---  item, refunds and going back a step, run ON THE REAL DATABASE, and
---  saving NOTHING.
+--  item, refunds, going back a step and reviews, run ON THE REAL
+--  DATABASE, and saving NOTHING.
 --
 --  Paste the whole file into the Supabase SQL editor and run it, AFTER
 --  schema.sql. It acts as the store -- the first phone let in with the
---  store code -- makes five test orders of its own, walks them through
+--  store code -- makes six test orders of its own, walks them through
 --  every rule below, and then undoes all of it by ending in an error on
 --  purpose. The message you want is:
 --
@@ -28,6 +28,8 @@ declare
   o3 uuid := gen_random_uuid();
   o4 uuid := gen_random_uuid();
   o5 uuid := gen_random_uuid();
+  o6 uuid := gen_random_uuid();
+  rv bigint;
   r  record;
   n  int;
 begin
@@ -48,7 +50,8 @@ begin
                  (o2, 9002, 2000, 3000, 0),
                  (o3, 9003,  700, 1000, 0),
                  (o4, 9004,  500,  800, 0),
-                 (o5, 9005, 2000, 3000, 0)) as o(id, seq, items, mrp, disc);
+                 (o5, 9005, 2000, 3000, 0),
+                 (o6, 9006, 1000, 1500, 0)) as o(id, seq, items, mrp, disc);
 
   insert into order_lines (id, order_id, pid, name, qty, unit_price, unit_mrp, line_total)
   values (9000000011, o1, 't1', 'Test shirt', 1, 1000, 1500, 1000),
@@ -58,7 +61,8 @@ begin
          (9000000031, o3, 't5', 'Test scarf', 1,  700, 1000,  700),
          (9000000041, o4, 't6', 'Test belt',  1,  500,  800,  500),
          (9000000051, o5, 't7', 'Test jacket', 1, 1000, 1500, 1000),
-         (9000000052, o5, 't8', 'Test skirt',  1, 1000, 1500, 1000);
+         (9000000052, o5, 't8', 'Test skirt',  1, 1000, 1500, 1000),
+         (9000000061, o6, 't9', 'Test shawl',  1, 1000, 1500, 1000);
 
   -- Somebody who is NOT the store is refused, before anything else.
   perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
@@ -242,6 +246,79 @@ begin
   exception when others then
     if sqlerrm not like 'BAD_STEP_BACK%' then raise; end if;
   end;
+
+  -- 14. REVIEWS (8 November 2026). Only an item delivered, only by its
+  --     customer, only 1 to 5 stars; sent twice, one review that changed;
+  --     the public reads the stars, the words and "Self T.", never more;
+  --     a hidden review leaves the shop and its average.
+  perform advance_order(o6, 'confirmed');
+  perform advance_order(o6, 'packed');
+  perform advance_order(o6, 'shipped', 'Blue Dart', 'B66');
+  begin
+    perform submit_review(9000000061, 5, 'too soon');
+    raise exception 'SELFTEST FAILED: an item not yet delivered was reviewed';
+  exception when others then
+    if sqlerrm <> 'NOT_DELIVERED' then raise; end if;
+  end;
+  begin
+    perform rate_delivery(o6, 5, 'too soon');
+    raise exception 'SELFTEST FAILED: a delivery was rated before it happened';
+  exception when others then
+    if sqlerrm <> 'NOT_DELIVERED' then raise; end if;
+  end;
+  perform advance_order(o6, 'delivered');
+  begin
+    perform submit_review(9000000061, 6, '');
+    raise exception 'SELFTEST FAILED: six stars out of five were taken';
+  exception when others then
+    if sqlerrm <> 'BAD_RATING' then raise; end if;
+  end;
+  rv := submit_review(9000000061, 4, '  Soft cotton.  ');
+  perform submit_review(9000000061, 5, 'Soft cotton, true to size.');
+  select count(*) into n from reviews where line_id = 9000000061;
+  assert n = 1, 'SELFTEST FAILED: a review sent twice made ' || n || ' reviews';
+  select * into r from product_reviews('t9');
+  assert r.rating = 5 and r.body = 'Soft cotton, true to size.' and r.author = 'Self T.',
+    'SELFTEST FAILED: the shop reads ' || r.rating || ' stars, "' || r.body || '" by ' || r.author;
+  select * into r from rating_summary() where pid = 't9';
+  assert r.ratings = 1 and r.average = 5,
+    'SELFTEST FAILED: the average reads ' || r.average || ' from ' || r.ratings;
+  perform rate_delivery(o6, 3, 'A day late.');
+  select * into r from delivery_ratings where order_id = o6;
+  assert r.rating = 3 and r.courier = 'Blue Dart',
+    'SELFTEST FAILED: the delivery rating reads ' || r.rating || ' for ' || r.courier;
+
+  -- Somebody else may not review it, rate its delivery, or hide anything.
+  perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid(),
+          'role', 'authenticated')::text, true);
+  begin
+    perform submit_review(9000000061, 1, 'not mine');
+    raise exception 'SELFTEST FAILED: a stranger reviewed somebody else''s item';
+  exception when others then
+    if sqlerrm <> 'NOT_YOURS' then raise; end if;
+  end;
+  begin
+    perform rate_delivery(o6, 1, 'not mine');
+    raise exception 'SELFTEST FAILED: a stranger rated somebody else''s delivery';
+  exception when others then
+    if sqlerrm <> 'NOT_YOURS' then raise; end if;
+  end;
+  begin
+    perform hide_review(rv, true);
+    raise exception 'SELFTEST FAILED: a stranger hid a review';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', boss::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', boss,
+          'role', 'authenticated')::text, true);
+
+  perform hide_review(rv, true);
+  select count(*) into n from product_reviews('t9');
+  assert n = 0, 'SELFTEST FAILED: a hidden review is still in the shop';
+  select count(*) into n from rating_summary() where pid = 't9';
+  assert n = 0, 'SELFTEST FAILED: a hidden review still counts in the average';
 
   raise exception 'ALL GOOD -- every check passed, and nothing was saved';
 end $test$;

@@ -11,7 +11,7 @@ import * as store from '../store.js';
 import * as router from '../router.js';
 import { esc, crumbs, toast, emptyState, notice, openSheet, flyToBag } from '../ui.js';
 import { priceBlock, swatchRow, productCard,
-         sizeChart, fitHint, chartFor } from '../components.js';
+         sizeChart, fitHint, chartFor, stars, ratingOf } from '../components.js';
 import { art, viewCount } from '../art.js';
 import { seal } from '../brand.js';
 import { icon } from '../icons.js';
@@ -112,6 +112,9 @@ router.registerScreen('product', async (host, r) => {
       <div>
         <div class="t-eyebrow" style="color:var(--gold-ink)">${esc(sub ? sub.name : '')}</div>
         <h1 class="t-h1">${esc(p.name)}</h1>
+        <!-- The average and how many, once anybody has rated it; a tap goes
+             to the reviews. A button, not a #link: the hash is the router's. -->
+        <button type="button" class="pdp-rating" data-rating-line hidden></button>
       </div>
 
       <div data-price>${priceBlock(p, sel, true)}</div>
@@ -200,6 +203,8 @@ router.registerScreen('product', async (host, r) => {
     </div>
   </div>
 
+  <section class="sec pdp-reviews" data-reviews hidden></section>
+
   ${related.length ? `
     <section class="sec" style="margin-top:var(--s7)">
       <div class="sec-head"><h2 class="t-h2">You may also like</h2></div>
@@ -273,6 +278,52 @@ router.registerScreen('product', async (host, r) => {
                 sizeChart(p, shop, sel.size));
     });
   }
+
+  // -------------------------------------------------------------------------
+  // CUSTOMER REVIEWS (8 November 2026). Nothing until somebody has rated it:
+  // then the average under the name, and every review on show further down,
+  // newest first -- stars, their words, "Asha M." and the day. Read after the
+  // page is drawn, with no session (store.reviews.forProduct), and a failure
+  // simply leaves the page as it was.
+  // -------------------------------------------------------------------------
+  async function loadReviews() {
+    let list = [];
+    try { list = await store.reviews.forProduct(p.id); } catch (e) { return; }
+    const box = $('[data-reviews]');
+    const line = $('[data-rating-line]');
+    if (!list.length || !box || !box.isConnected) return;
+    const sum = ratingOf(p.id);
+    const avg = sum ? sum.average : list.reduce((n, x) => n + x.rating, 0) / list.length;
+    const count = sum ? sum.ratings : list.length;
+    const many = `${count} ${count === 1 ? 'review' : 'reviews'}`;
+    line.innerHTML = `${stars(avg, 15)}<b>${avg.toFixed(1)}</b><span class="dim">· ${many}</span>`;
+    line.setAttribute('aria-label', `Rated ${avg.toFixed(1)} out of 5, ${many}. See the reviews`);
+    line.hidden = false;
+    box.innerHTML = `
+      <div class="sec-head"><h2 class="t-h2">Customer reviews</h2></div>
+      <div class="rv-sum">
+        <div class="rv-avg">${avg.toFixed(1)}</div>
+        <div>${stars(avg, 18)}
+          <div class="t-micro dim" style="margin-top:var(--s1)">${many}, from people who
+            bought it here</div></div>
+      </div>
+      <ul class="rv-list">
+        ${list.map((r) => `<li class="rv">
+          <div class="rv-top">${stars(r.rating, 14)}
+            <span class="sr-only">${r.rating} out of 5</span>
+            <span class="rv-by">${esc(r.author)}</span>
+            <span class="rv-at">${esc(D.fmtDate(r.at))}</span></div>
+          ${r.comment ? `<p class="rv-text user-text">${esc(r.comment)}</p>` : ''}
+          <span class="rv-tag">${icon('check', 12)} Verified purchase</span>
+        </li>`).join('')}
+      </ul>`;
+    box.hidden = false;
+  }
+  if (store.reviews) loadReviews();
+  $('[data-rating-line]').addEventListener('click', () => {
+    const box = $('[data-reviews]');
+    if (box && !box.hidden) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   // -------------------------------------------------------------------------
   // ADD TO BAG, AND THE BAR IT BECOMES -- the card's process at full size (8

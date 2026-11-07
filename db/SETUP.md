@@ -246,6 +246,26 @@ the latest database update."* Everything else works as before.
 
 ---
 
+## 10. Reviews — 2 min
+
+Since 8 November 2026 a customer can rate a delivered order — the delivery,
+and each product — and every product page shows its average and its
+reviews. Until the database has it, nothing asks for a rating and no
+product shows one; the store's Reviews tab says what to run.
+
+1. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new)
+   → paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
+   → **Run** → *"Success. No rows returned."* It adds the two review
+   tables and their functions, and lets a visitor with no account read
+   one thing: the stars, the words, a first name and an initial. Nothing
+   that exists is lost.
+2. A new SQL tab → paste **all** of
+   [`db/selftest.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/selftest.sql)
+   → **Run**. It now walks six test orders through every rule — reviews
+   included — and ends in the same error on purpose:
+
+   > ALL GOOD -- every check passed, and nothing was saved
+
 ## Starting again with no data — 3 min
 
 To clear out every test order and account and begin as a new customer

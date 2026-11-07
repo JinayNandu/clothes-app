@@ -345,7 +345,7 @@ export const orders = {
 // name and mobile -- told to whoever listens. Everything else is this
 // browser's and stays on its bus.
 // ---------------------------------------------------------------------
-const OWN = ['orders', 'session', 'addresses', 'details'];
+const OWN = ['orders', 'session', 'addresses', 'details', 'reviews'];
 const subs = new Map();
 let channel = null;
 
@@ -584,5 +584,106 @@ export const addresses = {
   async remove(id) {
     await rpc('delete_address', { p_id: id });
     fire('addresses');
+  },
+};
+
+// ---------------------------------------------------------------------
+// REVIEWS (8 November 2026). Once an item is delivered its customer may
+// rate it, and rate the delivery; each product's average and its reviews
+// are shown to everybody, and the store sees all of it.
+//
+// ⚠️ WHAT EVERYBODY READS COMES WITHOUT A SESSION AND WITHOUT THE LIBRARY.
+// A product page is open to anyone, and browsing makes no session: the two
+// public functions (granted to anon in db/schema.sql, and nothing else is)
+// are asked with the publishable key alone, by a plain fetch -- so a
+// visitor who only looks never downloads supabase-js. Writing a review is a
+// signed-in customer's call like any other.
+// ---------------------------------------------------------------------
+async function publicRpc(fn, args = {}) {
+  const res = await fetch(`${SUPABASE.url}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE.key, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) throw new Error(`${fn} ${res.status}`);
+  return res.json();
+}
+
+const reviewToApp = (r) => ({
+  id: r.id, lineId: r.line_id, orderId: r.order_id, pid: r.pid,
+  rating: r.rating, comment: r.body || '', author: r.author || '',
+  hidden: !!r.hidden, at: r.updated_at || r.created_at,
+});
+
+export const reviews = {
+  /** { pid: { average, ratings } } for every product with a review on show. */
+  async summary() {
+    const out = {};
+    for (const r of (await publicRpc('rating_summary')) || []) {
+      out[r.pid] = { average: Number(r.average), ratings: Number(r.ratings) };
+    }
+    return out;
+  },
+
+  /** A product's reviews on show, newest first: stars, words, "Asha M.". */
+  async forProduct(pid) {
+    return ((await publicRpc('product_reviews', { p_pid: pid })) || []).map((r) => ({
+      rating: r.rating, comment: r.body || '', author: r.author || '', at: r.created_at,
+    }));
+  },
+
+  /** This customer's own ratings on one order, to show what they gave. */
+  async mine(orderId) {
+    const none = { delivery: null, lines: {} };
+    if (!(await session())) return none;
+    const sb = await client();
+    const [a, b] = await Promise.all([
+      sb.from('reviews').select('*').eq('order_id', orderId),
+      sb.from('delivery_ratings').select('*').eq('order_id', orderId),
+    ]);
+    oops(a.error);
+    oops(b.error);
+    const lines = {};
+    for (const r of a.data || []) lines[r.line_id] = reviewToApp(r);
+    const d = (b.data || [])[0];
+    return { delivery: d ? { rating: d.rating, comment: d.body || '', courier: d.courier || '' } : null,
+             lines };
+  },
+
+  async submit(lineId, rating, comment) {
+    const id = await rpcOrGone('submit_review',
+      { p_line: lineId, p_rating: rating, p_body: String(comment || '') });
+    fire('reviews');
+    return id;
+  },
+
+  async rateDelivery(orderId, rating, comment) {
+    await rpcOrGone('rate_delivery',
+      { p_oid: orderId, p_rating: rating, p_body: String(comment || '') });
+    fire('reviews');
+  },
+
+  /** The store: every review, hidden ones too, and every delivery rating. */
+  async all() {
+    const sb = await client();
+    const [a, b] = await Promise.all([
+      sb.from('reviews').select('*').order('created_at', { ascending: false }),
+      sb.from('delivery_ratings').select('*').order('created_at', { ascending: false }),
+    ]);
+    oops(a.error);
+    oops(b.error);
+    return {
+      products: (a.data || []).map(reviewToApp),
+      deliveries: (b.data || []).map((d) => ({
+        orderId: d.order_id, rating: d.rating, comment: d.body || '', courier: d.courier || '',
+        at: d.updated_at || d.created_at,
+      })),
+    };
+  },
+
+  /** The store takes a review out of the shop, or puts it back. */
+  async hide(id, hidden) {
+    await rpc('hide_review', { p_id: id, p_hidden: !!hidden });
+    fire('reviews');
   },
 };

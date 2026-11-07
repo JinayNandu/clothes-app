@@ -234,10 +234,68 @@ export function productCard(p, shop, wished) {
     <a href="${href}" class="card-name">${esc(p.name)}</a>
     <p class="card-desc">${esc(p.shortDesc)}</p>
     ${priceBlock(p, null)}
+    <div class="card-rating" data-rating-for="${esc(p.id)}">${ratingLine(p.id)}</div>
     ${swatchRow(p, colour || null)}
     ${cta}
   </div>
 </article>`;
+}
+
+// ---------------------------------------------------------------------------
+// STARS (8 November 2026) -- ratings out of five. A rating SHOWN fills the
+// first Math.round(value) stars; a rating GIVEN is five radios drawn as
+// stars, so a keyboard moves through them as through any choice.
+//
+// `ratings` is every product's { average, ratings } as last read, set by
+// app.js once the shop has loaded -- the same pattern as `bag`: a card drawn
+// by any screen comes out with its rating, and paintRatings() fills the ones
+// already on screen when the numbers arrive. No rating, no line: a product
+// nobody has rated shows nothing, not "0 reviews".
+// ---------------------------------------------------------------------------
+let ratings = {};
+export function setRatings(m) { ratings = m || {}; }
+export const ratingOf = (pid) => ratings[pid] || null;
+
+export function stars(value, size = 14) {
+  const n = Math.round(Number(value) || 0);
+  return `<span class="stars" aria-hidden="true">${[1, 2, 3, 4, 5].map((i) =>
+    `<span class="star${i <= n ? ' on' : ''}">${icon('star', size)}</span>`).join('')}</span>`;
+}
+
+/** "★★★★☆ 4.3 (12)" -- or nothing at all for a product nobody has rated. */
+function ratingLine(pid) {
+  const r = ratings[pid];
+  if (!r || !r.ratings) return '';
+  return `${stars(r.average, 13)}<span class="rating-n">${r.average.toFixed(1)}
+    <span class="dim">(${r.ratings})</span></span>
+    <span class="sr-only">Rated ${r.average.toFixed(1)} out of 5 by ${r.ratings}
+      ${r.ratings === 1 ? 'customer' : 'customers'}</span>`;
+}
+
+export function paintRatings(root = document) {
+  for (const el of root.querySelectorAll('[data-rating-for]')) {
+    el.innerHTML = ratingLine(el.dataset.ratingFor);
+  }
+}
+
+/** Five radios drawn as stars. `name` must be unique in the document. */
+export function starsInput(name, value = 0, label = 'Your rating') {
+  return `<div class="stars-in" role="radiogroup" aria-label="${esc(label)}">
+    ${[1, 2, 3, 4, 5].map((i) => `<label class="star${i <= value ? ' on' : ''}">
+      <input type="radio" name="${esc(name)}" value="${i}"${i === value ? ' checked' : ''}
+        aria-label="${i} of 5">${icon('star', 30)}</label>`).join('')}
+  </div>`;
+}
+
+/** Light every star up to the one chosen. Delegated: wire a box once. */
+export function wireStars(root) {
+  root.addEventListener('change', (e) => {
+    const input = e.target.closest('.stars-in input');
+    if (!input) return;
+    const v = Number(input.value);
+    input.closest('.stars-in').querySelectorAll('label')
+      .forEach((l, i) => l.classList.toggle('on', i < v));
+  });
 }
 
 export const productGrid = (list, shop, wishIds) =>

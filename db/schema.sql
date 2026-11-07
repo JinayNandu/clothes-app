@@ -667,6 +667,153 @@ end;
 $fn$;
 
 -- ---------------------------------------------------------------------
+--  REVIEWS (8 November 2026, the owner's ask). Once an item has been
+--  delivered, its customer may rate it -- 1 to 5 stars, and a few words
+--  if they like -- and rate the delivery of the order. Each product's
+--  average and its reviews are shown to everybody; the store sees all of
+--  it, and may hide a review from the shop.
+--
+--  ⚠️ WHAT EVERYBODY MAY READ, AND NOTHING MORE. A product page is read
+--  by people with no session at all, so the public gets exactly two
+--  functions, granted to anon: product_reviews() and rating_summary().
+--  They return the stars, the words, a first name and an initial ("Asha
+--  M.") and the day -- never the order, the phone, the address or who
+--  wrote it. tools/db.pl fails if anything else is granted to anon, or if
+--  either function's body names a customer's column. The tables are read
+--  by their author and by the store only.
+-- ---------------------------------------------------------------------
+create table if not exists reviews (
+  id         bigserial primary key,
+  line_id    bigint not null unique references order_lines on delete cascade,
+  order_id   uuid not null references orders on delete cascade,
+  user_id    uuid references auth.users on delete set null,
+  pid        text not null,
+  rating     int  not null check (rating between 1 and 5),
+  body       text not null default '' check (char_length(body) <= 1000),
+  author     text not null default '',
+  hidden     boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists reviews_pid on reviews (pid, created_at desc);
+alter table reviews enable row level security;
+
+create table if not exists delivery_ratings (
+  order_id   uuid primary key references orders on delete cascade,
+  user_id    uuid references auth.users on delete set null,
+  rating     int  not null check (rating between 1 and 5),
+  body       text not null default '' check (char_length(body) <= 1000),
+  courier    text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table delivery_ratings enable row level security;
+
+drop policy if exists review_read on reviews;
+create policy review_read on reviews for select
+  using (user_id = auth.uid() or is_staff());
+drop policy if exists drate_read on delivery_ratings;
+create policy drate_read on delivery_ratings for select
+  using (user_id = auth.uid() or is_staff());
+
+-- "Asha M." from the name on the parcel: the first word and the last
+-- word's initial; one word stays as it is. Granted to nobody.
+create or replace function review_author(p_name text) returns text
+  language sql immutable set search_path = public as $fn$
+  select case
+    when coalesce(trim(p_name), '') = '' then 'A customer'
+    when position(' ' in trim(p_name)) = 0 then left(trim(p_name), 40)
+    else left(split_part(trim(p_name), ' ', 1), 40) || ' '
+         || upper(left(regexp_replace(trim(p_name), '^.*\s', ''), 1)) || '.'
+  end
+$fn$;
+
+-- A product's review: its customer, an item delivered (or returned), 1 to
+-- 5. One per item bought; sent again, it changes, and stays hidden if the
+-- store hid it.
+create or replace function submit_review(p_line bigint, p_rating int, p_body text default '')
+  returns bigint language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  l   record;
+  rid bigint;
+begin
+  if auth.uid() is null then raise exception 'NOT_SIGNED_IN'; end if;
+  select ol.id, ol.order_id, ol.pid, ol.status, o.user_id, o.cust_name into l
+    from order_lines ol join orders o on o.id = ol.order_id
+   where ol.id = p_line;
+  if not found or l.user_id is distinct from auth.uid() then raise exception 'NOT_YOURS'; end if;
+  if l.status not in ('delivered', 'returned') then raise exception 'NOT_DELIVERED'; end if;
+  if p_rating is null or p_rating not between 1 and 5 then raise exception 'BAD_RATING'; end if;
+  insert into reviews (line_id, order_id, user_id, pid, rating, body, author)
+  values (l.id, l.order_id, auth.uid(), l.pid, p_rating,
+          left(coalesce(trim(p_body), ''), 1000), review_author(l.cust_name))
+  on conflict (line_id) do update set
+    rating = excluded.rating, body = excluded.body, updated_at = now()
+  returning id into rid;
+  return rid;
+end;
+$fn$;
+
+-- The delivery's rating: its customer, once something in the order has
+-- been delivered. The courier is copied in as it stood, for the store.
+create or replace function rate_delivery(p_oid uuid, p_rating int, p_body text default '')
+  returns void language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  o record;
+begin
+  if auth.uid() is null then raise exception 'NOT_SIGNED_IN'; end if;
+  select id, user_id, status, shipment into o from orders where id = p_oid;
+  if not found or o.user_id is distinct from auth.uid() then raise exception 'NOT_YOURS'; end if;
+  if o.status not in ('delivered', 'returned') and not exists (
+       select 1 from order_lines where order_id = p_oid and status in ('delivered', 'returned')) then
+    raise exception 'NOT_DELIVERED';
+  end if;
+  if p_rating is null or p_rating not between 1 and 5 then raise exception 'BAD_RATING'; end if;
+  insert into delivery_ratings (order_id, user_id, rating, body, courier)
+  values (p_oid, auth.uid(), p_rating, left(coalesce(trim(p_body), ''), 1000),
+          left(coalesce(nullif(o.shipment->>'courier', ''),
+                        (select shipment->>'courier' from order_lines
+                          where order_id = p_oid and coalesce(shipment->>'courier', '') <> ''
+                          limit 1), ''), 60))
+  on conflict (order_id) do update set
+    rating = excluded.rating, body = excluded.body, courier = excluded.courier,
+    updated_at = now();
+end;
+$fn$;
+
+-- What everybody may read: a product's visible reviews, newest first...
+create or replace function product_reviews(p_pid text)
+  returns table (rating int, body text, author text, created_at timestamptz)
+  language sql stable security definer set search_path = public as $fn$
+  select r.rating, r.body, r.author, r.created_at
+    from reviews r
+   where r.pid = p_pid and not r.hidden
+   order by r.created_at desc
+   limit 50
+$fn$;
+
+-- ...and every product's average, for the cards and the product page.
+create or replace function rating_summary()
+  returns table (pid text, average numeric, ratings int)
+  language sql stable security definer set search_path = public as $fn$
+  select r.pid, round(avg(r.rating)::numeric, 1), count(*)::int
+    from reviews r
+   where not r.hidden
+   group by r.pid
+$fn$;
+
+-- The store takes a review out of the shop, or puts it back. Staff only.
+create or replace function hide_review(p_id bigint, p_hidden boolean)
+  returns void language plpgsql volatile security definer set search_path = public as $fn$
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  if p_hidden is null then raise exception 'BAD_HIDDEN'; end if;
+  update reviews set hidden = p_hidden where id = p_id;
+  if not found then raise exception 'NO_SUCH_REVIEW'; end if;
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
 --  THE STORE CODE, checked where it can decide something.
 --
 --  A code checked in the browser decides only whether a button is
@@ -963,12 +1110,12 @@ end $pub$;
 --  revoke for every function in this file.
 -- =====================================================================
 revoke all on table staff, orders, order_lines, shop_secret, claim_attempts,
-                    addresses, handovers
+                    addresses, handovers, reviews, delivery_ratings
   from anon, authenticated;
-revoke all on sequence order_seq, order_lines_id_seq from anon, authenticated;
+revoke all on sequence order_seq, order_lines_id_seq, reviews_id_seq from anon, authenticated;
 
 grant usage on schema public to authenticated;
-grant select on staff, orders, order_lines, addresses to authenticated;
+grant select on staff, orders, order_lines, addresses, reviews, delivery_ratings to authenticated;
 
 revoke all on function iso_now()                              from public, anon, authenticated;
 revoke all on function is_staff()                             from public, anon, authenticated;
@@ -987,6 +1134,12 @@ revoke all on function advance_line(bigint, text, text, text) from public, anon,
 revoke all on function mark_refund(uuid)                      from public, anon, authenticated;
 revoke all on function step_back_order(uuid, text)            from public, anon, authenticated;
 revoke all on function step_back_line(bigint, text)           from public, anon, authenticated;
+revoke all on function review_author(text)                    from public, anon, authenticated;
+revoke all on function submit_review(bigint, int, text)       from public, anon, authenticated;
+revoke all on function rate_delivery(uuid, int, text)         from public, anon, authenticated;
+revoke all on function product_reviews(text)                  from public, anon, authenticated;
+revoke all on function rating_summary()                       from public, anon, authenticated;
+revoke all on function hide_review(bigint, boolean)           from public, anon, authenticated;
 
 -- is_staff() runs inside the read policies, so the reader must be
 -- allowed to call it. The rest are the only writes there are.
@@ -1006,3 +1159,13 @@ grant execute on function advance_line(bigint, text, text, text) to authenticate
 grant execute on function mark_refund(uuid)                     to authenticated;
 grant execute on function step_back_order(uuid, text)           to authenticated;
 grant execute on function step_back_line(bigint, text)          to authenticated;
+grant execute on function submit_review(bigint, int, text)      to authenticated;
+grant execute on function rate_delivery(uuid, int, text)        to authenticated;
+grant execute on function hide_review(bigint, boolean)          to authenticated;
+
+-- ⚠️ THE ONE THING A PAGE WITH NO SESSION MAY CALL (8 November 2026): what
+-- everybody may read of the reviews. A product page is open to anyone, and
+-- browsing makes no session. tools/db.pl fails on any other grant to anon.
+grant usage on schema public to anon;
+grant execute on function product_reviews(text)                 to anon, authenticated;
+grant execute on function rating_summary()                      to anon, authenticated;

@@ -44,6 +44,9 @@ export let staff = null;
  *  `account` null offers no sign-in anywhere. */
 export let account = null;
 export let addresses = null;
+/** Ratings and reviews (8 November 2026). Null in one-browser mode: with no
+ *  server, a review would reach nobody, so nothing asks for one. */
+export let reviews = null;
 
 let server = null;
 
@@ -51,7 +54,7 @@ export async function ready() {
   await local.ready();
   if (!shared()) return;
   server = await import('./backend-supabase.js');
-  ({ orders, live, clearEverything, staff } = server);
+  ({ orders, live, clearEverything, staff, reviews } = server);
   if (SIGN_IN) ({ account, addresses } = server);
 }
 

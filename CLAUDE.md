@@ -96,7 +96,7 @@ for the store owner**.
 | Size charts | **Built.** A **Size chart** pop-up from the product page and, since 8 November 2026, from every card's size picker — a full-width line in words under the chips, because the info icon in the panel's corner (words only from 600px) went unseen on a phone. The table opens with one line on how to read it ("Measure your chest, and find it under To fit chest"), plus the no-tap fit hint under the product page's picker |
 | Delivery range | **Frozen into the order (step 5)** as it reaches the shop, and read back everywhere after. Live only where it should be: the product page and the shipping page. The store flags an order **Late** once its last promised day has passed |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
-| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). **Each item has its own status** (built 7 November 2026, on the owner's yes): a "Move this item to…" menu and Cancel item on every item; the order's status is its slowest item still on its way (`roll_up_order`), rising through every step it passes; cancelling an item takes it out of the total and shrinks the coupon in proportion to `discount_placed`; paid and then cut, the store sees "Refund ₹X" and notes it sent (`mark_refund`), and the customer sees what is owed, then when it went. Needs `schema.sql` re-run — the page hides every per-item control until items carry a status (`D.hasItemStatus`) — and `db/selftest.sql` proves the SQL on the real database and rolls back. **Since 8 November 2026, on the owner's word:** every second tap is a **pop-up that says what will happen** (`ui.js` `askFirst` — never `window.confirm()`, which the artifact viewers answer "no" unseen); a step BEHIND the order is a button as well as every step ahead, plus "Back to <step>", and the order — or one item — goes **back** (see *Each item's own status*); each item's one menu holds Move on, Move back, Cancel this item and Returned (the owner looked for Cancel there), with Cancel item a button beside it too; courier and tracking number are asked in the Shipped pop-up; the overview's "Late" is **Running late**, "None past the delivery date promised to the customer" ("What is 0 late? Late for what?"); and the overview's "Where the data lives" note (catalog.json, patch sets) is gone — "not needed", the owner said; the Data tab still explains exporting. Going back needs `schema.sql` run again (db/SETUP.md step 9); until then the board says so. See *Two pages* |
+| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). **Each item has its own status** (built 7 November 2026, on the owner's yes): a "Move this item to…" menu and Cancel item on every item; the order's status is its slowest item still on its way (`roll_up_order`), rising through every step it passes; cancelling an item takes it out of the total and shrinks the coupon in proportion to `discount_placed`; paid and then cut, the store sees "Refund ₹X" and notes it sent (`mark_refund`), and the customer sees what is owed, then when it went. Needs `schema.sql` re-run — the page hides every per-item control until items carry a status (`D.hasItemStatus`) — and `db/selftest.sql` proves the SQL on the real database and rolls back. **Since 8 November 2026, on the owner's word:** every second tap is a **pop-up that says what will happen** (`ui.js` `askFirst` — never `window.confirm()`, which the artifact viewers answer "no" unseen); a step BEHIND the order is a button as well as every step ahead, plus "Back to <step>", and the order — or one item — goes **back** (see *Each item's own status*); each item's one menu holds Move on, Move back, Cancel this item and Returned (the owner looked for Cancel there), with Cancel item a button beside it too; courier and tracking number are asked in the Shipped pop-up; the overview's "Late" is **Running late**, "None past the delivery date promised to the customer" ("What is 0 late? Late for what?"); and a **Reviews** tab (8 November 2026: every delivery rating with its courier, every product review with Hide -- see *Reviews*); the overview's "Where the data lives" note (catalog.json, patch sets) is gone — "not needed", the owner said; the Data tab still explains exporting. Going back needs `schema.sql` run again (db/SETUP.md step 9); until then the board says so. See *Two pages* |
 | Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
 | Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. **The first real code arrived by email** (the owner, 7 November 2026), so the sender, SMTP and the code template work. ⚠️ Still unseen: signing in on a SECOND phone, which takes the other template (Magic Link). **8 November 2026:** required at checkout (above), and a **profile page** (`#/account`) behind a person icon in the header on every screen, a phone included — who you are, your orders, saved addresses (signed in with none, the form is already open), your name and mobile (kept on the account, Supabase `user_metadata`), Help and support (the shop's phone, WhatsApp, email, hours, the policy pages) and Settings (wishlist, bag, sign out, clear this browser), after Milan's settings screen. See *Accounts* |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
@@ -203,9 +203,15 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   typed into the SQL editor only; `db.pl` fails if `store-code.sql` holds
   anything but CHANGE-ME. The store page in database mode shows a code
   form, and nothing behind it, until the server says yes.
-- **Browsing never touches the server.** A session (anonymous) is made
+- **Browsing never makes a session.** A session (anonymous) is made
   when an order is placed, or when the store page opens; its key is
   `vastra.auth`, inside this shop's prefix on the shared origin.
+  ⚠️ **Since 8 November 2026 browsing READS one thing from the server**:
+  the public ratings (`rating_summary()` once per page load, for the
+  cards; `product_reviews()` on a product page). A plain `fetch` with the
+  publishable key -- no session, no supabase-js download -- to the only
+  two functions granted to `anon`. Before that, browsing touched no server
+  at all; a product's reviews cannot be shown to strangers otherwise.
 - **`store.js` switches backends with live bindings**, not a top-level
   await, so the single-file build still bundles — and it stays
   one-browser from `file://` whatever the config says.
@@ -214,7 +220,9 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   "Sent to us at…", the account page's notice, the store's board notice.
 - **`tools/db.pl`, the eleventh check**: the order prefix, the statuses
   and the road agree between `schema.sql` and `domain.js`; every table
-  has RLS and is revoked before any grant; nothing is granted to `anon`;
+  has RLS and is revoked before any grant; nothing is granted to `anon`
+  but the schema and the two public review readers, which must be STABLE
+  and may not name a customer's column (since 8 November 2026);
   every function is revoked from public, anon and authenticated; every
   SECURITY DEFINER pins its search_path; no hash, secret table or secret
   key in `app/`; `config.js` holds a publishable key or nothing (a
@@ -363,6 +371,59 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   customer's page labels items only when they differ, strikes a
   cancelled one, explains the new total, says what is owed and then when
   it went; and with no item statuses shows the plain list.
+
+## Reviews (8 November 2026)
+
+Built on the owner's ask: "once the product status is marked delivered,
+the customer will have an option to rate the delivery partner and the
+product — stars out of 5, optional comments — and all products can see
+their ratings; initially no ratings will be visible".
+
+- **Who may rate what.** `submit_review(line, rating, words)`: the
+  order's own customer, an item delivered or returned, 1 to 5; one review
+  per item bought, sent again it changes. `rate_delivery(order, …)`: the
+  same customer, once anything in the order is delivered; the courier is
+  copied in as it stood. Both refuse by name: NOT_YOURS, NOT_DELIVERED,
+  BAD_RATING. The author is `review_author()` of the name on the parcel
+  -- "Asha M." -- worked out on the server, never typed.
+- **What everybody reads, and nothing more.** `product_reviews(pid)` (on
+  show, newest first, 50) and `rating_summary()` (every product's average
+  and count) are granted to `anon`: the stars, the words, "Asha M." and
+  the day; never the order, the phone or who wrote it. `db.pl` fails on
+  any other grant to anon, on either function losing STABLE, and on
+  either naming a customer's column (`user_id`, `cust_*`, `addr`, `pin`,
+  `mobile`, `email`, `order_id`, `line_id`); each proved by breaking it.
+  The tables (`reviews`, `delivery_ratings`) are read by their author and
+  the store only. Read from the shop by a plain fetch -- see *The
+  database*, "Browsing never makes a session".
+- **The store moderates by hiding, never editing**: `hide_review()`,
+  staff only. A hidden review leaves the product page and the average,
+  and stays on the store's **Reviews** tab with "Show it in the shop
+  again". Delivery ratings are the store's alone, with order and courier.
+- **Where it shows.** The order page's "Rate your order" panel appears
+  once something is delivered -- drawn ONCE into its own box, never by
+  the live refresh, because it holds stars and words; Send, then what was
+  given and Change. A product page shows nothing until its first review,
+  then the average under the name (a button to the reviews: the hash is
+  the router's) and "Customer reviews" further down, each "Verified
+  purchase". A card shows "★★★★☆ 4.0 (1)", from `rating_summary()`
+  fetched once at boot into `components.js` (`setRatings`, the pattern of
+  `setBag`). One-browser mode has no `store.reviews`: nobody to tell.
+- **Before `schema.sql` is re-run** (db/SETUP.md step 10): no panel, no
+  ratings on cards or product pages, and the store tab says what to run.
+- **The self-test** has a sixth order and rule 14: no review before
+  delivery, six stars refused, sent twice is one review, the public reads
+  5 stars, the words and "Self T.", the delivery rating keeps Blue Dart, a
+  stranger may not review, rate or hide, and a hidden review leaves both
+  public readers.
+- **Tested in the preview against a stand-in**: the panel on a delivered
+  order (the delivery by Delhivery, two items); Send with no stars asks
+  for stars; three ratings sent, one changed (still one review), all
+  still there after a reload; the kurti's page showing 5.0 and the review
+  with its line break, the unrated shirt showing nothing; the dress card
+  showing 4.0 (1); the store tab with both, one hidden and gone from the
+  product page and its card; and the old-schema behaviour on all three
+  pages. ⚠️ Not yet on the real project: schema.sql and selftest.sql.
 
 ## Accounts (step 7)
 

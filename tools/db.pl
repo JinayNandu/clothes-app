@@ -144,9 +144,28 @@ for my $t (@tables) {
 }
 ok(scalar(@tables) . ' tables, each with row-level security and revoked before any grant') unless $tbad;
 
-# Nothing granted to anon, ever: a customer has a session before they order.
-if ($sqlc =~ /grant\s[^;]*\bto\s+[^;]*\banon\b/) { fail('schema.sql grants something to anon'); }
-else { ok('nothing is granted to anon'); }
+# Nothing granted to anon -- a customer has a session before they order --
+# but what EVERYBODY may read of the reviews (8 November 2026): the schema,
+# and the two functions a product page calls with no session. Each must be
+# STABLE, and neither may so much as name a customer's column.
+my %ANON_OK = map { $_ => 1 } ('usage on schema public',
+  'execute on function product_reviews(text)', 'execute on function rating_summary()');
+my @anon_bad;
+while ($sqlc =~ /grant\s+([^;]*?)\s+to\s+([^;]*)/g) {
+  my ($what, $who) = ($1, $2);
+  next unless $who =~ /\banon\b/;
+  (my $w = lc $what) =~ s/\s+/ /g;
+  push @anon_bad, $w unless $ANON_OK{$w};
+}
+for my $fn (qw(product_reviews rating_summary)) {
+  my ($head, $body) = $sqlc =~ /function\s+\Q$fn\E\s*\(([^)]*\).*?)\$fn\$(.*?)\$fn\$/s;
+  if (!defined $body) { push @anon_bad, "$fn() is missing"; next; }
+  push @anon_bad, "$fn() is not STABLE" unless $head =~ /\bstable\b/;
+  push @anon_bad, "$fn() names a customer's column ($1)"
+    if $body =~ /\b(user_id|cust_\w+|addr|pin|mobile|email|order_id|line_id)\b/;
+}
+if (@anon_bad) { fail("anon may reach more than the public reviews: $_") for @anon_bad; }
+else { ok('anon reaches only the public reviews: product_reviews() and rating_summary(), both read-only and nameless'); }
 
 # ---------------------------------------------------------------------------
 # 5. Every function revoked from everybody, and every SECURITY DEFINER one

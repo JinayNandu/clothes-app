@@ -22,6 +22,7 @@ import { OTP_LEN } from '../config.js';
 import { drawQR } from '../pay.js';
 import { seal, ornament } from '../brand.js';
 import { art } from '../art.js';
+import { stars, starsInput, wireStars } from '../components.js';
 import { icon } from '../icons.js';
 import * as D from '../domain.js';
 
@@ -69,6 +70,7 @@ router.registerScreen('confirm', async (host, r) => {
   host.innerHTML = page(order, shop, all);
   drawPay(host, order, shop);
   drawKeep(host);
+  drawRate(host, order, all);
 
   wireHandoff(host.querySelector('[data-handoff]'), async (via) => {
     if (order.status !== 'draft') return;
@@ -108,6 +110,9 @@ router.registerScreen('confirm', async (host, r) => {
       payKey = keyOfPay(order);
       drawPay(host, order, shop);
     }
+    // Delivered while the page is open: the rating panel appears. Drawn
+    // once, and never again by a refresh -- it holds stars and words.
+    drawRate(host, order, all);
   };
   router.onLeave(store.live.subscribe('orders', refresh));
 });
@@ -156,6 +161,8 @@ function page(o, shop, all) {
     </section>
 
     <div data-status style="margin-top:var(--s4)">${statusBlock(o, shop)}</div>
+
+    <div data-rate></div>
 
     ${o.status === 'draft' ? handoff : ''}
 
@@ -219,6 +226,139 @@ async function drawKeep(host) {
     box.innerHTML = `<div style="margin-top:var(--s4)">${notice('good',
       `<b>Signed in as ${esc(w.email)}.</b> This order is in your account now, and opens `
       + 'on any phone where you sign in.')}</div>`;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// RATE YOUR ORDER (8 November 2026, the owner's ask). Once something in the
+// order is delivered: stars for the delivery, and stars for each item
+// delivered, out of five, with a few words if the customer likes. A product's
+// review appears on its page in the shop, signed with a first name and an
+// initial; the delivery's rating is for the store alone. Either can be
+// changed afterwards. Without a database there is nobody to tell, and the
+// panel never appears.
+//
+// ⚠️ AN INPUT MUST NEVER SIT IN A REGION ITS OWN HANDLER REPAINTS. The panel
+// is drawn ONCE into its own box, which the live refresh never touches, and
+// redrawn a block at a time only by its own Send and Change.
+// ---------------------------------------------------------------------------
+const RATE_SAYS = {
+  NOT_DELIVERED: 'This is not marked delivered yet.',
+  BAD_RATING: 'Tap the stars first: 1 to 5.',
+  NOT_YOURS: 'Only the person who placed this order can rate it.',
+  ACCOUNT_GONE: 'You are not signed in any more. Sign in again, then send it.',
+  NOT_SIGNED_IN: 'You are not signed in any more. Sign in again, then send it.',
+};
+function rateWhyNot(e) {
+  const m = String((e && e.message) || e);
+  const key = Object.keys(RATE_SAYS).find((k) => m.includes(k));
+  if (key) return RATE_SAYS[key];
+  if (/submit_review|rate_delivery|Could not find the function|schema cache/i.test(m)) {
+    return 'Ratings are not switched on yet. Please try again later.';
+  }
+  if (/fetch|network|Load failed/i.test(m)) return 'We could not reach the shop just now. Please try again.';
+  return 'That did not go through: ' + m;
+}
+
+/** One thing to rate: the delivery, or an item. Done, it shows what was
+ *  given and a Change; not yet, the stars, the words and Send. */
+function rateBlock({ key, title, sub, pic }, given, editing = false) {
+  const head = `<div class="rate-head">
+      ${pic != null ? `<span class="rate-pic" aria-hidden="true">${pic}</span>` : ''}
+      <span><span class="rate-what">${esc(title)}</span>
+        ${sub ? `<span class="rate-sub">${esc(sub)}</span>` : ''}</span>
+    </div>`;
+  if (given && !editing) {
+    return `${head}
+      <div class="rate-done">${stars(given.rating, 16)}
+        <span class="sr-only">You gave ${given.rating} out of 5.</span>
+        ${given.comment ? `<span class="rate-said user-text">“${esc(given.comment)}”</span>` : ''}
+        <button type="button" class="btn-ghost" data-rate-edit>Change</button></div>`;
+  }
+  return `${head}
+    ${starsInput('rate-' + key, given ? given.rating : 0, `Rate ${title}`)}
+    <textarea class="rate-words" rows="2" maxlength="1000" data-rate-words
+      aria-label="A few words about ${esc(title)}, if you like"
+      placeholder="A few words, if you like">${esc(given ? given.comment : '')}</textarea>
+    <div class="rate-acts">
+      <button type="button" class="btn btn-secondary btn-sm" data-rate-send>${given
+        ? 'Save the change' : 'Send'}</button>
+    </div>`;
+}
+
+async function drawRate(host, o, all) {
+  const box = host.querySelector('[data-rate]');
+  if (!box || !store.reviews || box.dataset.drawn) return;
+  const rateable = (o.lines || []).filter((l) => ['delivered', 'returned'].includes(l.status));
+  if (!rateable.length) return;
+  box.dataset.drawn = '1';
+  let mine = { delivery: null, lines: {} };
+  try {
+    mine = await store.reviews.mine(o.id);
+  } catch (e) {
+    // A database without reviews yet (schema.sql not re-run since 8 November
+    // 2026): no panel to fill in and fail. The next refresh asks again.
+    if (/schema cache|does not exist|PGRST20[25]/i.test(String((e && e.message) || e))) {
+      delete box.dataset.drawn;
+      return;
+    }
+    /* anything else: the forms, empty */
+  }
+  if (!box.isConnected) return;
+
+  const byId = (id) => (all || []).find((p) => p.id === id);
+  const courier = (o.shipment && o.shipment.courier)
+    || ((o.lines || []).find((l) => l.shipment && l.shipment.courier) || { shipment: {} }).shipment.courier || '';
+  const things = [
+    { kind: 'delivery', key: 'delivery-' + o.id, title: 'The delivery',
+      sub: courier ? `By ${courier}` : 'The courier who brought it', pic: null,
+      given: mine.delivery },
+    ...rateable.map((l) => {
+      const p = byId(l.pid);
+      const col = p && p.variants && (p.variants.colour || []).find((x) => x.id === (l.variant || {}).colour);
+      return { kind: 'line', line: l, key: 'line-' + l.id, title: l.name, sub: l.variantLabel,
+               pic: p ? art(p, col && col.img != null ? col.img : 0) : '', given: mine.lines[l.id] || null };
+    }),
+  ];
+
+  box.innerHTML = `<section class="panel rate" style="margin-top:var(--s4)">
+    <h2 class="t-h3">Rate your order</h2>
+    <p class="t-micro dim rate-lead">Stars out of five, and a few words if you like. A
+      product's review appears on its page in the shop with your first name and
+      initial; the delivery's rating is for us.</p>
+    ${things.map((t, i) => `<div class="rate-block" data-rate-i="${i}">
+      ${rateBlock(t, t.given)}</div>`).join('')}
+  </section>`;
+  wireStars(box);
+
+  box.addEventListener('click', async (e) => {
+    const blockEl = e.target.closest('[data-rate-i]');
+    if (!blockEl) return;
+    const t = things[Number(blockEl.dataset.rateI)];
+    if (e.target.closest('[data-rate-edit]')) {
+      blockEl.innerHTML = rateBlock(t, t.given, true);
+      const on = blockEl.querySelector('.stars-in input:checked') || blockEl.querySelector('.stars-in input');
+      if (on) on.focus();
+      return;
+    }
+    const send = e.target.closest('[data-rate-send]');
+    if (!send) return;
+    const picked = blockEl.querySelector('.stars-in input:checked');
+    if (!picked) { toast(RATE_SAYS.BAD_RATING); return; }
+    const rating = Number(picked.value);
+    const comment = blockEl.querySelector('[data-rate-words]').value.trim();
+    send.disabled = true;
+    try {
+      if (t.kind === 'delivery') await store.reviews.rateDelivery(o.id, rating, comment);
+      else await store.reviews.submit(t.line.id, rating, comment);
+      t.given = { rating, comment };
+      blockEl.innerHTML = rateBlock(t, t.given);
+      toast(t.kind === 'delivery' ? 'Thanks for rating the delivery.'
+        : 'Thanks. Your review is on the shop.');
+    } catch (err) {
+      send.disabled = false;
+      toast(rateWhyNot(err));
+    }
   });
 }
 

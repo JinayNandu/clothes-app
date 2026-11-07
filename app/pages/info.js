@@ -95,7 +95,7 @@ function block(b, shop, pageKey, bulky = []) {
             extra per oversized item. ${bulky.length
               ? `At present that means ${esc(D.listOf(bulky))}.`
               : 'Nothing we currently sell is oversized.'}</li>` : ''}
-        ${s.codAvailable ? `<li>Cash on delivery is available${s.codFee
+        ${s.codAvailable ? `<li>Payment on delivery, in cash or by UPI, is available${s.codFee
           ? `, ${D.rupees(s.codFee)} extra` : ' at no extra charge'}.</li>` : ''}
       </ul>`;
     }

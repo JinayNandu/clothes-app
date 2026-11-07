@@ -31,7 +31,7 @@ import { esc } from './ui.js';
 import * as D from './domain.js';
 
 // ---------------------------------------------------------------------------
-// PAYMENT OPTIONS -- UPI and cash on delivery, the two this shop takes.
+// PAYMENT OPTIONS -- UPI, and cash or UPI on delivery: the two this shop takes.
 //
 // ⚠️ NO CARD, NO NET BANKING (the owner's call, 7 November 2026). Both need a
 // payment gateway -- Razorpay or similar, about 2% of every order, and a small
@@ -55,13 +55,15 @@ export function payOptions(shop, selected) {
       </span>
     </label>`;
 
+  // Cash / UPI on delivery since 8 November 2026: the delivery partner takes
+  // UPI as readily as cash, so the option no longer says only cash.
   return [
-    opt('upi', 'UPI', 'Scan a QR with GPay, PhonePe, Paytm or your bank app.'),
+    opt('upi', 'UPI', 'Pay right after ordering: scan the QR with GPay, PhonePe, Paytm or your bank app.'),
 
-    cod ? opt('cod', 'Cash on delivery',
+    cod ? opt('cod', D.PAY_LABEL.cod,
       shop.shipping.codFee
-        ? `Pay the courier. ${D.rupees(shop.shipping.codFee)} extra.`
-        : 'Pay the courier when the parcel arrives.')
+        ? `Pay the delivery partner in cash or by UPI. ${D.rupees(shop.shipping.codFee)} extra.`
+        : 'Pay the delivery partner in cash or by UPI when the parcel arrives.')
       : '',
   ].join('');
 }

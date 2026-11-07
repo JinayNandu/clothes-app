@@ -79,7 +79,7 @@ router.registerScreen('checkout', async (host) => {
 
   ${store.shared() ? notice('info', '<b>Your order comes straight to us</b> the '
     + 'moment you place it. This page does not take payment: pay by UPI with the '
-    + 'QR on the next page, or in cash to the courier.') : notice('warn', '<b>This page does not take payment and cannot send your '
+    + 'QR on the next page, or pay the delivery partner in cash or by UPI.') : notice('warn', '<b>This page does not take payment and cannot send your '
     + 'order.</b> Saving it creates a record in this browser with an order '
     + 'code. The next screen is where you hand it to us — on WhatsApp, by '
     + 'phone or by email — and nothing reaches ' + esc(shop.brand.name)
@@ -199,7 +199,8 @@ router.registerScreen('checkout', async (host) => {
         + 'appears on the next screen. After paying, keep the screenshot: show it to '
         + 'the delivery partner when your parcel arrives.');
     } else {
-      box.innerHTML = notice('info', 'Pay the courier when the parcel arrives.'
+      box.innerHTML = notice('info', 'Pay the delivery partner when the parcel arrives, '
+        + 'in cash or by UPI.'
         + (store.shared() ? ''
           : ' We will still need you to send the order through so we can confirm it.'));
     }
@@ -356,15 +357,16 @@ router.registerScreen('checkout', async (host) => {
   });
 });
 
-/** A saved address as a choice, in the same card as the ways to pay. */
+/** A saved address as a choice, in the same card as the ways to pay. The
+ *  mobile sits beside the name -- "who, and how to reach them" -- not after
+ *  the PIN code, where the owner found it hard to read (8 November 2026). */
 const shipOpt = (a, sel) => `
   <label class="pay-opt${a.id === sel ? ' on' : ''}">
     <input type="radio" name="shipto" value="${esc(a.id)}" ${a.id === sel ? 'checked' : ''}>
     <span>
-      <span class="pay-name">${esc(a.name)}${a.isDefault
+      <span class="pay-name">${esc(a.name)}<span class="ship-tel">${esc(D.fmtMobile(a.mobile))}</span>${a.isDefault
         ? ' <span class="pill pill-good">Default</span>' : ''}</span>
-      <span class="pay-why">${esc(a.addr)}, ${esc(a.city)}, ${esc(a.state)} ${esc(a.pin)}
-        · ${esc(a.mobile)}</span>
+      <span class="pay-why">${esc(a.addr)}, ${esc(a.city)}, ${esc(a.state)} ${esc(a.pin)}</span>
     </span>
   </label>`;
 

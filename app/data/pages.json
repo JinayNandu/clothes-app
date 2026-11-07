@@ -288,7 +288,7 @@
         },
         {
           "t": "p",
-          "v": "This website does not take payment. A UPI code is shown so you can pay from your own app, and cash on delivery is offered. The code currently on the site is a demonstration one that no payment app can resolve, and the checkout says so."
+          "v": "This website does not take payment itself. After you order, your order page shows a UPI QR, so you can pay from your own app; or you can pay the delivery partner when the parcel arrives, in cash or by UPI."
         },
         {
           "t": "h2",

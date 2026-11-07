@@ -393,6 +393,11 @@
 .co-why{ margin:var(--s2) 0 var(--s4); font-size:13px; line-height:1.6; color:var(--ink-soft); max-width:60ch; }
 .co-who{ display:flex; align-items:center; gap:var(--s2); }
 .pay-name.co-new{ display:flex; align-items:center; gap:6px; }
+/* The mobile beside the name on a saved address -- checkout and the profile
+   -- not after the PIN code, where it was hard to read (8 November 2026). */
+.ship-tel{ font-weight:500; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ship-tel::before{ content:'·'; margin-right:6px; color:var(--ink-dim); }
+.pay-name .ship-tel{ margin-left:6px; }
 .co-saved{
   display:flex; align-items:center; gap:var(--s2);
   margin-top:var(--s4); font-size:13px; color:var(--good-ink);
@@ -404,7 +409,7 @@
 /* The delivery promise under the order's title: read off the order, never
    worked out on the page. */
 /* THE ORDER'S DETAILS (pages/confirm.js), 8 November 2026: a way back to Your
-   orders, the code and its pill, then the chain in a panel of its own. */
+   orders, the code and its pill, then every step with its date. */
 .od{ max-width:760px; margin:0 auto; }
 .od-back{ display:inline-flex; align-items:center; gap:var(--s1); }
 .od-head{
@@ -414,7 +419,7 @@
 .od-head-mid{ min-width:0; }
 .od-head .pill{ margin-top:var(--s2); flex:none; }
 .od-sub{ margin-top:var(--s2); font-size:13px; color:var(--ink-dim); }
-.od-chain{ margin-top:var(--s4); padding-top:var(--s5); padding-bottom:var(--s5); }
+.od-track{ margin-top:var(--s4); }
 .arrive{ margin-top:var(--s3); font-size:15px; color:var(--ink-soft); }
 .arrive b{ color:var(--ink); font-weight:700; }
 .arrive:empty{ display:none; }

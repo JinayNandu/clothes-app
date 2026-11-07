@@ -364,8 +364,9 @@ function payWhy(o) {
       once you see it. They have been asked to show their payment screenshot to the
       delivery partner too.`;
   }
-  return `<b>Cash on delivery.</b> The courier collects <b>${D.rupees(o.grand)}</b>.
-    Mark it received once that money reaches you.`;
+  return `<b>${esc(D.PAY_LABEL.cod)}.</b> The delivery partner collects
+    <b>${D.rupees(o.grand)}</b>, in cash or by UPI. Mark it received once that money
+    reaches you.`;
 }
 
 /**
@@ -615,7 +616,8 @@ function wireOrders(host, repaint, orders = []) {
         const got = await askFirst({
           title: `Mark ${D.rupees(o.grand || 0)} as received?`,
           body: (btn.dataset.method === 'cod'
-            ? '<p>Only once the courier\'s cash for this order has reached you.</p>'
+            ? '<p>Only once the money the delivery partner collected for this order, in '
+              + 'cash or by UPI, has reached you.</p>'
             : `<p>Only once you have seen <b>${D.rupees(o.grand || 0)}</b> with the note
                <b>${esc(codeOf(box))}</b> in your bank or UPI app.</p>`)
             + '<p>The customer sees the payment confirmed on their order page. You can undo it.</p>',

@@ -801,8 +801,11 @@ export function trackSteps(order) {
   return rows;
 }
 
+// `cod` is "Cash / UPI on delivery" since 8 November 2026 -- the owner: "they
+// can do the UPI payment at delivery too, cash is not necessary". The id
+// stays `cod`: it is in every order already placed, and in schema.sql.
 export const PAY_LABEL = {
-  upi: 'UPI', cod: 'Cash on delivery', card: 'Card', netbanking: 'Net banking',
+  upi: 'UPI', cod: 'Cash / UPI on delivery', card: 'Card', netbanking: 'Net banking',
 };
 
 // ---------------------------------------------------------------------------
@@ -901,6 +904,14 @@ export const validMobile = (s) => {
   const d = digits(s);
   return (d.length === 10 && /^[6-9]/.test(d))
       || (d.length === 12 && d.startsWith('91') && /^[6-9]/.test(d.slice(2)));
+};
+
+/** "98765 43210": an Indian mobile as people say it, in two fives. Anything
+ *  that is not ten digits after an optional 91 comes back as it was. */
+export const fmtMobile = (s) => {
+  let d = digits(s);
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+  return d.length === 10 ? `${d.slice(0, 5)} ${d.slice(5)}` : String(s || '');
 };
 
 /** ['a'] -> 'a' · ['a','b'] -> 'a and b' · ['a','b','c'] -> 'a, b and c' */

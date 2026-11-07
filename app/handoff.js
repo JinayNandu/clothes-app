@@ -23,7 +23,13 @@ import * as D from './domain.js';
  * configured is simply absent — a disabled "WhatsApp" button on a shop with no
  * WhatsApp number tells the customer nothing useful.
  */
-export function handoffBlock(text, shop, { subject = 'Order' } = {}) {
+/**
+ * `copy: false` leaves out "Copy the text" -- an order placed online is with
+ * the shop already, and copying it out was a button with nothing to do
+ * (8 November 2026). It stays where copying is a way to send something: an
+ * order saved in one browser, and the contact page's message.
+ */
+export function handoffBlock(text, shop, { subject = 'Order', copy = true } = {}) {
   const wa = D.whatsappLink(text, shop);
   const tel = D.telLink(shop);
   const mail = D.mailtoLink(subject, text, shop);
@@ -35,8 +41,8 @@ export function handoffBlock(text, shop, { subject = 'Order' } = {}) {
             data-sent="phone">${icon('phone', 16)} Call ${esc(shop.contact.phone)}</a>` : '',
     mail ? `<a class="btn btn-secondary" href="${esc(mail)}"
             data-sent="email">${icon('mail', 16)} Email us</a>` : '',
-    `<button type="button" class="btn btn-secondary" data-copy
-       data-sent="copy">${icon('copy', 16)} Copy the text</button>`,
+    copy ? `<button type="button" class="btn btn-secondary" data-copy
+       data-sent="copy">${icon('copy', 16)} Copy the text</button>` : '',
   ].filter(Boolean).join('');
 
   // When nothing is configured, say so rather than showing a lone Copy button
@@ -48,7 +54,7 @@ export function handoffBlock(text, shop, { subject = 'Order' } = {}) {
       No phone number or email is configured yet, so there is nowhere for this
       to go. Whoever set this site up needs to fill in <code>contact</code> in
       <code>app/data/shop.json</code>.</p>` : ''}
-    <textarea class="sr-only" data-copytext aria-hidden="true">${esc(text)}</textarea>`;
+    ${copy ? `<textarea class="sr-only" data-copytext aria-hidden="true">${esc(text)}</textarea>` : ''}`;
 }
 
 /**

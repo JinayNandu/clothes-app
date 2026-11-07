@@ -22,7 +22,6 @@ import { OTP_LEN } from '../config.js';
 import { drawQR } from '../pay.js';
 import { seal, ornament } from '../brand.js';
 import { art } from '../art.js';
-import { orderChain } from '../components.js';
 import { icon } from '../icons.js';
 import * as D from '../domain.js';
 
@@ -94,7 +93,6 @@ router.registerScreen('confirm', async (host, r) => {
       ['[data-title]', title(order)],
       ['[data-sub]', subLine(order)],
       ['[data-pill]', pill(order)],
-      ['[data-chain]', orderChain(order)],
       ['[data-arrive]', arriveLine(order, shop)],
       ['[data-status]', statusBlock(order, shop)],
       ['[data-track]', track(order)],
@@ -119,17 +117,26 @@ router.registerScreen('confirm', async (host, r) => {
 // ---------------------------------------------------------------------------
 // THE ORDER'S DETAILS, in the order a customer reads them (8 November 2026,
 // the owner's ask: "another page that gives details of that order and the
-// shipping chain … highlighting the part that is done"): where it is -- the
-// chain, live -- then what it says about that, what was bought and for how
-// much (each item opening its product), every step with its date, the
-// payment, then help. A draft is the exception: it has reached nobody yet, so
-// handing it over comes straight after its status.
+// shipping chain … highlighting the part that is done"): every step with its
+// date, following the store live; what that means; what was bought and for
+// how much (each item opening its product); the payment; then help. A draft
+// is the exception: it has reached nobody yet, so handing it over comes
+// straight after its status.
+//
+// ONE TRACKER, ON TOP (8 November 2026, the owner: "we should keep only 1 --
+// every step with its date should come on top, then the products, then the
+// payment"). The page drew the order twice: a chain of dots across the top
+// and the same steps again, with their dates, further down. The dated list
+// stays, first; the dots stay only on Your orders, where a card is small.
 function page(o, shop, all) {
+  // "Copy the text" only while the order has reached nobody: in one browser
+  // it is one of the ways to send it. An order placed online is with the shop
+  // already, and the owner found the button pointless there.
   const handoff = `
     <section class="panel" style="margin-top:var(--s4)">
       <div data-handoff-head>${handoffHead(o)}</div>
       <div data-handoff>${handoffBlock(D.orderSummaryText(o, shop), shop,
-        { subject: 'Order ' + o.code })}</div>
+        { subject: 'Order ' + o.code, copy: o.status === 'draft' })}</div>
     </section>`;
   return `
   <div class="od">
@@ -143,8 +150,9 @@ function page(o, shop, all) {
     </header>
     <p class="arrive" data-arrive>${arriveLine(o, shop)}</p>
 
-    <section class="panel od-chain" aria-label="Where it is">
-      <div data-chain>${orderChain(o)}</div>
+    <section class="panel od-track">
+      <h2 class="t-h3">Where it is</h2>
+      <div data-track>${track(o)}</div>
     </section>
 
     <div data-status style="margin-top:var(--s4)">${statusBlock(o, shop)}</div>
@@ -152,11 +160,6 @@ function page(o, shop, all) {
     ${o.status === 'draft' ? handoff : ''}
 
     <div data-ordered>${ordered(o, all)}</div>
-
-    <section class="panel" style="margin-top:var(--s4)">
-      <h2 class="t-h3">Every step, with its date</h2>
-      <div data-track>${track(o)}</div>
-    </section>
 
     <div data-pay></div>
 
@@ -416,9 +419,10 @@ function payPanel(o, shop) {
   }
   return `
     <section class="panel" style="margin-top:var(--s4)">
-      <h2 class="t-h3">Cash on delivery</h2>
+      <h2 class="t-h3">${esc(D.PAY_LABEL.cod)}</h2>
       <p class="t-micro dim" style="margin-top:var(--s2)">
-        Pay the courier ${D.rupees(o.grand)} when the parcel arrives.${o.status === 'draft'
+        Pay the delivery partner ${D.rupees(o.grand)} when the parcel arrives, in cash or
+        by UPI.${o.status === 'draft'
           ? ' We will still need you to send the order through above, so a person '
             + 'here can confirm it and dispatch.' : ''}</p>
     </section>`;
@@ -499,10 +503,9 @@ function ordered(o, all) {
         <div class="t-eyebrow" style="color:var(--ink-soft);margin-bottom:var(--s2)">
           Delivering to</div>
         <p class="t-micro user-text" style="line-height:1.7">
-          ${esc(c.name)}<br>
+          <b>${esc(c.name)}</b> · ${esc(D.fmtMobile(c.mobile))}<br>
           ${esc(c.addr)}<br>
-          ${esc(c.city)}, ${esc(c.state)} ${esc(c.pin)}<br>
-          ${esc(c.mobile)}${c.email ? ' · ' + esc(c.email) : ''}
+          ${esc(c.city)}, ${esc(c.state)} ${esc(c.pin)}${c.email ? '<br>' + esc(c.email) : ''}
         </p>
         <p class="t-micro dim" style="margin-top:var(--s2)">
           Paying by ${esc(D.PAY_LABEL[o.payMethod] || o.payMethod)}.</p>

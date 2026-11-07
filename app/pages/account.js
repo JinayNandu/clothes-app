@@ -443,10 +443,10 @@ function bookPanel(list) {
 const addrCard = (a) => `
   <div class="addr-card" data-addr="${esc(a.id)}">
     <div>
-      <div class="addr-name">${esc(a.name)}${a.isDefault
+      <div class="addr-name">${esc(a.name)}<span class="ship-tel">${esc(D.fmtMobile(a.mobile))}</span>${a.isDefault
         ? ' <span class="pill pill-good">Default</span>' : ''}</div>
       <div class="addr-lines">${esc(a.addr)}<br>${esc(a.city)}, ${esc(a.state)}
-        ${esc(a.pin)}<br>${esc(a.mobile)}</div>
+        ${esc(a.pin)}</div>
     </div>
     <div class="addr-acts">
       <button type="button" class="btn-ghost" data-addr-edit>Edit</button>

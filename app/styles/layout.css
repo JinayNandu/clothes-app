@@ -391,7 +391,3 @@
   .hdr-right .icon-btn[data-opt]{ display:none; }
 }
 
-/* Your account: in the drawer below 600, in the header from there up. */
-@media (max-width:599px){
-  .hdr-right .icon-btn[data-acct]{ display:none; }
-}

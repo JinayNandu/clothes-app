@@ -93,6 +93,11 @@
 }
 .btn-secondary:hover:not(:disabled){ border-color:var(--ink); }
 
+/* A step that cannot be undone -- cancelling an order or an item -- says so
+   in its colour as well as its words. Only ever inside the pop-up. */
+.btn-danger{ background:var(--alert); color:var(--on-alert); }
+.btn-danger:hover:not(:disabled){ background:var(--alert-ink); }
+
 .btn-ghost{
   height:auto; padding:0;
   background:none; color:var(--gold-ink);
@@ -438,9 +443,17 @@
   border-radius:var(--r1);
 }
 .card-sizes-btn:hover{ color:var(--ink); background:var(--sunk); }
-/* The words beside the info icon only where a card is wide enough for them. */
-.card-sizes-gtext{ display:none; }
-@media (min-width:600px){ .card-sizes-gtext{ display:inline; } }
+/* "Size chart", in words, under the chips on every screen: an icon alone in
+   the corner went unseen on a phone (the owner, 8 November 2026). */
+.card-sizes-chart{
+  width:100%; height:30px; margin-top:var(--s2);
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-size:12px; font-weight:600; letter-spacing:.02em;
+  color:var(--gold-ink);
+  border-top:1px dashed var(--edge);
+}
+.card-sizes-chart:hover{ color:var(--ink); }
+.card-sizes-chart svg{ flex:none; }
 .card-sizes-grid{
   display:grid; gap:6px;
   grid-template-columns:repeat(auto-fill,minmax(40px,1fr));
@@ -751,6 +764,109 @@
 }
 
 /* ---------------------------------------------------------------------------
+   THE ORDER'S CHAIN (components.js orderChain) -- the steps left to right,
+   a line between the dots, green up to where the order is. The line runs
+   from each dot to the one before it (::before), so the first has none.
+   ------------------------------------------------------------------------ */
+.chain{
+  display:flex; list-style:none; margin:0; padding:0;
+}
+.chain li{
+  position:relative; flex:1 1 0; min-width:0;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  text-align:center;
+}
+.chain li::before{
+  content:''; position:absolute; top:11px; right:50%; width:100%; height:2px;
+  background:var(--edge-2);
+}
+.chain li:first-child::before{ display:none; }
+.chain li.is-done::before,.chain li.is-now::before{ background:var(--good); }
+.chain li.is-end::before{ background:var(--alert); }
+.chain-dot{
+  position:relative; z-index:1;
+  width:24px; height:24px; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%;
+  background:var(--card); border:2px solid var(--edge-2);
+  color:var(--on-good);
+}
+.chain .is-done .chain-dot{ background:var(--good); border-color:var(--good); }
+.chain .is-now .chain-dot{
+  border-color:var(--good);
+  box-shadow:0 0 0 4px var(--good-wash);
+}
+.chain .is-now .chain-dot::after{
+  content:''; width:10px; height:10px; border-radius:50%; background:var(--good);
+}
+.chain .is-end .chain-dot{ background:var(--alert); border-color:var(--alert); color:var(--on-alert); }
+.chain-l{
+  font-size:11px; font-weight:600; line-height:1.25; color:var(--ink-dim);
+  overflow-wrap:anywhere;
+}
+.chain .is-done .chain-l{ color:var(--ink-soft); }
+.chain .is-now .chain-l{ color:var(--good-ink); }
+.chain .is-end .chain-l{ color:var(--alert-ink); }
+
+/* Small, on each order in Your orders: the dots and the line, no words --
+   the order's pill beside it says where it is. */
+.chain-sm li::before{ top:6px; }
+.chain-sm .chain-dot{ width:14px; height:14px; border-width:2px; }
+.chain-sm .chain-dot svg{ display:none; }
+.chain-sm .is-now .chain-dot{ box-shadow:0 0 0 3px var(--good-wash); }
+.chain-sm .is-now .chain-dot::after{ width:6px; height:6px; }
+.chain-sm .chain-l{
+  position:absolute; width:1px; height:1px; overflow:hidden;
+  clip:rect(0 0 0 0); white-space:nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   ASK FIRST (ui.js askFirst) -- the pop-up that confirms a step. Centred on
+   every screen: it is a question, not a panel of content, and a question
+   belongs where the eye already is. Over the sheet and the fly (70), under
+   the toast (80), which reports what the answer did.
+   ------------------------------------------------------------------------ */
+.ask-wrap{
+  position:fixed; inset:0; z-index:75;
+  display:flex; align-items:center; justify-content:center;
+  padding:var(--s4);
+  opacity:0;
+  transition:opacity var(--t-micro) var(--e-exit);
+}
+.ask-wrap.open{ opacity:1; }
+.ask-scrim{ position:absolute; inset:0; background:var(--scrim); }
+.ask{
+  position:relative;
+  width:min(440px, 100%);
+  max-height:calc(100vh - var(--s6));
+  max-height:calc(100svh - var(--s6));
+  overflow-y:auto;
+  padding:var(--s5);
+  background:var(--card);
+  border:1px solid var(--edge);
+  border-radius:var(--r2);
+  box-shadow:var(--sh-drawer);
+  transform:translateY(8px);
+  transition:transform var(--t-micro) var(--e-enter);
+}
+.ask-wrap.open .ask{ transform:none; }
+.ask-title{ font-family:var(--f-display); font-size:22px; font-weight:500; line-height:1.2; }
+.ask-body{ margin-top:var(--s3); font-size:14px; line-height:1.6; color:var(--ink-soft); }
+.ask-body p + p{ margin-top:var(--s2); }
+.ask-body b{ color:var(--ink); }
+.ask.is-danger .ask-final{ color:var(--alert-ink); font-weight:600; }
+.ask-more:empty{ display:none; }
+.ask-more{ margin-top:var(--s4); display:grid; gap:var(--s3); }
+.ask-acts{
+  margin-top:var(--s5);
+  display:flex; justify-content:flex-end; gap:var(--s3); flex-wrap:wrap;
+}
+@media (max-width:420px){
+  .ask-acts{ flex-direction:column-reverse; }
+  .ask-acts .btn{ width:100%; }
+}
+
+/* ---------------------------------------------------------------------------
    THE SIZE CHART
    ------------------------------------------------------------------------ */
 /* The eyebrow becomes a row so the Size guide link can sit opposite the
@@ -777,6 +893,8 @@
 /* Add to bag pressed with no size chosen (product.js). */
 .sc-hint.sc-need,.sc-hint.sc-need b{ color:var(--alert-ink); }
 
+.sc-intro{ margin-bottom:var(--s3); font-size:14px; line-height:1.55; color:var(--ink-soft); }
+.sc-intro b{ color:var(--ink); }
 .sc-wrap{ overflow-x:auto; }
 .sc{ width:100%; border-collapse:collapse; font-family:var(--f-ui); font-size:13px; }
 .sc-cap{

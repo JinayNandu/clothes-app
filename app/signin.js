@@ -2,12 +2,13 @@
 // Sign in -- an email, then a six-digit code. The box, wherever it is offered:
 // the account page, checkout, and an order's page after a guest's first order.
 //
-// ⚠️ NEVER A WALL, NEVER A PASSWORD. Nothing in the shop waits on this box: a
-// guest browses, bags and orders exactly as before. honesty.pl fails if
-// placing an order ever stops making its own guest session, if a password
-// field turns up anywhere in the shop, or if sign-in becomes a screen of its
-// own that could stand in front of it. Supabase checks the code, on the
-// server; this box only carries it there.
+// ⚠️ NEVER A PASSWORD, NEVER A SCREEN OF ITS OWN. Browsing and the bag never
+// wait on this box. Checkout does, since 8 November 2026 -- the owner's call,
+// config.js SIGN_IN_TO_ORDER -- but only as a page rule: honesty.pl fails if
+// placing an order ever stops making its own guest session (so the flag can
+// bring guests back at once), if a password field turns up anywhere in the
+// shop, or if sign-in becomes a screen of its own. Supabase checks the code,
+// on the server; this box only carries it there.
 //
 // ⚠️ KEEP IT OUT OF ANY REGION THAT IS REPAINTED UNDER IT. A page that redraws
 // on 'orders' must hold the box outside what it redraws, or a status update

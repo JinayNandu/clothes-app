@@ -621,6 +621,31 @@ export const orders = {
   },
 
   /**
+   * The store moves it BACK to an earlier step -- a wrong tap undone (8
+   * November 2026). Only along the road (D.canStepBack): a cancellation or a
+   * return is final. Written into the history as a step back, so the
+   * timeline knows when each step really happened; a parcel taken back off
+   * the courier loses its courier, and one taken back from Delivered loses
+   * its delivery stamp -- the return window must not run for a parcel that
+   * has not landed. Same rules as step_back_order() in db/schema.sql.
+   */
+  async stepBack(id, to) {
+    const all = read(K.orders, []);
+    const o = all.find((x) => x.id === id);
+    if (!o) throw new Error('NO_SUCH_ORDER');
+    if (!D.canStepBack(o.status, to)) throw new Error(`BAD_STEP_BACK ${o.status} -> ${to}`);
+    const was = o.status;
+    o.status = to;
+    o.history.push({ at: D.nowStamp(), to, back: true });
+    // ⚠️ The one other writer of deliveredAt, and only ever to null.
+    // honesty.pl allows exactly this line beside advance()'s stamp.
+    if (was === 'delivered') o.deliveredAt = null;
+    if (D.LINE_ROAD.indexOf(to) < D.LINE_ROAD.indexOf('shipped')) o.shipment = null;
+    write(K.orders, all, 'orders');
+    return clone(o);
+  },
+
+  /**
    * ⚠️ Razorpay's success handler returns razorpay_payment_id IN THE BROWSER,
    * which is forgeable. Verifying it needs an HMAC over the key secret, which
    * cannot exist in a static page. So a gateway claim is RECORDED and

@@ -57,6 +57,21 @@ export const SUPABASE = {
 // ---------------------------------------------------------------------------
 export const SIGN_IN = true;
 
+// ---------------------------------------------------------------------------
+// SIGNING IN TO ORDER — the owner's call, 8 November 2026: "a person cannot
+// order unless they are signed in -- how will they ever view that order
+// again". On, checkout asks for the email and code first, then offers the
+// account's saved addresses; an address typed there is saved to the account.
+// It needs SIGN_IN on as well -- with nothing to sign in to, nothing asks.
+//
+// ⚠️ A PAGE RULE, DELIBERATELY NOT A DATABASE ONE. place_order() still takes a
+// guest (tools/db.pl keeps it so), because a shop that can only sell through
+// an email that arrives stops selling the day the sender lapses. If codes stop
+// arriving, set this to false and guests can order again at once -- no SQL to
+// run, nothing to migrate.
+// ---------------------------------------------------------------------------
+export const SIGN_IN_TO_ORDER = true;
+
 // How many digits the code has. ⚠️ MUST MATCH THE PROJECT: Authentication ->
 // Sign In / Providers -> Email -> Email OTP Length. Supabase ships 6 and allows
 // up to 10; set to 8 against a page expecting 6, the box sends the first six

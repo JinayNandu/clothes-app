@@ -233,6 +233,23 @@ export const orders = {
     return one(id);
   },
 
+  /** The store moves the order BACK to an earlier step (a wrong tap). Items
+   *  at the order's step go back with it; an item further along on its own
+   *  stays. step_back_order() refuses anything but an earlier road step. */
+  async stepBack(id, to) {
+    await rpc('step_back_order', { p_oid: id, p_to: to });
+    fire('orders');
+    return one(id);
+  },
+
+  /** ONE item back to an earlier step; the order follows it down if it is
+   *  now the slowest (roll_up_order). */
+  async stepBackLine(id, lineId, to) {
+    await rpc('step_back_line', { p_line: lineId, p_to: to });
+    fire('orders');
+    return one(id);
+  },
+
   /** A person at the shop has sent back what is owed. A note, like `paid`:
    *  nothing here sends money. Returns the amount marked refunded. */
   async markRefund(id) {
@@ -250,11 +267,12 @@ export const orders = {
 
 // ---------------------------------------------------------------------
 // LIVE. 'orders' comes from the database, so the board ticks when a phone
-// places one. 'session' and 'addresses' are this file's own news -- who
-// is signed in, and the address book after a change -- told to whoever
-// listens. Everything else is this browser's and stays on its bus.
+// places one. 'session', 'addresses' and 'details' are this file's own
+// news -- who is signed in, the address book after a change, the account's
+// name and mobile -- told to whoever listens. Everything else is this
+// browser's and stays on its bus.
 // ---------------------------------------------------------------------
-const OWN = ['orders', 'session', 'addresses'];
+const OWN = ['orders', 'session', 'addresses', 'details'];
 const subs = new Map();
 let channel = null;
 
@@ -348,7 +366,27 @@ export const account = {
     const s = await session();
     if (!s) return null;
     const u = s.user || {};
-    return { id: u.id, email: u.email || null, guest: !!u.is_anonymous || !u.email };
+    const m = u.user_metadata || {};
+    return { id: u.id, email: u.email || null, guest: !!u.is_anonymous || !u.email,
+             name: String(m.name || ''), mobile: String(m.mobile || '') };
+  },
+
+  /**
+   * The account's own name and mobile (8 November 2026: "a profile … to edit
+   * things"), kept on the account itself -- Supabase's user_metadata, which
+   * only its owner may change -- so they follow the person to any phone and
+   * fill in a new address there. Never used to decide anything: the server
+   * reads auth.users for who someone is, not this.
+   */
+  async saveDetails({ name = '', mobile = '' } = {}) {
+    const sb = await client();
+    const { error } = await sb.auth.updateUser({ data: {
+      name: String(name).trim().slice(0, 80),
+      mobile: String(mobile).replace(/\D/g, '').slice(-10),
+    } });
+    oops(error);
+    fire('details');
+    return account.whoami();
   },
 
   /** Mail a code. Returns the road taken, which verifyCode() needs back. */

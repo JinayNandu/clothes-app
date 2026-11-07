@@ -1,5 +1,10 @@
 // ============================================================================
-// Your account.
+// Your profile -- reached from the person icon in the header on every screen
+// (8 November 2026, the owner's ask: "a profile option on all screens … just
+// like Milan"). Who you are, your orders, your addresses, your name and
+// mobile, how to reach the shop, and the settings. Milan's settings screen
+// was the model -- the shop's phone, the account, the address book, a reset
+// -- in this shop's own words and shapes; nothing is shared with it.
 //
 // Three cases, and the page says which one it is in:
 //
@@ -7,30 +12,31 @@
 //                details that prefill checkout, the orders made in this
 //                browser, and Clear everything. It is NOT an account and its
 //                first notice says so; honesty.pl keeps that sentence here.
-//   A GUEST      A database, nobody signed in. The same, plus the offer: an
-//                email and a six-digit code (signin.js), so the orders placed
-//                on this phone open on any phone. Never required to order.
+//   A GUEST      A database, nobody signed in: the sign-in box first. With
+//                SIGN_IN_TO_ORDER on, checkout asks for the same thing.
 //   SIGNED IN    Who, a Sign out, every order on the account from any phone,
-//                and the address book that checkout offers.
+//                the address book checkout offers, and the account's own
+//                name and mobile.
 //
 // ⚠️ THERE IS STILL NO PASSWORD, AND NO SIGN-IN SCREEN OF ITS OWN. The box
 // lives inside this page and two others; honesty.pl fails on a password field
-// in the shop, on a login/sign-in route or screen, and on an order that stops
-// being placeable as a guest.
+// in the shop and on a login/sign-in route or screen.
 //
-// ⚠️ REGIONS, NOT ONE PAINT. 'orders' redraws the orders panel only and
-// 'addresses' the address book only, so neither can wipe a code half typed
-// into the sign-in box or an address half typed into its form. 'session' --
-// signing in or out -- is the one change that redraws the whole page.
+// ⚠️ REGIONS, NOT ONE PAINT. 'orders' redraws the orders panel only,
+// 'addresses' the address book only and 'details' the name at the top only,
+// so none can wipe a code half typed into the sign-in box or an address half
+// typed into its form. 'session' -- signing in or out -- is the one change
+// that redraws the whole page.
 // ============================================================================
 
 import * as store from '../store.js';
 import * as router from '../router.js';
-import { esc, h1, notice, toast } from '../ui.js';
-import { field, setFieldError } from '../components.js';
+import { esc, h1, notice, toast, askFirst } from '../ui.js';
+import { field, setFieldError, orderChain } from '../components.js';
 import { signInBox, wireSignIn } from '../signin.js';
 import { OTP_LEN } from '../config.js';
 import { icon } from '../icons.js';
+import { art } from '../art.js';
 import * as D from '../domain.js';
 
 const DETAILS = ['name', 'mobile', 'email', 'addr', 'city', 'state', 'pin'];
@@ -43,18 +49,11 @@ router.registerScreen('account', async (host) => {
   await paint(host);
   router.onLeave(store.live.subscribe('orders', () => paintOrders(host)));
   router.onLeave(store.live.subscribe('addresses', () => paintBook(host)));
+  router.onLeave(store.live.subscribe('details', () => paintName(host)));
   router.onLeave(store.live.subscribe('session', () => paint(host)));
 });
 
 const inside = () => !!(who && !who.guest);
-
-/** "Band-Collar Linen Shirt (Ecru · L) and 1 more" -- which order is which. */
-function itemsLine(o) {
-  const [a, ...rest] = o.lines || [];
-  if (!a) return '';
-  return `${a.name}${a.variantLabel ? ' (' + a.variantLabel + ')' : ''}`
-    + (rest.length ? ` and ${rest.length} more` : '');
-}
 
 /** "Arrives 10–16 November" while it is on its way, "Delivered 12 November"
  *  once it is not. Read off the order; nothing here works out a date. */
@@ -66,57 +65,79 @@ function whenLine(o) {
   return '';
 }
 
+/** The customer's word for where an order is, on its pill. */
+function pillWord(o) {
+  if (o.status === 'sent') return o.sentVia === 'online' ? 'Ordered' : 'Sent';
+  if (o.status === 'abandoned' && o.sentVia === 'online') return 'Cancelled';
+  return D.STATUS_LABEL[o.status];
+}
+
 // ---------------------------------------------------------------------------
 // THE PAGE
 // ---------------------------------------------------------------------------
 async function paint(host) {
   const mine = (gen += 1);
   const w = store.account ? await store.account.whoami() : null;
-  const [orders, wishIds, shop] = await Promise.all([
-    store.orders.mine(), store.wishlist.ids(), store.catalog.shop(),
+  const [orders, wishIds, shop, all, bag] = await Promise.all([
+    store.orders.mine(), store.wishlist.ids(), store.catalog.shop(), store.catalog.all(),
+    store.cart.lines(),
   ]);
   if (mine !== gen) return;
   who = w;
+  const c = shop.contact || {};
 
   host.innerHTML = `
-  ${h1(inside() ? 'Your account' : 'Your details', 'Account')}
+  ${h1(store.account ? 'Your profile' : 'Your details', 'Profile')}
 
   ${topNotice()}
 
-  <div class="two-col" style="margin-top:var(--s5)">
+  <div class="acct-grid">
     <div class="acct-col">
-      ${store.account ? `<section class="panel" data-who>${whoPanel()}</section>` : ''}
+      <section class="panel acct-me" data-who>${whoPanel()}</section>
+      <section class="panel" data-orders>${ordersPanel(orders, all)}</section>
       <section class="panel" data-book></section>
-      <section class="panel" data-orders>${ordersPanel(orders)}</section>
     </div>
 
     <aside class="acct-col">
-      <section class="panel" data-glance>${glancePanel(orders, wishIds)}</section>
+      ${inside() ? '<section class="panel" data-details></section>' : ''}
 
       <section class="panel">
-        <h2 class="t-h3">Clear everything</h2>
-        <p class="t-micro dim" style="margin:var(--s2) 0 var(--s4)">
-          ${store.shared()
-            ? 'Removes your details, bag and wishlist from this browser. Orders are '
-              + 'not removed: once placed, they are with us.'
-            : 'Removes your details, bag, wishlist and every order from this browser. '
-              + 'There is no copy anywhere else, so this cannot be undone.'}</p>
-        <button type="button" class="btn btn-secondary btn-block" data-clear>
-          ${icon('trash', 16)} Clear everything</button>
-        <div data-confirm hidden style="margin-top:var(--s3)">
-          ${notice('bad', 'This cannot be undone. Tap again to confirm.')}
+        <h2 class="t-h3">Help and support</h2>
+        <p class="t-micro dim acct-sub">We answer ${esc(c.hours || 'during working hours')}.</p>
+        <div class="acct-list">
+          ${c.phone ? row(D.telLink(shop), 'phone', 'Call us', c.phone) : ''}
+          ${c.whatsapp ? row(D.whatsappLink('Hello ' + shop.brand.name + ',\n\n', shop),
+            'chat', 'WhatsApp us', c.whatsapp, true) : ''}
+          ${c.email ? row(D.mailtoLink('A question', '', shop), 'mail', 'Email us', c.email) : ''}
+          ${row('#/contact', 'info', 'Contact page', 'Write to us from the site')}
+          ${row('#/shipping', 'truck', 'Shipping and delivery', '')}
+          ${row('#/returns', 'refresh', 'Returns and refunds', '')}
         </div>
       </section>
 
-      ${shop.contact.phone || shop.contact.email ? `
       <section class="panel">
-        <h2 class="t-h3">Need a hand?</h2>
-        <p class="t-micro dim" style="margin-top:var(--s2)">
-          We answer during ${esc(shop.contact.hours)}.</p>
-        <div style="margin-top:var(--s3)">
-          <a class="btn btn-secondary btn-sm btn-block" href="#/contact">Contact us</a>
+        <h2 class="t-h3">Settings</h2>
+        <div class="acct-list">
+          ${row('#/wishlist', 'heart', 'Wishlist', wishIds.length
+            ? `${wishIds.length} saved` : 'Nothing saved yet')}
+          ${row('#/cart', 'bag', 'Bag', bag.length
+            ? `${bag.reduce((n, l) => n + l.qty, 0)} in your bag` : 'Empty')}
+          ${row('#/privacy', 'shield', 'Privacy policy', '')}
+          ${row('#/terms', 'copy', 'Terms and conditions', '')}
         </div>
-      </section>` : ''}
+        <div class="acct-actions">
+          ${inside() ? `<button type="button" class="btn btn-secondary btn-block" data-signout>
+            ${icon('user', 16)} Sign out of this phone</button>` : ''}
+          <button type="button" class="btn btn-secondary btn-block" data-clear>
+            ${icon('trash', 16)} Clear this browser</button>
+          <p class="t-micro dim">
+            ${store.shared()
+              ? 'Clearing takes your details, bag and wishlist off this browser. Your orders '
+                + 'stay: once placed, they are with us.'
+              : 'Clearing takes your details, bag, wishlist and every order off this browser. '
+                + 'There is no copy anywhere else.'}</p>
+        </div>
+      </section>
     </aside>
   </div>`;
 
@@ -132,6 +153,13 @@ async function paint(host) {
   const out = host.querySelector('[data-signout]');
   if (out) {
     out.addEventListener('click', async () => {
+      const ok = await askFirst({
+        title: 'Sign out of this phone?',
+        body: '<p>Your orders and addresses stay on your account. Sign in again with the same '
+          + 'email, here or on any phone, to see them.</p>',
+        yes: 'Sign out',
+      });
+      if (!ok) return;
       out.disabled = true;
       try {
         await store.account.signOut();
@@ -144,6 +172,18 @@ async function paint(host) {
   }
   wireClear(host);
   await paintBook(host);
+  paintDetails(host);
+}
+
+/** A row of the help and settings lists: an icon, what it is, and a line. */
+function row(href, ico, label, sub, external = false) {
+  const inner = `${icon(ico, 18)}
+    <span class="acct-row-mid"><span class="acct-row-l">${esc(label)}</span>
+      ${sub ? `<span class="acct-row-s user-text">${esc(sub)}</span>` : ''}</span>
+    ${icon('chevron', 14)}`;
+  return href
+    ? `<a class="acct-row" href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ''}>${inner}</a>`
+    : `<div class="acct-row">${inner}</div>`;
 }
 
 function topNotice() {
@@ -162,62 +202,98 @@ function topNotice() {
   return '';
 }
 
+/** The top of the page: who this is. Signed in, a name -- the account's own,
+ *  else the default address's -- and the email; a guest, the sign-in box. */
 function whoPanel() {
   if (inside()) {
+    const name = who.name || '';
+    const letter = (name || who.email || '?').trim().charAt(0).toUpperCase();
     return `
-      <h2 class="t-h3">Signed in</h2>
-      <p class="acct-who">${icon('user', 18)}<b>${esc(who.email)}</b></p>
-      <p class="t-micro dim" style="margin-top:var(--s2)">
-        Your orders and addresses open on any phone where you sign in with this email.</p>
-      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:var(--s4)"
-        data-signout>Sign out</button>`;
+      <div class="acct-id">
+        <span class="acct-avatar" aria-hidden="true">${esc(letter)}</span>
+        <div class="acct-id-mid">
+          <div class="acct-name user-text" data-name>${esc(name || who.email)}</div>
+          <div class="acct-email user-text" data-email ${name ? '' : 'hidden'}>${esc(who.email)}</div>
+          <div class="acct-on">${icon('check', 13)} Signed in · your orders and addresses
+            open on any phone where you sign in</div>
+        </div>
+      </div>`;
+  }
+  if (store.account) {
+    return `
+      <div class="acct-id">
+        <span class="acct-avatar is-guest" aria-hidden="true">${icon('user', 22)}</span>
+        <div class="acct-id-mid">
+          <div class="acct-name">Sign in</div>
+          <div class="acct-on is-off">To place an order, and to see it on any phone</div>
+        </div>
+      </div>
+      <div style="margin-top:var(--s4)">
+        ${signInBox(`Your email, then the ${OTP_LEN}-digit code we send you — there is no
+          password. Your orders, addresses and details then open on any phone.`)}
+      </div>`;
   }
   return `
-    <h2 class="t-h3">Sign in</h2>
-    <div style="margin-top:var(--s3)">
-      ${signInBox(`Sign in with your email and we send you a ${OTP_LEN}-digit code — there
-        is no password. Your orders and saved addresses then open on any phone, not
-        only this one. You never need to sign in to order.`)}
+    <div class="acct-id">
+      <span class="acct-avatar is-guest" aria-hidden="true">${icon('user', 22)}</span>
+      <div class="acct-id-mid">
+        <div class="acct-name">This browser</div>
+        <div class="acct-on is-off">Your details and orders are kept here only</div>
+      </div>
     </div>`;
 }
 
-function glancePanel(orders, wishIds) {
-  return `
-    <h2 class="t-h3">At a glance</h2>
-    <div class="totals" style="margin-top:var(--s4)">
-      <div class="total-row muted"><span>Saved styles</span><span>${wishIds.length}</span></div>
-      <div class="total-row muted"><span>${inside() ? 'Orders' : 'Orders here'}</span>
-        <span>${orders.length}</span></div>
-      ${store.shared() ? '' : `<div class="total-row muted"><span>Not yet sent</span>
-        <span>${orders.filter((o) => o.status === 'draft').length}</span></div>`}
-    </div>
-    <div style="margin-top:var(--s4);display:flex;flex-direction:column;gap:var(--s2)">
-      <a class="btn btn-secondary btn-sm" href="#/wishlist">View wishlist</a>
-      <a class="btn btn-secondary btn-sm" href="#/cart">View bag</a>
-    </div>`;
+/** Only the name at the top, after the details change: the rest of the page
+ *  may hold a half-typed address. */
+async function paintName(host) {
+  if (!inside() || !store.account) return;
+  who = await store.account.whoami();
+  const el = host.querySelector('[data-name]');
+  if (el) el.textContent = who.name || who.email;
+  const em = host.querySelector('[data-email]');
+  if (em) em.hidden = !who.name;
+  const av = host.querySelector('.acct-avatar');
+  if (av) av.textContent = (who.name || who.email || '?').trim().charAt(0).toUpperCase();
 }
 
 // ---------------------------------------------------------------------------
-// ORDERS
+// ORDERS -- each one a card that opens the order: its chain, what is in it,
+// what it costs and when it comes.
 // ---------------------------------------------------------------------------
-function ordersPanel(orders) {
+function ordersPanel(orders, all) {
   const head = inside() ? 'Your orders'
     : store.shared() ? 'Orders placed on this phone' : 'Orders from this browser';
+  const byId = (id) => (all || []).find((p) => p.id === id);
   return `
     <h2 class="t-h3">${head}</h2>
-    ${orders.length ? orders.map((o) => `
-      <div class="ord">
-        <div>
-          <a href="#/order/${esc(o.code)}" class="ord-code">${esc(o.code)}</a>
-          <div class="ord-meta">${D.fmtStamp(o.createdAt)} ·
-            ${o.lines.length} ${o.lines.length === 1 ? 'line' : 'lines'} ·
-            ${D.rupees(o.grand)}</div>
-          <div class="ord-meta">${esc(itemsLine(o))}</div>
-          ${whenLine(o) ? `<div class="ord-meta">${esc(whenLine(o))}</div>` : ''}
-        </div>
-        <span class="pill pill-${D.STATUS_TONE[o.status]}">
-          ${esc(D.STATUS_LABEL[o.status])}</span>
-      </div>`).join('')
+    ${orders.length ? `<div class="ocards">${orders.map((o) => {
+      // What is still coming: an item the shop cancelled is neither counted
+      // nor pictured -- unless every one was, and then the card shows them.
+      const live = o.lines.filter((l) => l.status !== 'cancelled');
+      const shown = live.length ? live : o.lines;
+      const n = live.reduce((k, l) => k + l.qty, 0);
+      const pics = shown.slice(0, 3).map((l) => {
+        const p = byId(l.pid);
+        const col = p && p.variants && (p.variants.colour || [])
+          .find((x) => x.id === (l.variant || {}).colour);
+        return p ? `<span class="ocard-pic">${art(p, col && col.img != null ? col.img : 0)}</span>`
+          : '<span class="ocard-pic"></span>';
+      }).join('');
+      const when = whenLine(o);
+      return `<a class="ocard" href="#/order/${esc(o.code)}"
+          aria-label="Order ${esc(o.code)}, ${esc(pillWord(o))}. See its details">
+        <span class="ocard-pics">${pics}</span>
+        <span class="ocard-mid">
+          <span class="ocard-top"><b class="ocard-code">${esc(o.code)}</b>
+            <span class="pill pill-${D.STATUS_TONE[o.status]}">${esc(pillWord(o))}</span></span>
+          <span class="ocard-meta">${D.fmtDate(o.createdAt)} · ${n} ${n === 1 ? 'item' : 'items'} ·
+            ${D.rupees(o.grand)}</span>
+          ${when ? `<span class="ocard-meta ocard-when">${esc(when)}</span>` : ''}
+          ${orderChain(o, true)}
+        </span>
+        <span class="ocard-go" aria-hidden="true">${icon('chevron', 16)}</span>
+      </a>`;
+    }).join('')}</div>`
     : `<p class="t-micro dim" style="margin-top:var(--s3)">
         ${store.shared()
           ? 'No orders yet. Each one you place opens here, with where it has got to.'
@@ -231,11 +307,51 @@ function ordersPanel(orders) {
 }
 
 async function paintOrders(host) {
-  const [orders, wishIds] = await Promise.all([store.orders.mine(), store.wishlist.ids()]);
+  const [orders, all] = await Promise.all([store.orders.mine(), store.catalog.all()]);
   const box = host.querySelector('[data-orders]');
-  if (box) box.innerHTML = ordersPanel(orders);
-  const glance = host.querySelector('[data-glance]');
-  if (glance) glance.innerHTML = glancePanel(orders, wishIds);
+  if (box) box.innerHTML = ordersPanel(orders, all);
+}
+
+// ---------------------------------------------------------------------------
+// YOUR DETAILS (signed in) -- the account's own name and mobile, kept on the
+// account (store.account.saveDetails), so they fill a new address in on any
+// phone. Checkout saves them the first time an order is placed.
+// ---------------------------------------------------------------------------
+function paintDetails(host) {
+  const box = host.querySelector('[data-details]');
+  if (!box || !inside()) return;
+  box.innerHTML = `
+    <h2 class="t-h3">Your details</h2>
+    <p class="t-micro dim acct-sub">They fill in a new address for you, on any phone.</p>
+    <div class="form-grid">
+      ${field('me-name', 'Full name', { value: who.name || '', span: true })}
+      ${field('me-mobile', 'Mobile number', { value: who.mobile || '', type: 'tel',
+        inputmode: 'numeric', placeholder: '10 digits', maxlength: 13, span: true })}
+      <div class="field" style="grid-column:1/-1"><label>Email</label>
+        <p class="acct-fixed user-text">${esc(who.email)}
+          <span class="t-micro dim">— the one you sign in with</span></p></div>
+    </div>
+    <div style="margin-top:var(--s4)">
+      <button type="button" class="btn btn-primary" data-me-save>Save details</button>
+    </div>`;
+  const save = box.querySelector('[data-me-save]');
+  save.addEventListener('click', async () => {
+    const name = box.querySelector('[name="me-name"]').value.trim();
+    const mobile = box.querySelector('[name="me-mobile"]').value.trim();
+    const errs = {};
+    if (name && name.length < 2) errs['me-name'] = 'A name, so the parcel finds you.';
+    if (mobile && !D.validMobile(mobile)) errs['me-mobile'] = 'A 10-digit Indian mobile, starting 6 to 9.';
+    for (const n of ['me-name', 'me-mobile']) setFieldError(box, n, errs[n] || null);
+    if (Object.keys(errs).length) { toast('Please check the highlighted fields'); return; }
+    save.disabled = true;
+    try {
+      await store.account.saveDetails({ name, mobile });
+      toast('Details saved to your account');
+    } catch (e) {
+      toast('Those did not save: ' + String(e.message || e));
+    }
+    save.disabled = false;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -245,15 +361,20 @@ async function paintBook(host) {
   const box = host.querySelector('[data-book]');
   if (!box) return;
   if (!inside()) {
+    // A guest on a database signs in first; their details travel with the
+    // account from then on. In one browser, the details form as before.
+    if (store.account) { box.hidden = true; return; }
+    box.hidden = false;
     box.innerHTML = detailsPanel(await store.profile.get());
     wireDetails(box);
     return;
   }
+  box.hidden = false;
   let list;
   try {
     list = await store.addresses.list();
   } catch (e) {
-    box.innerHTML = '<h2 class="t-h3">Your addresses</h2>'
+    box.innerHTML = '<h2 class="t-h3">Saved addresses</h2>'
       + notice('bad', 'Your addresses could not be loaded just now. Please try again.');
     return;
   }
@@ -307,14 +428,14 @@ const MAX_ADDR = 10;   // the same ceiling as save_address() in db/schema.sql
 function bookPanel(list) {
   return `
     <div class="book-head">
-      <h2 class="t-h3">Your addresses</h2>
-      ${list.length < MAX_ADDR ? `<button type="button" class="btn btn-secondary btn-sm"
+      <h2 class="t-h3">Saved addresses</h2>
+      ${list.length && list.length < MAX_ADDR ? `<button type="button" class="btn btn-secondary btn-sm"
         data-addr-new>${icon('plus', 14)} Add an address</button>` : ''}
     </div>
+    ${list.length ? '' : `<p class="t-micro dim acct-sub">Add the address your parcels go to.
+      Checkout then only asks you to pick it.</p>`}
     <div data-addr-form hidden></div>
-    ${list.length ? `<div class="book">${list.map(addrCard).join('')}</div>`
-      : `<p class="t-micro dim" style="margin-top:var(--s3)">No addresses saved yet. Add one
-          here, or keep "Save this address" ticked when you next check out.</p>`}
+    ${list.length ? `<div class="book">${list.map(addrCard).join('')}</div>` : ''}
     ${list.length >= MAX_ADDR ? `<p class="t-micro dim" style="margin-top:var(--s3)">
       Ten is as many as an account keeps. Remove one to add another.</p>` : ''}`;
 }
@@ -334,10 +455,10 @@ const addrCard = (a) => `
     </div>
   </div>`;
 
-function addrForm(a) {
+function addrForm(a, first) {
   return `
     <div class="addr-form">
-      <h3 class="t-h3">${a.id ? 'Change this address' : 'A new address'}</h3>
+      <h3 class="t-h3">${a.id ? 'Change this address' : first ? 'Your delivery address' : 'A new address'}</h3>
       <div class="form-grid">
         ${field('ab-name', 'Full name', { required: true, value: a.name || '', span: true })}
         ${field('ab-mobile', 'Mobile number', { required: true, value: a.mobile || '',
@@ -350,11 +471,11 @@ function addrForm(a) {
         ${field('ab-state', 'State', { required: true, value: a.state || '',
           options: D.STATES, span: true })}
       </div>
-      <label class="tick"><input type="checkbox" data-ab-default
-        ${a.isDefault ? 'checked disabled' : ''}> Offer this one first at checkout</label>
+      ${first ? '' : `<label class="tick"><input type="checkbox" data-ab-default
+        ${a.isDefault ? 'checked disabled' : ''}> Offer this one first at checkout</label>`}
       <div class="addr-form-acts">
         <button type="button" class="btn btn-primary" data-ab-save>Save address</button>
-        <button type="button" class="btn btn-secondary" data-ab-cancel>Cancel</button>
+        ${first ? '' : '<button type="button" class="btn btn-secondary" data-ab-cancel>Cancel</button>'}
       </div>
     </div>`;
 }
@@ -380,32 +501,20 @@ function addrWhyNot(e) {
   return 'That did not save: ' + m;
 }
 
-/** A two-tap confirm, inline -- never window.confirm(), which some viewers
- *  answer "no" to without showing anything (admin.js has the story). */
-function armed(btn, prompt) {
-  if (btn.dataset.armed === '1') return true;
-  btn.dataset.armed = '1';
-  const was = btn.textContent;
-  btn.textContent = prompt;
-  setTimeout(() => {
-    if (!btn.isConnected) return;
-    btn.dataset.armed = '0';
-    btn.textContent = was;
-  }, 4000);
-  return false;
-}
-
 function wireBook(box, list) {
   const formBox = box.querySelector('[data-addr-form]');
 
-  const open = (a) => {
-    formBox.innerHTML = addrForm(a);
+  const open = (a, first = false) => {
+    formBox.innerHTML = addrForm(a, first);
     formBox.hidden = false;
-    formBox.querySelector('[name="ab-name"]').focus();
-    formBox.querySelector('[data-ab-cancel]').addEventListener('click', () => {
-      formBox.hidden = true;
-      formBox.innerHTML = '';
-    });
+    if (!first) formBox.querySelector('[name="ab-name"]').focus();
+    const cancel = formBox.querySelector('[data-ab-cancel]');
+    if (cancel) {
+      cancel.addEventListener('click', () => {
+        formBox.hidden = true;
+        formBox.innerHTML = '';
+      });
+    }
     const save = formBox.querySelector('[data-ab-save]');
     save.addEventListener('click', async () => {
       const v = {};
@@ -416,16 +525,16 @@ function wireBook(box, list) {
       const errs = checkAddr(v);
       for (const n of ADDR) setFieldError(formBox, 'ab-' + n, errs[n] || null);
       if (Object.keys(errs).length) {
-        const first = formBox.querySelector('.field.bad input, .field.bad select, .field.bad textarea');
-        if (first) first.focus();
+        const bad = formBox.querySelector('.field.bad input, .field.bad select, .field.bad textarea');
+        if (bad) bad.focus();
         toast('Please check the highlighted fields');
         return;
       }
       save.disabled = true;
+      const def = formBox.querySelector('[data-ab-default]');
       try {
-        await store.addresses.save({ ...v, id: a.id,
-          isDefault: formBox.querySelector('[data-ab-default]').checked });
-        toast(a.id ? 'Address changed' : 'Address saved');
+        await store.addresses.save({ ...v, id: a.id, isDefault: first || !!(def && def.checked) });
+        toast(a.id ? 'Address changed' : 'Address saved. Checkout will offer it.');
         // 'addresses' has fired: the book is being redrawn with it.
       } catch (e) {
         save.disabled = false;
@@ -434,8 +543,14 @@ function wireBook(box, list) {
     });
   };
 
+  // Signed in with no address yet: the form is already open (the owner, 8
+  // November 2026: "in sign in we should add the address too"), started from
+  // the account's own name and mobile.
+  if (!list.length) open({ name: (who && who.name) || '', mobile: (who && who.mobile) || '' }, true);
+
   const add = box.querySelector('[data-addr-new]');
-  if (add) add.addEventListener('click', () => open({}));
+  if (add) add.addEventListener('click', () => open({ name: (who && who.name) || '',
+    mobile: (who && who.mobile) || '' }));
 
   for (const card of box.querySelectorAll('[data-addr]')) {
     const a = list.find((x) => x.id === card.dataset.addr);
@@ -452,7 +567,13 @@ function wireBook(box, list) {
     }
     const del = card.querySelector('[data-addr-del]');
     del.addEventListener('click', async () => {
-      if (!armed(del, 'Tap again to remove')) return;
+      const ok = await askFirst({
+        title: 'Remove this address?',
+        body: `<p><b>${esc(a.name)}</b>, ${esc(a.addr)}, ${esc(a.city)}.</p>
+          <p>Orders already sent there are not affected.</p>`,
+        yes: 'Remove', danger: true, no: 'Keep it',
+      });
+      if (!ok) return;
       try {
         await store.addresses.remove(a.id);
         toast('Address removed');
@@ -462,25 +583,23 @@ function wireBook(box, list) {
 }
 
 // ---------------------------------------------------------------------------
-// CLEAR EVERYTHING -- two taps, as in kirana. A single-tap destroy of
-// everything somebody has typed is a button that will eventually be pressed
-// by accident.
+// CLEAR THIS BROWSER -- asked first, in the pop-up, because it cannot be
+// undone and a single tap that destroys everything somebody typed is a
+// button that will eventually be pressed by accident.
 // ---------------------------------------------------------------------------
 function wireClear(host) {
-  let isArmed = false;
   const clearBtn = host.querySelector('[data-clear]');
   clearBtn.addEventListener('click', async () => {
-    const box = host.querySelector('[data-confirm]');
-    if (!isArmed) {
-      isArmed = true;
-      box.hidden = false;
-      clearBtn.textContent = 'Tap again to clear everything';
-      setTimeout(() => {
-        isArmed = false; box.hidden = true;
-        clearBtn.innerHTML = icon('trash', 16) + ' Clear everything';
-      }, 5000);
-      return;
-    }
+    const ok = await askFirst({
+      title: 'Clear this browser?',
+      body: store.shared()
+        ? '<p>Your details, bag and wishlist are taken off this browser. Your orders stay with '
+          + 'us.</p><p class="ask-final">This cannot be undone.</p>'
+        : '<p>Your details, bag, wishlist and every order are taken off this browser. There is '
+          + 'no copy anywhere else.</p><p class="ask-final">This cannot be undone.</p>',
+      yes: 'Clear everything', danger: true,
+    });
+    if (!ok) return;
     await store.clearEverything();
     toast('Everything cleared');
     router.go('/');

@@ -1,10 +1,11 @@
 -- =====================================================================
 --  Vastra Apparel -- a self-test of each item's status, cancelling one
---  item, and refunds, run ON THE REAL DATABASE, and saving NOTHING.
+--  item, refunds and going back a step, run ON THE REAL DATABASE, and
+--  saving NOTHING.
 --
 --  Paste the whole file into the Supabase SQL editor and run it, AFTER
 --  schema.sql. It acts as the store -- the first phone let in with the
---  store code -- makes four test orders of its own, walks them through
+--  store code -- makes five test orders of its own, walks them through
 --  every rule below, and then undoes all of it by ending in an error on
 --  purpose. The message you want is:
 --
@@ -26,6 +27,7 @@ declare
   o2 uuid := gen_random_uuid();
   o3 uuid := gen_random_uuid();
   o4 uuid := gen_random_uuid();
+  o5 uuid := gen_random_uuid();
   r  record;
   n  int;
 begin
@@ -45,7 +47,8 @@ begin
     from (values (o1, 9001, 4000, 5500, 400),
                  (o2, 9002, 2000, 3000, 0),
                  (o3, 9003,  700, 1000, 0),
-                 (o4, 9004,  500,  800, 0)) as o(id, seq, items, mrp, disc);
+                 (o4, 9004,  500,  800, 0),
+                 (o5, 9005, 2000, 3000, 0)) as o(id, seq, items, mrp, disc);
 
   insert into order_lines (id, order_id, pid, name, qty, unit_price, unit_mrp, line_total)
   values (9000000011, o1, 't1', 'Test shirt', 1, 1000, 1500, 1000),
@@ -53,7 +56,9 @@ begin
          (9000000021, o2, 't3', 'Test kurti', 1, 1000, 1500, 1000),
          (9000000022, o2, 't4', 'Test top',   1, 1000, 1500, 1000),
          (9000000031, o3, 't5', 'Test scarf', 1,  700, 1000,  700),
-         (9000000041, o4, 't6', 'Test belt',  1,  500,  800,  500);
+         (9000000041, o4, 't6', 'Test belt',  1,  500,  800,  500),
+         (9000000051, o5, 't7', 'Test jacket', 1, 1000, 1500, 1000),
+         (9000000052, o5, 't8', 'Test skirt',  1, 1000, 1500, 1000);
 
   -- Somebody who is NOT the store is refused, before anything else.
   perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
@@ -68,6 +73,18 @@ begin
   begin
     perform mark_refund(o1);
     raise exception 'SELFTEST FAILED: a stranger marked a refund';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform step_back_order(o5, 'sent');
+    raise exception 'SELFTEST FAILED: a stranger moved an order back';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform step_back_line(9000000051, 'sent');
+    raise exception 'SELFTEST FAILED: a stranger moved an item back';
   exception when others then
     if sqlerrm <> 'NOT_STAFF' then raise; end if;
   end;
@@ -161,6 +178,70 @@ begin
   assert r.status = 'cancelled', 'SELFTEST FAILED: cancelling the order left its item ' || r.status;
   n := mark_refund(o4);
   assert n = 500, 'SELFTEST FAILED: the whole 500 should be owed back, not ' || n;
+
+  -- 10. GOING BACK (8 November 2026). Delivered, then back to Shipped: the
+  --     order and its items are shipped again, the delivery stamp is gone
+  --     (no return window for a parcel that has not landed), the courier
+  --     stays, and the history marks the step as a step back.
+  perform advance_order(o5, 'confirmed');
+  perform advance_order(o5, 'packed');
+  perform advance_order(o5, 'shipped', 'Delhivery', 'T555');
+  perform advance_order(o5, 'delivered');
+  perform step_back_order(o5, 'shipped');
+  select * into r from orders where id = o5;
+  assert r.status = 'shipped', 'SELFTEST FAILED: back from delivered, the order is ' || r.status;
+  assert r.delivered_at is null, 'SELFTEST FAILED: back from delivered, the delivery stamp stayed';
+  assert r.shipment->>'courier' = 'Delhivery', 'SELFTEST FAILED: back to shipped, the courier went';
+  assert r.history->-1 @> '{"to": "shipped", "back": true}'::jsonb,
+    'SELFTEST FAILED: the step back is not marked as one in the history';
+  select count(*) into n from order_lines where order_id = o5 and status = 'shipped';
+  assert n = 2, 'SELFTEST FAILED: back to shipped moved ' || n || ' of 2 items';
+
+  -- 11. Back again, to Packed: the courier is cleared from the order and
+  --     from its items, which come back with it.
+  perform step_back_order(o5, 'packed');
+  select * into r from orders where id = o5;
+  assert r.status = 'packed' and r.shipment is null,
+    'SELFTEST FAILED: back to packed left ' || r.status || ' with a courier';
+  select count(*) into n from order_lines
+   where order_id = o5 and status = 'packed' and shipment is null;
+  assert n = 2, 'SELFTEST FAILED: back to packed, ' || n || ' of 2 items are packed with no courier';
+
+  -- 12. An item further along on its own stays there when the ORDER goes
+  --     back -- the mirror of advance_order() -- and an item stepped back
+  --     below the order takes the order down with it.
+  perform advance_line(9000000051, 'shipped');
+  perform step_back_order(o5, 'confirmed');
+  select status into r from order_lines where id = 9000000051;
+  assert r.status = 'shipped', 'SELFTEST FAILED: the order went back and took the shipped item to ' || r.status;
+  select status into r from order_lines where id = 9000000052;
+  assert r.status = 'confirmed', 'SELFTEST FAILED: the item at the order''s step went to ' || r.status;
+  perform step_back_line(9000000052, 'sent');
+  select * into r from orders where id = o5;
+  assert r.status = 'sent', 'SELFTEST FAILED: an item back to Ordered left the order ' || r.status;
+  assert r.history->-1 @> '{"to": "sent", "back": true}'::jsonb,
+    'SELFTEST FAILED: the order followed its item down without a step back in its history';
+
+  -- 13. Only BACK, and only along the road: not forward, not out of a
+  --     cancellation, and not from a cancelled item.
+  begin
+    perform step_back_order(o5, 'packed');
+    raise exception 'SELFTEST FAILED: step_back_order moved an order forward';
+  exception when others then
+    if sqlerrm not like 'BAD_STEP_BACK%' then raise; end if;
+  end;
+  begin
+    perform step_back_order(o3, 'sent');
+    raise exception 'SELFTEST FAILED: a cancelled order was brought back';
+  exception when others then
+    if sqlerrm not like 'BAD_STEP_BACK%' then raise; end if;
+  end;
+  begin
+    perform step_back_line(9000000012, 'sent');
+    raise exception 'SELFTEST FAILED: a cancelled item was brought back';
+  exception when others then
+    if sqlerrm not like 'BAD_STEP_BACK%' then raise; end if;
+  end;
 
   raise exception 'ALL GOOD -- every check passed, and nothing was saved';
 end $test$;

@@ -212,7 +212,7 @@ none of it until the database has it.
    refund. Nothing that exists is lost.
 2. A new SQL tab → paste **all** of
    [`db/selftest.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/selftest.sql)
-   → **Run**. It acts as the store, walks four test orders through
+   → **Run**. It acts as the store, walks its test orders through
    every rule, and then undoes all of it **by ending in an error on
    purpose**. The message you want is:
 
@@ -221,6 +221,25 @@ none of it until the database has it.
    Any other message names the check that failed — send it to Claude.
    If it says no phone has been let into the store yet, open the store
    page, type the store code, and run it again.
+
+## 9. Going back a step — 2 min
+
+Since 8 November 2026 the store can move an order, or one item, **back**
+to an earlier step after a wrong tap — Shipped back to Packed. Until the
+database has it, the store page says so when you try: *"Going back needs
+the latest database update."* Everything else works as before.
+
+1. [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) →
+   paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
+   → **Run** → *"Success. No rows returned."* It adds the two functions
+   that step back (`step_back_order`, `step_back_line`) and teaches the
+   order to follow an item back down. Nothing that exists is lost.
+2. A new SQL tab → paste **all** of
+   [`db/selftest.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/selftest.sql)
+   → **Run**. It now walks five test orders through every rule —
+   stepping back included — and ends in the same error on purpose:
+
+   > ALL GOOD -- every check passed, and nothing was saved
 
 ---
 

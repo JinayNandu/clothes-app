@@ -209,7 +209,7 @@ function wireChrome() {
       const { p } = sizesOpen;
       const shop = await store.catalog.shop();
       const chart = chartFor(p, shop);
-      openSheet(`Size guide — ${(chart && chart.label) || p.name}`, sizeChart(p, shop, null));
+      openSheet(`Size chart — ${(chart && chart.label) || p.name}`, sizeChart(p, shop, null));
       return;
     }
 

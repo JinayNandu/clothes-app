@@ -19,10 +19,11 @@
 
 import * as store from '../store.js';
 import * as router from '../router.js';
-import { esc, h1, notice, toast, $$ } from '../ui.js';
+import { esc, h1, notice, toast, askFirst, $$ } from '../ui.js';
 import { ornament } from '../brand.js';
 import * as D from '../domain.js';
 import * as O from '../overlay.js';
+import { icon } from '../icons.js';
 import { renderCatalogue, renderInventory, renderCategories, renderData, wireCatalogTab }
   from './admin-catalog.js';
 
@@ -88,7 +89,12 @@ function renderOverview({ orders, all, shop, cats }) {
   <div class="adm-stats">
     ${stat('Open orders', open.length, 'Placed and not yet delivered', tabHref('orders'))}
     ${stat('Payment to check', unpaid.length, 'Not yet marked received', tabHref('orders'))}
-    ${stat('Late', late.length, 'Past the promised date', tabHref('orders'))}
+    <!-- "What is 0 late? Late for what?" (the owner, 8 November 2026). Every
+         order is promised a delivery window at checkout, "Arrives 10–16
+         November"; this counts the open ones whose last day has passed. -->
+    ${stat('Running late', late.length, late.length
+      ? 'Past the delivery date promised to the customer'
+      : 'None past the delivery date promised to the customer', tabHref('orders'))}
   </div>
 
   <h2 class="t-h3 adm-sec">Your catalogue</h2>
@@ -182,20 +188,29 @@ const stepName = (o, s) => {
 const pillName = (o) => (o.sentVia === 'online' && o.status === 'sent'
   ? 'New order' : stepName(o, o.status));
 
+/** Can this backend take an order back a step? One browser can; a database
+ *  can once schema.sql carries step_back_order() -- until then the server
+ *  refuses, and the board says what to run (whyNot, below). */
+const canBack = () => typeof store.orders.stepBack === 'function';
+
 /**
  * THE STATUS LIST -- the whole road, top to bottom. Steps done are green, with
- * when; the one the order is at says Now; every step still ahead is a button.
- * Tapping one marks it AND every step above it that is not done yet: "Packed"
- * on a new order is Confirm, then Pack, each written into the order's history
- * in turn (D.roadTo), so the customer's timeline shows every step green too,
- * and the server's road -- which allows only the next step -- is never asked
- * to skip one. More than one step at a time takes a second tap, because
- * nothing on the road goes back.
+ * when; the one the order is at says Now.
+ *
+ * Every step AHEAD is a button that marks it and every step above it not done
+ * yet: "Packed" on a new order is Confirm, then Pack, each written into the
+ * order's history in turn (D.roadTo), so the customer's timeline shows every
+ * step green too and the server's road -- the next step only -- is never asked
+ * to skip one. Every step BEHIND is a button as well, since 8 November 2026:
+ * it takes the order back there, after a wrong tap. Either way a pop-up says
+ * what is about to happen (askFirst); the second tap is gone, on the owner's
+ * word.
  */
 function statusList(o) {
   const ended = D.ORDER_ENDS.includes(o.status);
   const path = D.ORDER_PATH.filter((st) => st !== 'draft' || D.statusAt(o, 'draft')
     || o.status === 'draft');
+  const reach = path.indexOf(D.roadAt(o));
   const cur = path.indexOf(o.status);
   const s = o.shipment;
   const ship = s && (s.courier || s.ref)
@@ -203,14 +218,22 @@ function statusList(o) {
   const rows = [];
   for (let i = 0; i < path.length; i += 1) {
     const st = path[i];
-    const at = D.statusAt(o, st);
+    // Done means at or before where the order is -- not "has a date": an
+    // order stepped back from Shipped still has Shipped in its history.
+    const done = i <= reach;
     // An order that left the road stops where it left it.
-    if (ended && !at) break;
+    if (ended && !done) break;
+    const at = done ? D.statusAt(o, st) : null;
     let state;
-    let right;
-    if (ended || i <= cur) {
+    let right = '';
+    let label = esc(stepName(o, st));
+    if (done) {
       state = !ended && i === cur && st !== 'delivered' ? 'now' : 'done';
       right = at ? `<span class="track-at">${esc(D.fmtStamp(at))}</span>` : '';
+      if (!ended && i < cur && canBack() && D.canStepBack(o.status, st)) {
+        label = `<button type="button" class="adm-back" data-back="${esc(st)}"
+          title="Move the order back to ${esc(stepName(o, st))}">${label}</button>`;
+      }
     } else {
       state = 'todo';
       const steps = D.roadTo(o.status, st);
@@ -219,12 +242,11 @@ function statusList(o) {
     }
     rows.push(`<li class="is-${state}">
       <div class="adm-step">
-        <span class="track-l">${esc(stepName(o, st))}${state === 'now'
+        <span class="track-l">${label}${state === 'now'
           ? ' <span class="track-tag">Now</span>' : ''}</span>
         ${right}
       </div>
-      ${st === 'shipped' && state === 'todo' ? shipFields(o) : ''}
-      ${st === 'shipped' && state !== 'todo' && ship ? `<span class="track-at">${esc(ship)}</span>` : ''}
+      ${st === 'shipped' && done && ship ? `<span class="track-at">${esc(ship)}</span>` : ''}
     </li>`);
   }
   if (ended) {
@@ -235,16 +257,22 @@ function statusList(o) {
   return `<ol class="track adm-track">${rows.join('')}</ol>`;
 }
 
-/** Leaving the road: cancelling before it ships, a return after. Final, so
- *  two taps. An order with an item already shipped on its own cannot be
- *  cancelled whole -- that item is the courier's -- so the others are
- *  cancelled one by one, above. */
+/** One step back, in words -- the likeliest correction, so it is a button of
+ *  its own as well as a tap on the step. Then leaving the road: cancelling
+ *  before it ships, a return after. Both final, and the pop-up says so. An
+ *  order with an item already shipped on its own cannot be cancelled whole --
+ *  that item is the courier's -- so the others are cancelled one by one. */
 function endActions(o) {
   const acts = [];
+  const prev = D.LINE_ROAD[D.LINE_ROAD.indexOf(o.status) - 1];
+  if (prev && canBack() && D.canStepBack(o.status, prev)) {
+    acts.push(`<button type="button" class="btn btn-sm btn-secondary" data-back="${esc(prev)}">
+      ${icon('undo', 14)} Back to ${esc(stepName(o, prev))}</button>`);
+  }
   const shipped = D.hasItemStatus(o)
     && o.lines.some((l) => ['shipped', 'delivered', 'returned'].includes(l.status));
   if (['sent', 'confirmed', 'packed'].includes(o.status) && !shipped) {
-    acts.push('<button type="button" class="btn btn-sm btn-ghost" data-end="cancelled">Cancel order</button>');
+    acts.push('<button type="button" class="btn btn-sm btn-ghost adm-end-bad" data-end="cancelled">Cancel order</button>');
   }
   if (['sent', 'confirmed', 'packed'].includes(o.status) && shipped) {
     acts.push(`<span class="t-micro dim">An item has shipped, so the order cannot be
@@ -275,16 +303,38 @@ const ITEM_LABEL = {
   delivered: 'Delivered', returned: 'Returned', cancelled: 'Cancelled',
 };
 const perItem = (o) => D.hasItemStatus(o) && typeof store.orders.advanceLine === 'function';
+const canBackLine = () => typeof store.orders.stepBackLine === 'function';
 
+/**
+ * One item: its status, and ONE menu of everything that can happen to it --
+ * the steps ahead, the steps back (8 November 2026), and ending it: Cancel
+ * while it has not shipped, Returned once it has. The owner looked for Cancel
+ * in that menu and did not find it, so it is there now, and still a button
+ * beside it too. Whatever is chosen, a pop-up says what happens first.
+ */
 function itemRow(o, l) {
   const on = perItem(o);
   const gone = on && l.status === 'cancelled';
-  const moves = on ? D.LINE_ROAD.filter((s) => D.lineRoadTo(l.status, s).length) : [];
+  const ahead = on ? D.LINE_ROAD.filter((s) => D.lineRoadTo(l.status, s).length) : [];
+  const behind = on && canBackLine() ? D.LINE_ROAD.filter((s) => D.canStepBack(l.status, s)) : [];
+  const cancel = on && (D.LINE_NEXT[l.status] || []).includes('cancelled');
+  const ret = on && (D.LINE_NEXT[l.status] || []).includes('returned');
   const sh = l.shipment && (l.shipment.courier || l.shipment.ref)
     ? `Shipped with ${l.shipment.courier || 'the courier'}${l.shipment.ref
       ? ', tracking number ' + l.shipment.ref : ''}` : '';
+  const opt = (v, t) => `<option value="${esc(v)}">${esc(t)}</option>`;
+  const menu = ahead.length || behind.length || cancel || ret ? `<select class="adm-item-move"
+      data-line-move aria-label="Change ${esc(l.name)}">
+      <option value="">Move this item to…</option>
+      ${ahead.length ? `<optgroup label="Move on">${ahead.map((s) => opt('go:' + s, ITEM_LABEL[s])).join('')}</optgroup>` : ''}
+      ${behind.length ? `<optgroup label="Move back">${behind.slice().reverse()
+        .map((s) => opt('back:' + s, 'Back to ' + ITEM_LABEL[s])).join('')}</optgroup>` : ''}
+      ${cancel || ret ? `<optgroup label="End it">${cancel ? opt('end:cancelled', 'Cancel this item') : ''}${ret
+        ? opt('end:returned', 'Returned') : ''}</optgroup>` : ''}
+    </select>` : '';
   return `<div class="adm-item${gone ? ' is-cancelled' : ''}" data-line="${esc(String(l.id))}"
-      data-lstatus="${esc(l.status || '')}" data-lname="${esc(l.name)}">
+      data-lstatus="${esc(l.status || '')}" data-lname="${esc(l.name)}"
+      data-ltotal="${esc(String(l.lineTotal))}">
     <div class="adm-item-top">
       <span class="adm-item-name">${esc(l.name)}${l.variantLabel ? ' · ' + esc(l.variantLabel) : ''}
         × ${l.qty}</span>
@@ -292,15 +342,9 @@ function itemRow(o, l) {
     </div>
     ${on ? `<div class="adm-item-ctl">
       <span class="pill pill-${D.STATUS_TONE[l.status] || 'draft'}">${esc(ITEM_LABEL[l.status] || l.status)}</span>
-      ${moves.length ? `<select class="adm-item-move" data-line-move
-          aria-label="Move ${esc(l.name)} to">
-          <option value="">Move this item to…</option>
-          ${moves.map((s) => `<option value="${esc(s)}">${esc(ITEM_LABEL[s])}</option>`).join('')}
-        </select>` : ''}
-      ${['sent', 'confirmed', 'packed'].includes(l.status)
-        ? '<button type="button" class="btn-ghost" data-line-cancel>Cancel item</button>' : ''}
-    </div>
-    <div data-line-confirm hidden></div>` : ''}
+      ${menu}
+      ${cancel ? '<button type="button" class="btn btn-sm btn-secondary adm-item-cancel" data-line-cancel>Cancel item</button>' : ''}
+    </div>` : ''}
     ${sh ? `<div class="t-micro dim">${esc(sh)}</div>` : ''}
   </div>`;
 }
@@ -377,7 +421,7 @@ function orderPanel(o, shop, all) {
 
     <div class="adm-order-lines">
       ${perItem(o) ? `<div class="t-eyebrow adm-label">Items
-        <span class="adm-hint">— move or cancel one on its own</span></div>` : ''}
+        <span class="adm-hint">— move one on or back, or cancel it, on its own</span></div>` : ''}
       ${o.lines.map((l) => itemRow(o, l)).join('')}
     </div>
 
@@ -396,7 +440,7 @@ function orderPanel(o, shop, all) {
 
     <div class="adm-block">
       <div class="t-eyebrow adm-label">Status
-        <span class="adm-hint">— tap a step to mark it, and every step above it</span></div>
+        <span class="adm-hint">— tap a step to move the order there, forward or back</span></div>
       ${statusList(o)}
       ${endActions(o)}
     </div>
@@ -428,58 +472,146 @@ function priceNotice(o, shop, all) {
     can be made by hand to name its own price.`);
 }
 
-/** Courier and tracking number, under the Shipped step while it is ahead;
- *  both optional, and taken by whichever tap passes through Shipped. */
-const shipFields = (o) => `<div class="adm-ship">
-  <div class="field"><label for="sc-${esc(o.id)}">Courier <span class="opt">(optional)</span></label>
-    <input id="sc-${esc(o.id)}" data-courier maxlength="60" autocomplete="off"
+/** Courier and tracking number, asked for in the pop-up of any step that
+ *  passes through Shipped. Both optional: who ships is still not settled. */
+const shipFields = () => `
+  <div class="field"><label for="ask-courier">Courier <span class="opt">(optional)</span></label>
+    <input id="ask-courier" name="courier" maxlength="60" autocomplete="off"
       placeholder="Delhivery, India Post…"></div>
-  <div class="field"><label for="sr-${esc(o.id)}">Tracking number <span class="opt">(optional)</span></label>
-    <input id="sr-${esc(o.id)}" data-ref maxlength="60" autocomplete="off"></div>
-</div>`;
+  <div class="field"><label for="ask-ref">Tracking number <span class="opt">(optional)</span></label>
+    <input id="ask-ref" name="ref" maxlength="60" autocomplete="off"></div>`;
 
-/** Status changes and the one human-asserted field in the project. */
-function wireOrders(host, repaint) {
-  // A step on the road, and every step above it not done yet.
+/** "Confirmed and Packed" -- steps named the way the board names them. */
+const andList = (xs) => (xs.length < 2 ? xs.join('')
+  : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
+/** What a refused step means, in words. A database whose schema.sql has not
+ *  been re-run since 8 November 2026 has no step_back_* functions yet. */
+function whyNot(e) {
+  const m = String((e && e.message) || e);
+  if (/step_back_|Could not find the function|schema cache/i.test(m)) {
+    return 'Going back needs the latest database update: run db/schema.sql again '
+      + '(db/SETUP.md, step 9).';
+  }
+  if (/BAD_STEP_BACK/.test(m)) return 'That step cannot be taken back.';
+  if (/SOME_ITEMS_SHIPPED/.test(m)) return 'An item has shipped, so cancel the others one by one.';
+  if (/NOT_STAFF/.test(m)) return 'This phone is not let into the store any more. Reload and type the store code.';
+  return m;
+}
+
+/** Status changes and the one human-asserted field in the project. Every one
+ *  asks first, in a pop-up that says what will happen (askFirst). */
+function wireOrders(host, repaint, orders = []) {
+  const panel = (el) => el.closest('[data-oid]');
+  const codeOf = (box) => box.querySelector('.ord-code').textContent;
+  // The orders this board was drawn from: what a pop-up says is what the
+  // owner is looking at, with no read in between.
+  const orderOf = (box) => orders.find((o) => o.id === box.dataset.oid);
+
+  // A step AHEAD, and every step above it not done yet.
   for (const btn of $$('[data-goto]', host)) {
     btn.addEventListener('click', async () => {
-      const box = btn.closest('[data-oid]');
-      const id = box.dataset.oid;
-      const code = box.querySelector('.ord-code').textContent;
+      const box = panel(btn);
       const to = btn.dataset.goto;
       const steps = D.roadTo(box.dataset.status, to);
       if (!steps.length) return;
-      if (steps.length > 1 && !twoTap(btn, `Mark ${steps.length} steps? Tap again`)) return;
-      // ⚠️ Read BEFORE the first call: on a database every step repaints the
-      // board, and the inputs typed into would be gone by the shipped step.
-      const courier = (box.querySelector('[data-courier]') || {}).value || '';
-      const ref = (box.querySelector('[data-ref]') || {}).value || '';
+      const o = orderOf(box) || { sentVia: 'online' };
+      const name = (s) => stepName(o, s);
+      const got = await askFirst({
+        title: `Mark ${codeOf(box)} as ${D.STATUS_LABEL[to].toLowerCase()}?`,
+        body: (steps.length > 1
+          ? `<p>This also marks <b>${esc(andList(steps.slice(0, -1).map(name)))}</b> as done.
+             The customer sees every step up to ${esc(name(to))} in green.</p>`
+          : `<p>The customer sees it on their order page straight away.</p>`)
+          + '<p>If this is a mistake, you can move it back afterwards.</p>',
+        more: steps.includes('shipped') ? shipFields() : '',
+        yes: D.ACTION_LABEL[to],
+      });
+      if (!got) return;
       try {
         for (const s of steps) {
-          if (s === 'shipped') await store.orders.ship(id, { courier, ref });
-          else await store.orders.advance(id, s);
+          if (s === 'shipped') await store.orders.ship(box.dataset.oid, { courier: got.courier, ref: got.ref });
+          else await store.orders.advance(box.dataset.oid, s);
         }
-        toast(`${code} is now ${D.STATUS_LABEL[to].toLowerCase()}.`);
+        toast(`${codeOf(box)} is now ${D.STATUS_LABEL[to].toLowerCase()}.`);
       } catch (e) {
         // ⚠️ Shown, never swallowed. Steps already taken stay taken, and the
         // board redraws to show exactly where the order got to.
-        toast(String(e.message || e));
+        toast(whyNot(e));
       }
       repaint();
     });
   }
 
-  // Leaving the road. Final -- nothing follows a cancellation -- so two taps.
+  // A step BEHIND: the order goes back there (8 November 2026).
+  for (const btn of $$('[data-back]', host)) {
+    btn.addEventListener('click', async () => {
+      const box = panel(btn);
+      const to = btn.dataset.back;
+      const from = box.dataset.status;
+      if (!D.canStepBack(from, to)) return;
+      const o = orderOf(box) || { sentVia: 'online', lines: [] };
+      const name = (s) => stepName(o, s);
+      const undone = D.LINE_ROAD.slice(D.LINE_ROAD.indexOf(to) + 1, D.LINE_ROAD.indexOf(from) + 1);
+      const ahead = D.hasItemStatus(o) && o.lines.some((l) =>
+        D.LINE_ROAD.indexOf(l.status) > D.LINE_ROAD.indexOf(from));
+      const got = await askFirst({
+        title: `Move ${codeOf(box)} back to ${name(to)}?`,
+        body: `<p><b>${esc(andList(undone.map(name)))}</b> will be taken off, and the customer
+            will see ${esc(name(to))} as the latest step.</p>`
+          + (from === 'delivered' ? '<p>The delivery date goes too, so the return window starts '
+            + 'again when you next mark it delivered.</p>' : '')
+          + (D.LINE_ROAD.indexOf(from) >= D.LINE_ROAD.indexOf('shipped')
+             && D.LINE_ROAD.indexOf(to) < D.LINE_ROAD.indexOf('shipped')
+            ? '<p>The courier and tracking number are cleared.</p>' : '')
+          + (ahead ? '<p>An item you moved further on its own stays where it is.</p>' : '')
+          + '<p>You can mark the steps again whenever you are ready.</p>',
+        yes: 'Move back',
+      });
+      if (!got) return;
+      try {
+        await store.orders.stepBack(box.dataset.oid, to);
+        toast(`${codeOf(box)} is back to ${name(to).toLowerCase()}.`);
+      } catch (e) {
+        toast(whyNot(e));
+      }
+      repaint();
+    });
+  }
+
+  // Leaving the road. Final -- nothing follows a cancellation -- and said so.
   for (const btn of $$('[data-end]', host)) {
     btn.addEventListener('click', async () => {
-      const box = btn.closest('[data-oid]');
+      const box = panel(btn);
       const to = btn.dataset.end;
-      if (!twoTap(btn, 'Sure? Tap again')) return;
+      const o = orderOf(box) || {};
+      const code = codeOf(box);
+      const final = '<p class="ask-final">This cannot be undone.</p>';
+      const ask = to === 'returned' ? {
+        title: `Mark ${code} as returned?`,
+        body: '<p>Once the parcel has come back to you. The customer sees it as returned.</p>' + final,
+        yes: 'Mark returned', no: 'Not now',
+      } : to === 'abandoned' ? {
+        title: `Close ${code}?`,
+        body: '<p>It was saved in this browser and never sent to you. Closing it keeps it in '
+          + 'the list as closed.</p>' + final,
+        yes: D.ACTION_LABEL.abandoned, no: 'Keep it open',
+      } : {
+        title: `Cancel order ${code}?`,
+        body: '<p>Every item is cancelled and nothing will be sent. The customer sees the order '
+          + 'as cancelled.</p>'
+          + (o.paid ? `<p>They have paid ${D.rupees(o.paidAmount || o.grand)}, so you will be shown `
+            + 'the refund to send.</p>' : '')
+          + final,
+        yes: 'Cancel order', no: 'Keep the order',
+      };
+      if (!(await askFirst({ ...ask, danger: true }))) return;
       try {
         await store.orders.advance(box.dataset.oid, to);
-        toast(to === 'returned' ? 'Marked returned.' : 'Order cancelled.');
+        toast(to === 'returned' ? `${code} marked returned.` : to === 'abandoned'
+          ? `${code} closed.` : `${code} cancelled.`);
       } catch (e) {
-        toast(String(e.message || e));
+        toast(whyNot(e));
       }
       repaint();
     });
@@ -487,107 +619,147 @@ function wireOrders(host, repaint) {
 
   for (const btn of $$('[data-paid]', host)) {
     btn.addEventListener('click', async () => {
-      const id = btn.closest('[data-oid]').dataset.oid;
+      const box = panel(btn);
       const to = btn.dataset.paid === '1';
-      const ask = btn.dataset.method === 'cod' ? 'Cash in hand? Tap again' : 'Seen it in the bank? Tap again';
-      if (to && !twoTap(btn, ask)) return;
-      await store.orders.setPaid(id, to, to ? 'checked by hand' : null);
+      if (to) {
+        const o = orderOf(box) || {};
+        const got = await askFirst({
+          title: `Mark ${D.rupees(o.grand || 0)} as received?`,
+          body: (btn.dataset.method === 'cod'
+            ? '<p>Only once the courier\'s cash for this order has reached you.</p>'
+            : `<p>Only once you have seen <b>${D.rupees(o.grand || 0)}</b> with the note
+               <b>${esc(codeOf(box))}</b> in your bank or UPI app.</p>`)
+            + '<p>The customer sees the payment confirmed on their order page. You can undo it.</p>',
+          yes: 'Yes, received',
+        });
+        if (!got) return;
+      }
+      await store.orders.setPaid(box.dataset.oid, to, to ? 'checked by hand' : null);
       toast(to ? 'Payment marked received.' : 'Payment no longer marked received.');
       repaint();
     });
   }
 
-  // ONE ITEM, moved along its own road. One step goes at once; more asks
-  // first, in place, because nothing on the road goes back.
-  const moveItem = async (item, steps) => {
-    const box = item.closest('[data-oid]');
-    // ⚠️ Read before the first call: every step repaints the board.
-    const courier = (box.querySelector('[data-courier]') || {}).value || '';
-    const ref = (box.querySelector('[data-ref]') || {}).value || '';
-    const to = steps[steps.length - 1];
+  // ONE ITEM: on, back, cancelled or returned -- one menu, one pop-up.
+  const lineOf = (item) => ({
+    oid: panel(item).dataset.oid, id: Number(item.dataset.line), status: item.dataset.lstatus,
+    name: item.dataset.lname, total: Number(item.dataset.ltotal) || 0,
+  });
+
+  const moveOn = async (item, to) => {
+    const l = lineOf(item);
+    const steps = D.lineRoadTo(l.status, to);
+    if (!steps.length) return;
+    const got = await askFirst({
+      title: `Mark ${l.name} as ${ITEM_LABEL[to].toLowerCase()}?`,
+      body: (steps.length > 1
+        ? `<p>This also marks it <b>${esc(andList(steps.slice(0, -1).map((s) => ITEM_LABEL[s])))}</b>.</p>` : '')
+        + `<p>The order moves on once every item still on its way is ${esc(ITEM_LABEL[to].toLowerCase())}.</p>`,
+      more: steps.includes('shipped') ? shipFields() : '',
+      yes: `Mark ${ITEM_LABEL[to].toLowerCase()}`,
+    });
+    if (!got) return;
     try {
       for (const s of steps) {
-        await store.orders.advanceLine(box.dataset.oid, Number(item.dataset.line), s, { courier, ref });
+        await store.orders.advanceLine(l.oid, l.id, s, { courier: got.courier || '', ref: got.ref || '' });
       }
-      toast(`${item.dataset.lname} is now ${ITEM_LABEL[to].toLowerCase()}.`);
+      toast(`${l.name} is now ${ITEM_LABEL[to].toLowerCase()}.`);
     } catch (e) {
-      toast(String(e.message || e));
+      toast(whyNot(e));
     }
-    repaint();
+  };
+
+  const moveBack = async (item, to) => {
+    const l = lineOf(item);
+    if (!D.canStepBack(l.status, to)) return;
+    const got = await askFirst({
+      title: `Move ${l.name} back to ${ITEM_LABEL[to].toLowerCase()}?`,
+      body: '<p>If it is now the slowest item, the order goes back with it, and the customer sees '
+        + 'that step as the latest.</p>'
+        + (D.LINE_ROAD.indexOf(to) < D.LINE_ROAD.indexOf('shipped')
+           && D.LINE_ROAD.indexOf(l.status) >= D.LINE_ROAD.indexOf('shipped')
+          ? '<p>Its courier and tracking number are cleared.</p>' : '')
+        + '<p>You can move it on again later.</p>',
+      yes: 'Move back',
+    });
+    if (!got) return;
+    try {
+      await store.orders.stepBackLine(l.oid, l.id, to);
+      toast(`${l.name} is back to ${ITEM_LABEL[to].toLowerCase()}.`);
+    } catch (e) {
+      toast(whyNot(e));
+    }
+  };
+
+  const endItem = async (item, to) => {
+    const l = lineOf(item);
+    const o = orders.find((x) => x.id === l.oid) || { lines: [] };
+    const live = o.lines.filter((x) => x.status !== 'cancelled');
+    const last = live.length === 1 && String(live[0].id) === String(l.id);
+    const final = '<p class="ask-final">This cannot be undone.</p>';
+    const ask = to === 'returned' ? {
+      title: `Mark ${l.name} as returned?`,
+      body: '<p>Once it has come back to you.</p>' + final,
+      yes: 'Mark returned', no: 'Not now',
+    } : {
+      title: `Cancel ${l.name}?`,
+      body: `<p>It comes off the order: the total drops by <b>${D.rupees(l.total)}</b>${o.discount
+          ? ', and the coupon shrinks with it' : ''}.</p>`
+        + (last ? '<p>It is the last item left, so the whole order is cancelled.</p>' : '')
+        + (o.paid ? '<p>The customer has paid, so you will be shown the refund to send.</p>' : '')
+        + final,
+      yes: 'Cancel item', no: 'Keep it',
+    };
+    if (!(await askFirst({ ...ask, danger: true }))) return;
+    try {
+      await store.orders.advanceLine(l.oid, l.id, to);
+      toast(to === 'returned' ? `${l.name} marked returned.` : `${l.name} cancelled.`);
+    } catch (e) {
+      toast(whyNot(e));
+    }
   };
 
   for (const sel of $$('[data-line-move]', host)) {
-    sel.addEventListener('change', () => {
+    sel.addEventListener('change', async () => {
       const item = sel.closest('[data-line]');
-      const steps = D.lineRoadTo(item.dataset.lstatus, sel.value);
-      if (!steps.length) return;
-      if (steps.length === 1) { moveItem(item, steps); return; }
-      const ask = item.querySelector('[data-line-confirm]');
-      ask.innerHTML = `<span class="t-micro">Move it to ${esc(ITEM_LABEL[sel.value])}?
-        That is ${steps.length} steps: ${steps.map((s) => esc(ITEM_LABEL[s])).join(', then ')}.</span>
-        <button type="button" class="btn btn-sm btn-primary" data-line-go>Move it</button>
-        <button type="button" class="btn-ghost" data-line-back>Not now</button>`;
-      ask.hidden = false;
-      ask.querySelector('[data-line-go]').addEventListener('click', () => moveItem(item, steps));
-      ask.querySelector('[data-line-back]').addEventListener('click', () => {
-        ask.hidden = true;
-        ask.innerHTML = '';
-        sel.value = '';
-      });
-    });
-  }
-
-  // ONE ITEM, cancelled. Final, so two taps. The server takes it out of the
-  // total, shrinks the coupon with it, and moves the order on if what is
-  // left is further along.
-  for (const btn of $$('[data-line-cancel]', host)) {
-    btn.addEventListener('click', async () => {
-      const item = btn.closest('[data-line]');
-      const box = btn.closest('[data-oid]');
-      if (!twoTap(btn, 'Cancel this item? Tap again')) return;
-      try {
-        await store.orders.advanceLine(box.dataset.oid, Number(item.dataset.line), 'cancelled');
-        toast(`${item.dataset.lname} cancelled.`);
-      } catch (e) {
-        toast(String(e.message || e));
-      }
+      const [kind, to] = sel.value.split(':');
+      sel.value = '';
+      if (kind === 'go') await moveOn(item, to);
+      else if (kind === 'back') await moveBack(item, to);
+      else if (kind === 'end') await endItem(item, to);
+      else return;
       repaint();
     });
   }
 
-  // A refund sent: a person's note, like the payment. Two taps.
+  for (const btn of $$('[data-line-cancel]', host)) {
+    btn.addEventListener('click', async () => {
+      await endItem(btn.closest('[data-line]'), 'cancelled');
+      repaint();
+    });
+  }
+
+  // A refund sent: a person's note, like the payment.
   for (const btn of $$('[data-refund]', host)) {
     btn.addEventListener('click', async () => {
-      const box = btn.closest('[data-oid]');
-      if (!twoTap(btn, 'Sent it? Tap again')) return;
+      const box = panel(btn);
+      const o = orderOf(box) || {};
+      const got = await askFirst({
+        title: `Mark the ${D.rupees(D.refundDue(o))} refund as sent?`,
+        body: '<p>Only once you have sent it back from your UPI app. The customer sees when it went.</p>',
+        yes: 'Yes, I sent it',
+      });
+      if (!got) return;
       try {
         const amount = await store.orders.markRefund(box.dataset.oid);
         toast(`Refund of ${D.rupees(amount)} noted.`);
       } catch (e) {
         toast(/NOTHING_TO_REFUND/.test(String(e.message || e))
-          ? 'Nothing is owed back on this order.' : String(e.message || e));
+          ? 'Nothing is owed back on this order.' : whyNot(e));
       }
       repaint();
     });
   }
-}
-
-/**
- * A two-tap confirm, inline. ⚠️ Not window.confirm(): the artifact and
- * single-file viewers return false from it immediately without showing
- * anything, so a dialog there would silently cancel every attempt.
- */
-function twoTap(btn, prompt) {
-  if (btn.dataset.armed === '1') return true;
-  btn.dataset.armed = '1';
-  const was = btn.textContent;
-  btn.textContent = prompt;
-  setTimeout(() => {
-    if (!btn.isConnected) return;
-    btn.dataset.armed = '0';
-    btn.textContent = was;
-  }, 4000);
-  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -645,7 +817,7 @@ router.registerScreen('admin', async (host, r) => {
       <div class="adm-body">${body}</div>
       <div style="margin-top:var(--s7)">${ornament()}</div>`;
 
-    if (tab === 'orders') wireOrders(host, draw);
+    if (tab === 'orders') wireOrders(host, draw, ctx.orders);
     else wireCatalogTab(tab, host, ctx, draw);
   };
 

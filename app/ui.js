@@ -281,6 +281,109 @@ export function closeSheet() {
 }
 
 // ---------------------------------------------------------------------------
+// ASK FIRST — a pop-up that asks before a step is taken (8 November 2026, on
+// the owner's word: "dont ask me to press the button again -- only show a pop
+// up to confirm"). It replaced every second tap on the store's board.
+//
+// ⚠️ NOT window.confirm(). The artifact and single-file viewers answer it "no"
+// at once without showing anything, so every step would silently fail there.
+// This is the page's own element, made on first use, so the shop and the
+// store page share it without either carrying it in its markup.
+//
+// Resolves to null when the person backs out -- Not now, the scrim, Escape --
+// and otherwise to an object of every named input inside it (the courier and
+// the tracking number, for a step through Shipped). Same discipline as the
+// sheet: what is behind it goes inert, the body stops scrolling, focus comes
+// back where it was, and no requestAnimationFrame (see openSheet).
+// ---------------------------------------------------------------------------
+let askEl = null;
+let askDone = null;
+
+export function askFirst({ title, body = '', more = '', yes = 'Yes', no = 'Not now',
+                           danger = false } = {}) {
+  if (askDone) askDone(null);          // one at a time: a new ask answers the old one "no"
+  if (!askEl) {
+    askEl = document.createElement('div');
+    askEl.className = 'ask-wrap';
+    askEl.hidden = true;
+    askEl.innerHTML = `<div class="ask-scrim" data-ask-no></div>
+      <div class="ask" role="alertdialog" aria-modal="true"
+           aria-labelledby="ask-title" aria-describedby="ask-body">
+        <h2 class="ask-title" id="ask-title"></h2>
+        <div class="ask-body" id="ask-body"></div>
+        <div class="ask-more"></div>
+        <div class="ask-acts">
+          <button type="button" class="btn btn-secondary" data-ask-no></button>
+          <button type="button" class="btn btn-primary" data-ask-yes></button>
+        </div>
+      </div>`;
+    document.body.appendChild(askEl);
+    askEl.addEventListener('click', (e) => {
+      if (!askDone) return;
+      if (e.target.closest('[data-ask-yes]')) askDone(askRead());
+      else if (e.target.closest('[data-ask-no]')) askDone(null);
+    });
+    askEl.addEventListener('keydown', (e) => {
+      // Enter in a field below the question means yes, as in any form.
+      if (e.key === 'Enter' && e.target.matches('.ask-more input') && askDone) {
+        e.preventDefault();
+        askDone(askRead());
+      }
+    });
+    // Capture, and stopped there: the sheet and the size panel listen for
+    // Escape on the document too, and must not close under the pop-up.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && askDone) { e.stopPropagation(); askDone(null); }
+    }, true);
+  }
+
+  const box = askEl.querySelector('.ask');
+  box.classList.toggle('is-danger', !!danger);
+  askEl.querySelector('.ask-title').textContent = title || '';
+  askEl.querySelector('.ask-body').innerHTML = body;
+  askEl.querySelector('.ask-more').innerHTML = more;
+  const yesBtn = askEl.querySelector('[data-ask-yes]');
+  const noBtn = askEl.querySelector('.ask-acts [data-ask-no]');
+  yesBtn.textContent = yes;
+  yesBtn.className = `btn ${danger ? 'btn-danger' : 'btn-primary'}`;
+  noBtn.textContent = no;
+
+  const back = document.activeElement;
+  const shell = $('#shell'), head = $('#site-header');
+  const wasInert = [shell && shell.inert, head && head.inert];
+  const wasOverflow = document.body.style.overflow;
+  askEl.hidden = false;
+  void askEl.offsetHeight;             // flush the closed state, so it animates
+  askEl.classList.add('open');
+  if (shell) shell.inert = true;
+  if (head) head.inert = true;
+  document.body.style.overflow = 'hidden';
+  const firstField = askEl.querySelector('.ask-more input');
+  // A step that cannot be undone starts on "Not now"; any other on the field
+  // to fill in, or on yes.
+  (danger ? noBtn : firstField || yesBtn).focus();
+
+  return new Promise((resolve) => {
+    askDone = (answer) => {
+      askDone = null;
+      askEl.classList.remove('open');
+      if (shell) shell.inert = !!wasInert[0];
+      if (head) head.inert = !!wasInert[1];
+      document.body.style.overflow = wasOverflow;
+      if (back && back.isConnected && back.focus) back.focus();
+      setTimeout(() => { if (!askEl.classList.contains('open')) askEl.hidden = true; }, 200);
+      resolve(answer);
+    };
+  });
+}
+
+function askRead() {
+  const got = {};
+  for (const el of askEl.querySelectorAll('.ask-more [name]')) got[el.name] = el.value.trim();
+  return got;
+}
+
+// ---------------------------------------------------------------------------
 // SHARED FRAGMENTS
 // ---------------------------------------------------------------------------
 export const h1 = (title, eyebrow, sub) => `

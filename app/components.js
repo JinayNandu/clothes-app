@@ -164,17 +164,19 @@ export function sizePanel(p, shop) {
       ${fit ? `title="${fit}"` : ''}>${esc(s.label)}${s.delta
         ? `<small>+${D.rupees(s.delta)}</small>` : ''}</button>`;
   }).join('');
+  // The size chart is a full-width line of its own under the chips, in words,
+  // on every screen. It was an info icon in the corner, with its words only
+  // from 600px up -- so on a phone nobody found it (the owner, 8 November 2026).
   return `<div class="card-sizes" data-sizes-panel>
     <div class="card-sizes-panel" role="group" aria-label="Pick a size">
       <div class="card-sizes-head">
         <span class="card-sizes-title">Pick a size</span>
-        ${chart ? `<button type="button" class="card-sizes-btn" data-sizes-guide
-          aria-label="Size guide" title="Size guide">${icon('info', 15)}<span
-          class="card-sizes-gtext">Size guide</span></button>` : ''}
         <button type="button" class="card-sizes-btn" data-sizes-close
           aria-label="Close the sizes">${icon('close', 15)}</button>
       </div>
       <div class="card-sizes-grid">${chips}</div>
+      ${chart ? `<button type="button" class="card-sizes-chart" data-sizes-guide>
+        ${icon('ruler', 15)} Size chart</button>` : ''}
     </div>
   </div>`;
 }
@@ -242,6 +244,36 @@ export const productGrid = (list, shop, wishIds) =>
   '<div class="grid-products">'
   + list.map((p) => productCard(p, shop, wishIds.includes(p.id))).join('')
   + '</div>';
+
+// ---------------------------------------------------------------------------
+// THE ORDER'S CHAIN — Ordered, Confirmed, Packed, Shipped, Delivered, left to
+// right, green up to where the order is (8 November 2026, the owner's ask: "the
+// shipping chain … highlighting the part that is done, to see real time
+// status"). On the order's own page with words under each step, and small on
+// every order in Your orders. Built from D.trackSteps(), so it can never
+// disagree with the timeline under it -- and an order the store stepped back
+// is drawn where it is now, not where it once got to.
+// ---------------------------------------------------------------------------
+const CHAIN_WORD = {
+  draft: 'Saved', confirmed: 'Confirmed', packed: 'Packed', shipped: 'Shipped',
+  delivered: 'Delivered', returned: 'Returned', cancelled: 'Cancelled', abandoned: 'Closed',
+};
+
+export function orderChain(o, small = false) {
+  const steps = D.trackSteps(o);
+  const word = (s) => (s === 'sent' ? (o.sentVia === 'online' ? 'Ordered' : 'Sent')
+    : s === 'abandoned' && o.sentVia === 'online' ? 'Cancelled' : CHAIN_WORD[s]);
+  const now = steps.find((s) => s.state === 'now' || s.state === 'end')
+    || [...steps].reverse().find((s) => s.state === 'done');
+  return `<ol class="chain${small ? ' chain-sm' : ''}" aria-label="Where this order is: ${esc(
+    now ? word(now.status) : '')}">
+    ${steps.map((s) => `<li class="is-${s.state}"${s === now ? ' aria-current="step"' : ''}>
+      <span class="chain-dot" aria-hidden="true">${s.state === 'done' ? icon('check', 11)
+        : s.state === 'end' ? icon('close', 10) : ''}</span>
+      <span class="chain-l">${esc(word(s.status))}</span>
+    </li>`).join('')}
+  </ol>`;
+}
 
 // ---------------------------------------------------------------------------
 // QUANTITY STEPPER
@@ -393,7 +425,16 @@ export function sizeChart(p, shop, selectedSize) {
   const how = cols.filter((c) => notes[c] && notes[c].how).map((c) => `
     <li><b>${esc(c)}</b> ${esc(notes[c].how)}</li>`).join('');
 
+  // One line that says how to read the table, from its own first column:
+  // "Measure your chest, and find it under To fit chest: that row is your
+  // size." Only where the chart keeps the to-fit-first convention.
+  const first = cols[0] || '';
+  const intro = /^to fit /i.test(first)
+    ? `<p class="sc-intro">Measure your <b>${esc(first.replace(/^to fit\s*/i, ''))}</b> and
+        find it under <b>${esc(first)}</b>: that row is your size.</p>` : '';
+
   return `
+    ${intro}
     <div class="sc-wrap">
       <table class="sc">
         <caption class="sc-cap">All measurements in ${esc(unit === 'in'

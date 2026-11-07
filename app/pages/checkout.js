@@ -8,6 +8,15 @@
 // the order is with the shop when the call returns. Never "Pay now": nothing
 // here takes money.
 //
+// ⚠️ SIGNED IN TO ORDER, since 8 November 2026 -- the owner's call: "a person
+// cannot order unless they are signed in, because how will they ever view
+// that order again". With accounts on (config.js SIGN_IN and
+// SIGN_IN_TO_ORDER), the first step is the email and its code, in place on
+// this page -- never a screen of its own (honesty.pl) -- and then the
+// account's saved addresses, with a new one saved to the account as the
+// order goes through. A page rule only: the server still takes a guest, so
+// turning SIGN_IN_TO_ORDER off brings guest checkout back at once.
+//
 // ⚠️ NO <form action>. There is nothing to POST to. tools/honesty.pl fails on
 // one, because that is the shape a fake submission takes.
 // ============================================================================
@@ -17,10 +26,16 @@ import * as router from '../router.js';
 import { esc, h1, emptyState, notice, toast } from '../ui.js';
 import { field, setFieldError } from '../components.js';
 import { signInBox, wireSignIn } from '../signin.js';
+import { SIGN_IN_TO_ORDER, OTP_LEN } from '../config.js';
 import { payOptions } from '../pay.js';
 import { seal } from '../brand.js';
 import { icon } from '../icons.js';
 import * as D from '../domain.js';
+
+const MAX_ADDR = 10;   // the same ceiling as save_address() in db/schema.sql
+
+// The way to pay picked before signing in survives the repaint that follows.
+let lastPay = 'upi';
 
 router.registerScreen('checkout', async (host) => {
   const [lines, shop, profile, coupon] = await Promise.all([
@@ -39,19 +54,25 @@ router.registerScreen('checkout', async (host) => {
   const t = await store.cart.totals();
   const products = await Promise.all(lines.map((l) => store.catalog.byId(l.pid)));
 
-  // UPI first — it is the one that actually works today.
-  let pay = 'upi';
+  let pay = lastPay;
 
-  // Who is ordering. A guest is OFFERED a sign-in, never asked for one -- the
-  // order goes through either way. An account is offered its saved addresses,
-  // the default first, and "a new address" below them.
+  // Who is ordering. With accounts on, a guest signs in first; an account is
+  // offered its saved addresses, the default first, and "a new address".
   const who = store.account ? await store.account.whoami() : null;
   const signedIn = !!(who && !who.guest);
+  const mustSignIn = !!store.account && SIGN_IN_TO_ORDER && !signedIn;
   let book = [];
   if (signedIn) {
     try { book = await store.addresses.list(); } catch (e) { book = []; }
   }
   let shipTo = book.length ? (book.find((a) => a.isDefault) || book[0]).id : 'new';
+  // A new address starts from the account's own name and mobile, then this
+  // browser's details.
+  const start = {
+    ...profile,
+    name: (who && who.name) || profile.name,
+    mobile: (who && who.mobile) || profile.mobile,
+  };
 
   host.innerHTML = `
   ${h1('Checkout', 'Almost there')}
@@ -66,41 +87,12 @@ router.registerScreen('checkout', async (host) => {
 
   <div class="two-col" style="margin-top:var(--s5)">
     <div>
-      <section class="panel">
-        <h3 class="t-h3">Where it goes</h3>
-        ${store.account && !signedIn ? `
-          <p class="co-offer">Ordered from us before?
-            <button type="button" class="btn-ghost" data-co-open>Sign in</button>
-            to use a saved address — or just fill this in. No account needed.</p>
-          <div class="co-signin" data-co-box hidden></div>` : ''}
-        ${signedIn ? `<p class="co-who">Signed in as <b>${esc(who.email)}</b></p>` : ''}
-        ${book.length ? `
-          <div class="co-book" data-book role="radiogroup" aria-label="Saved addresses">
-            ${book.map((a) => shipOpt(a, shipTo)).join('')}
-            ${shipNew(shipTo)}
-          </div>` : ''}
-        <div data-newaddr ${shipTo === 'new' ? '' : 'hidden'}>
-          <div class="form-grid">
-            ${field('name', 'Full name', { required: true, value: profile.name, span: true })}
-            ${field('mobile', 'Mobile number', { required: true, value: profile.mobile,
-              type: 'tel', inputmode: 'numeric', placeholder: '10 digits', maxlength: 13 })}
-            ${field('email', 'Email', { value: profile.email || (signedIn ? who.email : ''),
-              type: 'email', placeholder: 'For the order confirmation' })}
-            ${field('addr', 'Address', { required: true, value: profile.addr, rows: 3,
-              span: true, placeholder: 'Flat, building, street, area' })}
-            ${field('city', 'City', { required: true, value: profile.city })}
-            ${field('pin', 'PIN code', { required: true, value: profile.pin,
-              inputmode: 'numeric', maxlength: 6 })}
-            ${field('state', 'State', { required: true, value: profile.state,
-              options: D.STATES, span: true })}
-          </div>
-          ${signedIn ? `<label class="tick co-save"><input type="checkbox" data-co-save checked>
-            <span>Save this address to my account</span></label>` : ''}
-        </div>
+      <section class="panel co-step" data-where>
+        ${mustSignIn ? signInStep() : whereStep()}
       </section>
 
-      <section class="panel" style="margin-top:var(--s4)">
-        <h3 class="t-h3">How you would like to pay</h3>
+      <section class="panel co-step" style="margin-top:var(--s4)">
+        <h3 class="t-h3">${signedIn ? '<span class="co-n">2</span>' : ''}How you would like to pay</h3>
         <div data-pay>${payOptions(shop, pay)}</div>
         <div style="margin-top:var(--s4)" data-paynote></div>
       </section>
@@ -136,11 +128,14 @@ router.registerScreen('checkout', async (host) => {
 
       <div style="margin-top:var(--s5)">
         <button type="button" class="btn btn-primary btn-block" data-save>
-          ${store.shared() ? 'Place order' : 'Save this order'}</button>
+          ${mustSignIn ? 'Sign in to place your order'
+            : store.shared() ? 'Place order' : 'Save this order'}</button>
         <p class="t-micro dim" style="margin-top:var(--s3);text-align:center">
-          ${store.shared()
-            ? 'We confirm every order by hand, and the next page shows it when we have.'
-            : 'You will be able to send it to us on the next screen.'}</p>
+          ${mustSignIn
+            ? 'Sign in above first: your email, then the code we send you.'
+            : store.shared()
+              ? 'We confirm every order by hand, and the next page shows it when we have.'
+              : 'You will be able to send it to us on the next screen.'}</p>
       </div>
 
       <div style="margin-top:var(--s4)">
@@ -148,6 +143,51 @@ router.registerScreen('checkout', async (host) => {
       </div>
     </aside>
   </div>`;
+
+  /** Step one for somebody not signed in: who they are. */
+  function signInStep() {
+    return `
+      <h3 class="t-h3"><span class="co-n">1</span>Sign in to place your order</h3>
+      <p class="co-why">So this order — and where it has got to — opens on any phone where
+        you sign in. We email you a ${OTP_LEN}-digit code; there is no password. Your saved
+        addresses come with it.</p>
+      <div data-co-box>${signInBox('')}</div>`;
+  }
+
+  /** Where it goes: a saved address, or a new one -- saved to the account as
+   *  the order goes through. */
+  function whereStep() {
+    const full = book.length >= MAX_ADDR;
+    return `
+      <h3 class="t-h3">${signedIn ? '<span class="co-n">1</span>' : ''}${signedIn
+        ? 'Deliver to' : 'Where it goes'}</h3>
+      ${signedIn ? `<p class="co-who">${icon('user', 14)} Signed in as <b>${esc(who.email)}</b></p>` : ''}
+      ${book.length ? `
+        <div class="co-book" data-book role="radiogroup" aria-label="Saved addresses">
+          ${book.map((a) => shipOpt(a, shipTo)).join('')}
+          ${full ? '' : shipNew(shipTo)}
+        </div>` : ''}
+      <div data-newaddr ${shipTo === 'new' ? '' : 'hidden'}>
+        ${signedIn && !book.length ? `<p class="co-why">Add the address it goes to. It is saved
+          to your account with the order, so next time you only pick it.</p>` : ''}
+        <div class="form-grid">
+          ${field('name', 'Full name', { required: true, value: start.name, span: true })}
+          ${field('mobile', 'Mobile number', { required: true, value: start.mobile,
+            type: 'tel', inputmode: 'numeric', placeholder: '10 digits', maxlength: 13 })}
+          ${signedIn ? '' : field('email', 'Email', { value: start.email,
+            type: 'email', placeholder: 'For the order confirmation' })}
+          ${field('addr', 'Address', { required: true, value: start.addr, rows: 3,
+            span: true, placeholder: 'Flat, building, street, area' })}
+          ${field('city', 'City', { required: true, value: start.city })}
+          ${field('pin', 'PIN code', { required: true, value: start.pin,
+            inputmode: 'numeric', maxlength: 6 })}
+          ${field('state', 'State', { required: true, value: start.state,
+            options: D.STATES, span: true })}
+        </div>
+        ${signedIn && book.length ? `<p class="co-saved">${icon('check', 14)}
+          Saved to your account with the order.</p>` : ''}
+      </div>`;
+  }
 
   paintPayNote();
 
@@ -167,7 +207,7 @@ router.registerScreen('checkout', async (host) => {
 
   host.querySelector('[data-pay]').addEventListener('change', (e) => {
     if (e.target.name !== 'pay') return;
-    pay = e.target.value;
+    pay = lastPay = e.target.value;
     // Scoped to the pay cards: the saved addresses wear the same class.
     for (const l of host.querySelectorAll('[data-pay] .pay-opt')) {
       l.classList.toggle('on', l.querySelector('input').checked);
@@ -184,26 +224,21 @@ router.registerScreen('checkout', async (host) => {
       for (const l of bookEl.querySelectorAll('.pay-opt')) {
         l.classList.toggle('on', l.querySelector('input').checked);
       }
-      host.querySelector('[data-newaddr]').hidden = shipTo !== 'new';
+      const nb = host.querySelector('[data-newaddr]');
+      nb.hidden = shipTo !== 'new';
+      if (!nb.hidden) nb.querySelector('[name="name"]').focus();
     });
   }
 
-  // The offer to sign in: opened in place, so the bag and whatever has been
-  // typed so far stay where they are.
-  const offer = host.querySelector('[data-co-open]');
-  if (offer) {
-    offer.addEventListener('click', () => {
-      const box = host.querySelector('[data-co-box]');
-      if (!box.hidden) { box.hidden = true; return; }
-      box.innerHTML = signInBox('');
-      box.hidden = false;
-      wireSignIn(box, async () => {
-        // Redrawn signed in, with the saved addresses. What was typed is kept
-        // in this browser first, so the form comes back filled.
-        await store.profile.save(readForm());
-        router.repaint();
-      });
-      box.querySelector('[data-si-email]').focus();
+  // Signing in, in place. Once the code is accepted the page is drawn again,
+  // signed in, with the account's addresses.
+  const siBox = host.querySelector('[data-co-box]');
+  if (siBox) {
+    wireSignIn(siBox, (w) => {
+      toast(w.moved
+        ? `Signed in. ${w.moved} earlier ${w.moved === 1 ? 'order' : 'orders'} came with you.`
+        : `Signed in as ${w.email}. Now, where should it go?`);
+      router.repaint();
     });
   }
 
@@ -216,6 +251,8 @@ router.registerScreen('checkout', async (host) => {
       const el = host.querySelector(`[name="${n}"]`);
       v[n] = el ? el.value.trim() : '';
     }
+    // Signed in, the order's email is the account's: there is no field.
+    if (signedIn) v.email = who.email || '';
     return v;
   }
 
@@ -247,6 +284,14 @@ router.registerScreen('checkout', async (host) => {
   }
 
   host.querySelector('[data-save]').addEventListener('click', async () => {
+    if (mustSignIn) {
+      const email = host.querySelector('[data-co-box] [data-si-email]');
+      const where = host.querySelector('[data-where]');
+      where.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (email && !email.closest('[hidden]')) email.focus({ preventScroll: true });
+      toast('Sign in first: your email, then the code we send you.');
+      return;
+    }
     const v = read();
     const typed = shipTo === 'new';
     const errs = validate(v, typed);
@@ -286,12 +331,23 @@ router.registerScreen('checkout', async (host) => {
       toast(whyNot(e));
       return;
     }
-    // Kept to the account only once the order is in: an order that failed
-    // must not leave an address behind it. Best effort -- the order is what
-    // matters, and the address can be added on the account page.
-    const keep = host.querySelector('[data-co-save]');
-    if (signedIn && typed && keep && keep.checked) {
-      try { await store.addresses.save(v); } catch (e) { console.warn('[vastra] address not kept', e); }
+    // Kept to the account once the order is in -- an order that failed must
+    // not leave an address behind, or a second try would save it twice. No
+    // tick box any more: the owner wants it saved (8 November 2026). Not when
+    // the same address is already there, or the book is full. Best effort:
+    // the order is what matters, and the address can be added on the profile.
+    if (signedIn && typed) {
+      const same = (a) => ['name', 'mobile', 'addr', 'city', 'state', 'pin']
+        .every((k) => String(a[k] || '').trim().toLowerCase() === String(v[k] || '').trim().toLowerCase());
+      if (!book.some(same) && book.length < MAX_ADDR) {
+        try { await store.addresses.save(v); } catch (e) { console.warn('[vastra] address not kept', e); }
+      }
+      // The account's own name and mobile, the first time there are any.
+      if (who && !who.name && store.account.saveDetails) {
+        try { await store.account.saveDetails({ name: v.name, mobile: v.mobile }); } catch (e) {
+          console.warn('[vastra] details not kept', e);
+        }
+      }
     }
     router.go(`/order/${order.code}`);
   });
@@ -313,8 +369,8 @@ const shipNew = (sel) => `
   <label class="pay-opt${sel === 'new' ? ' on' : ''}">
     <input type="radio" name="shipto" value="new" ${sel === 'new' ? 'checked' : ''}>
     <span>
-      <span class="pay-name">A new address</span>
-      <span class="pay-why">Type it in below.</span>
+      <span class="pay-name co-new">${icon('plus', 14)} Add a new address</span>
+      <span class="pay-why">Another place, or another name and number.</span>
     </span>
   </label>`;
 

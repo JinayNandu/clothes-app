@@ -566,6 +566,33 @@ export function lineRoadTo(from, to) {
   return steps;
 }
 
+/**
+ * GOING BACK (8 November 2026, the owner's ask: "they can undo the status
+ * too later"). The store may move an order, or one item, back to any EARLIER
+ * step of LINE_ROAD -- Shipped back to Packed after a wrong tap. Only along
+ * the road: a cancellation and a return are final, because money and stock
+ * follow them, and the store's pop-up says so before either is taken.
+ *
+ * ⚠️ THE SAME ROAD AS step_back_order() and step_back_line() in
+ * db/schema.sql; tools/db.pl compares their arrays with LINE_ROAD.
+ */
+export const canStepBack = (from, to) => {
+  const a = LINE_ROAD.indexOf(from);
+  const b = LINE_ROAD.indexOf(to);
+  return a >= 0 && b >= 0 && b < a;
+};
+
+/** The step of the road an order is AT -- or, once it has left the road
+ *  (cancelled, returned, abandoned), the step it left from: the last road
+ *  step its history reached, a step back included. */
+export function roadAt(o) {
+  if (!o) return null;
+  if (ORDER_PATH.includes(o.status)) return o.status;
+  const h = o.history || [];
+  for (let i = h.length - 1; i >= 0; i--) if (ORDER_PATH.includes(h[i].to)) return h[i].to;
+  return null;
+}
+
 /** Does this order carry a status on each item? An order read from a
  *  database not yet given them (schema.sql re-run), or kept in one browser,
  *  does not -- and then nothing offers to move one item. */
@@ -702,9 +729,12 @@ export const TRACK_LABEL = {
 };
 
 /** When the order ENTERED a status, from its own history; null if it never
- *  did. The latest entry wins. */
+ *  did. The latest entry wins -- but never a step BACK (`back: true`): moved
+ *  back from Shipped to Packed, it was packed when it was first packed, not
+ *  at the moment of the correction. */
 export function statusAt(order, status) {
   const h = (order && order.history) || [];
+  for (let i = h.length - 1; i >= 0; i--) if (h[i].to === status && !h[i].back) return h[i].at;
   for (let i = h.length - 1; i >= 0; i--) if (h[i].to === status) return h[i].at;
   return null;
 }
@@ -718,21 +748,27 @@ export function statusAt(order, status) {
  * left the road (cancelled, returned, abandoned) stops where it left it, and
  * its last row says how it ended: a timeline that went on promising
  * "Shipped: not yet" under a cancelled order would be inventing a future.
+ *
+ * ⚠️ DONE MEANS "AT OR BEFORE WHERE THE ORDER IS", not "has a date": since
+ * the store can step an order back, a Shipped entry stays in the history of
+ * an order that is Packed again, and must not draw Shipped green.
  */
 export function trackSteps(order) {
   const ended = ORDER_ENDS.includes(order.status);
+  const reach = ORDER_PATH.indexOf(roadAt(order));
   const rows = [];
-  for (const s of ORDER_PATH) {
+  ORDER_PATH.forEach((s, i) => {
     const at = statusAt(order, s);
     // An order placed online never was a draft in a browser: it reached the
     // shop the moment it existed. "Saved in this browser: Not yet" above it
     // would be a step it can never take.
-    if (s === 'draft' && !at && order.status !== 'draft') continue;
-    if (ended && !at) break;
-    const state = !at ? 'todo'
+    if (s === 'draft' && !at && order.status !== 'draft') return;
+    const done = i <= reach;
+    if (ended && !done) return;
+    const state = !done ? 'todo'
       : (s === order.status && s !== 'delivered' ? 'now' : 'done');
-    rows.push({ status: s, at, state });
-  }
+    rows.push({ status: s, at: done ? at : null, state });
+  });
   if (ended) rows.push({ status: order.status, at: statusAt(order, order.status), state: 'end' });
   return rows;
 }

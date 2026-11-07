@@ -422,12 +422,15 @@ $fn$;
 
 -- ---------------------------------------------------------------------
 --  roll_up_order -- the order follows its items. Called by advance_line
---  after every item move; granted to nobody, only called from inside.
+--  and step_back_line after every item move; granted to nobody, only
+--  called from inside.
 --
 --  STATUS: where the slowest item still on its way is; every item
 --  cancelled, the order is cancelled. A rise of more than one step writes
 --  each step passed into the history, so the customer's timeline never
---  shows "Packed: not yet" under "Shipped".
+--  shows "Packed: not yet" under "Shipped". An item stepped BACK below the
+--  order (step_back_line) takes the order back with it, in one entry
+--  marked as a step back.
 --
 --  MONEY, when an item is cancelled: the items total is what is left, and
 --  the coupon shrinks in PROPORTION -- worked out from what it was when
@@ -474,6 +477,10 @@ begin
   if now_st is distinct from was then
     if now_st in ('cancelled', 'returned') or not (was = any(road)) then
       hist := jsonb_build_array(jsonb_build_object('at', p_stamp, 'to', now_st));
+    elsif array_position(road, now_st) < array_position(road, was) then
+      -- An item was stepped BACK and is now the slowest (8 November 2026):
+      -- the order goes back with it, in one entry marked as a step back.
+      hist := jsonb_build_array(jsonb_build_object('at', p_stamp, 'to', now_st, 'back', true));
     else
       for i in array_position(road, was) + 1 .. array_position(road, now_st) loop
         hist := hist || jsonb_build_array(jsonb_build_object('at', p_stamp, 'to', road[i]));
@@ -482,7 +489,16 @@ begin
     update orders set
       status       = now_st,
       history      = history || hist,
-      delivered_at = case when now_st = 'delivered' then p_stamp::timestamptz else delivered_at end
+      -- Back from Delivered, the parcel has not landed: no delivery stamp,
+      -- so no return window running. Back before Shipped, no courier.
+      delivered_at = case when now_st = 'delivered' then p_stamp::timestamptz
+                          when was = 'delivered' and now_st = any(road)
+                           and array_position(road, now_st) < array_position(road, was) then null
+                          else delivered_at end,
+      shipment     = case when was = any(road) and now_st = any(road)
+                           and array_position(road, now_st) < array_position(road, was)
+                           and array_position(road, now_st) < array_position(road, 'shipped')
+                          then null else shipment end
      where id = p_oid;
   end if;
 
@@ -562,6 +578,91 @@ begin
   update orders set refunded = refunded + due, refunded_at = now(), updated_at = now()
    where id = p_oid;
   return due;
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  GOING BACK (8 November 2026, the owner's ask: "they can undo the
+--  status too later"). The store may move an order, or one item, back to
+--  any EARLIER step of the road -- Shipped back to Packed after a wrong
+--  tap. Staff only, like every move.
+--
+--  ⚠️ ONLY ALONG THE ROAD. A cancellation and a return are final: money
+--  and stock follow them, and the store's pop-up says so before either
+--  is taken. The road is the same list as LINE_ROAD in app/domain.js;
+--  tools/db.pl compares both arrays below with it.
+--
+--  Written into the history as a step back ('back': true), so the
+--  customer's timeline knows when each step really happened and draws
+--  only the steps up to where the order is now. A parcel taken back
+--  before Shipped loses its courier; one taken back from Delivered loses
+--  its delivery stamp, because the seven-day return window counts from
+--  it and must not run for a parcel that has not landed.
+-- ---------------------------------------------------------------------
+create or replace function step_back_order(p_oid uuid, p_to text)
+  returns void language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  road  text[] := array['sent', 'confirmed', 'packed', 'shipped', 'delivered'];
+  cur   text;
+  stamp text := iso_now();
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  select status into cur from orders where id = p_oid for update;
+  if cur is null then raise exception 'NO_SUCH_ORDER'; end if;
+  if p_to is null or not (cur = any(road)) or not (p_to = any(road))
+     or array_position(road, p_to) >= array_position(road, cur) then
+    raise exception 'BAD_STEP_BACK % -> %', cur, coalesce(p_to, 'nothing');
+  end if;
+
+  update orders set
+    status       = p_to,
+    history      = history || jsonb_build_array(jsonb_build_object('at', stamp, 'to', p_to,
+                                                                   'back', true)),
+    delivered_at = case when cur = 'delivered' then null else delivered_at end,
+    shipment     = case when array_position(road, p_to) < array_position(road, 'shipped')
+                        then null else shipment end,
+    updated_at   = now()
+  where id = p_oid;
+
+  -- The items AT the order's step go back with it -- the mirror of
+  -- advance_order(). An item further along on its own stays where it is:
+  -- the store moves that one back on its own if it means to.
+  update order_lines set
+    status   = p_to,
+    history  = history || jsonb_build_array(jsonb_build_object('at', stamp, 'to', p_to,
+                                                               'back', true)),
+    shipment = case when array_position(road, p_to) < array_position(road, 'shipped')
+                    then null else shipment end
+  where order_id = p_oid and status = cur;
+end;
+$fn$;
+
+create or replace function step_back_line(p_line bigint, p_to text)
+  returns void language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  road   text[] := array['sent', 'confirmed', 'packed', 'shipped', 'delivered'];
+  ord_id uuid;
+  lcur   text;
+  stamp  text := iso_now();
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  select order_id, status into ord_id, lcur from order_lines where id = p_line for update;
+  if ord_id is null then raise exception 'NO_SUCH_LINE'; end if;
+  if p_to is null or not (lcur = any(road)) or not (p_to = any(road))
+     or array_position(road, p_to) >= array_position(road, lcur) then
+    raise exception 'BAD_STEP_BACK % -> %', lcur, coalesce(p_to, 'nothing');
+  end if;
+
+  update order_lines set
+    status   = p_to,
+    history  = history || jsonb_build_array(jsonb_build_object('at', stamp, 'to', p_to,
+                                                               'back', true)),
+    shipment = case when array_position(road, p_to) < array_position(road, 'shipped')
+                    then null else shipment end
+  where id = p_line;
+
+  -- If this item is now the slowest, the order comes back with it.
+  perform roll_up_order(ord_id, stamp);
 end;
 $fn$;
 
@@ -884,6 +985,8 @@ revoke all on function take_handover(text)                    from public, anon,
 revoke all on function roll_up_order(uuid, text)              from public, anon, authenticated;
 revoke all on function advance_line(bigint, text, text, text) from public, anon, authenticated;
 revoke all on function mark_refund(uuid)                      from public, anon, authenticated;
+revoke all on function step_back_order(uuid, text)            from public, anon, authenticated;
+revoke all on function step_back_line(bigint, text)           from public, anon, authenticated;
 
 -- is_staff() runs inside the read policies, so the reader must be
 -- allowed to call it. The rest are the only writes there are.
@@ -901,3 +1004,5 @@ grant execute on function make_handover()                       to authenticated
 grant execute on function take_handover(text)                   to authenticated;
 grant execute on function advance_line(bigint, text, text, text) to authenticated;
 grant execute on function mark_refund(uuid)                     to authenticated;
+grant execute on function step_back_order(uuid, text)           to authenticated;
+grant execute on function step_back_line(bigint, text)          to authenticated;

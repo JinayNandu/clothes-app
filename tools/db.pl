@@ -108,6 +108,27 @@ if (@dblr && "@dblr" eq "@lroad") { ok(scalar(@dblr) . ' item steps, the same in
 else { fail("an item's road differs -- domain.js LINE_NEXT: @lroad; advance_line(): @dblr"); }
 
 # ---------------------------------------------------------------------------
+# 3c. GOING BACK (8 November 2026): step_back_order() and step_back_line()
+#     each carry the road they may walk back along. Both must be LINE_ROAD
+#     in domain.js, which canStepBack() reads -- or the board would offer a
+#     step back the server refuses, or the server allow one the page never
+#     drew.
+# ---------------------------------------------------------------------------
+my ($lroad_js) = $dom =~ /export const LINE_ROAD = \[([^\]]*)\]/
+  or die "could not find LINE_ROAD in domain.js\n";
+my $want_back = join ' ', $lroad_js =~ /'([a-z]+)'/g;
+for my $fn (qw(step_back_order step_back_line)) {
+  my ($body) = $sqlc =~ /function\s+\Q$fn\E\s*\(.*?\$fn\$(.*?)\$fn\$/s;
+  if (!defined $body) { fail("could not find $fn() in schema.sql"); next; }
+  my ($arr) = $body =~ /road\s+text\[\]\s*:=\s*array\[([^\]]*)\]/;
+  my $got = join ' ', (($arr // '') =~ /'([a-z]+)'/g);
+  if ($got eq $want_back) { ok("$fn() walks back along LINE_ROAD: $got"); }
+  else { fail("$fn() walks back along '$got' but domain.js LINE_ROAD is '$want_back'"); }
+  fail("$fn() does not check is_staff() first") unless $body =~ /^\s*begin\s+if\s+not\s+is_staff\(\)/m
+    || $body =~ /begin\s*\n\s*if\s+not\s+is_staff\(\)\s+then\s+raise\s+exception\s+'NOT_STAFF'/;
+}
+
+# ---------------------------------------------------------------------------
 # 4. Every table locked down: row-level security on, and named in the revoke
 #    that takes away whatever the project handed out by default.
 # ---------------------------------------------------------------------------

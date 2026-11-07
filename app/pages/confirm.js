@@ -22,6 +22,8 @@ import { OTP_LEN } from '../config.js';
 import { drawQR } from '../pay.js';
 import { seal, ornament } from '../brand.js';
 import { art } from '../art.js';
+import { orderChain } from '../components.js';
+import { icon } from '../icons.js';
 import * as D from '../domain.js';
 
 /**
@@ -90,6 +92,9 @@ router.registerScreen('confirm', async (host, r) => {
     order = fresh;
     for (const [sel, html] of [
       ['[data-title]', title(order)],
+      ['[data-sub]', subLine(order)],
+      ['[data-pill]', pill(order)],
+      ['[data-chain]', orderChain(order)],
       ['[data-arrive]', arriveLine(order, shop)],
       ['[data-status]', statusBlock(order, shop)],
       ['[data-track]', track(order)],
@@ -112,11 +117,13 @@ router.registerScreen('confirm', async (host, r) => {
 // ---------------------------------------------------------------------------
 // THE PAGE
 // ---------------------------------------------------------------------------
-// The order a customer reads it in: where it is, what is in it, how to pay,
-// then help. It used to put the handoff, payment and sign-in boxes first and
-// what was bought last -- under three panels most people never scrolled past.
-// A draft is the exception: it has reached nobody yet, so handing it over
-// comes straight after its status.
+// THE ORDER'S DETAILS, in the order a customer reads them (8 November 2026,
+// the owner's ask: "another page that gives details of that order and the
+// shipping chain … highlighting the part that is done"): where it is -- the
+// chain, live -- then what it says about that, what was bought and for how
+// much (each item opening its product), every step with its date, the
+// payment, then help. A draft is the exception: it has reached nobody yet, so
+// handing it over comes straight after its status.
 function page(o, shop, all) {
   const handoff = `
     <section class="panel" style="margin-top:var(--s4)">
@@ -125,25 +132,31 @@ function page(o, shop, all) {
         { subject: 'Order ' + o.code })}</div>
     </section>`;
   return `
-  <div style="max-width:720px;margin:0 auto">
-    <div style="text-align:center;margin-bottom:var(--s5)">
-      <span style="color:var(--gold)">${seal(56)}</span>
-      <h1 class="t-h1" style="margin-top:var(--s3)" data-title>${title(o)}</h1>
-      <p class="t-micro dim" style="margin-top:var(--s2)">
-        ${o.sentVia === 'online' ? 'Placed' : 'Saved'} ${D.fmtStamp(o.createdAt)}</p>
-      <p class="arrive" data-arrive>${arriveLine(o, shop)}</p>
-    </div>
+  <div class="od">
+    <a class="btn-ghost od-back" href="#/account">${icon('left', 14)} Your orders</a>
+    <header class="od-head">
+      <div class="od-head-mid">
+        <h1 class="t-h1" data-title>${title(o)}</h1>
+        <p class="od-sub" data-sub>${subLine(o)}</p>
+      </div>
+      <span data-pill>${pill(o)}</span>
+    </header>
+    <p class="arrive" data-arrive>${arriveLine(o, shop)}</p>
 
-    <div data-status>${statusBlock(o, shop)}</div>
+    <section class="panel od-chain" aria-label="Where it is">
+      <div data-chain>${orderChain(o)}</div>
+    </section>
+
+    <div data-status style="margin-top:var(--s4)">${statusBlock(o, shop)}</div>
 
     ${o.status === 'draft' ? handoff : ''}
 
-    <section class="panel" style="margin-top:var(--s5)">
-      <h2 class="t-h3">Where it is</h2>
+    <div data-ordered>${ordered(o, all)}</div>
+
+    <section class="panel" style="margin-top:var(--s4)">
+      <h2 class="t-h3">Every step, with its date</h2>
       <div data-track>${track(o)}</div>
     </section>
-
-    <div data-ordered>${ordered(o, all)}</div>
 
     <div data-pay></div>
 
@@ -162,7 +175,22 @@ function page(o, shop, all) {
 }
 
 const title = (o) =>
-  `${o.status === 'draft' ? 'Order request saved' : 'Your order'} &mdash; ${esc(o.code)}`;
+  `${o.status === 'draft' ? 'Order request' : 'Order'} ${esc(o.code)}`;
+
+/** "Placed 8 Nov 2026, 00:52 · 2 items · ₹6,096". */
+function subLine(o) {
+  const n = (o.lines || []).reduce((k, l) => k + (l.status === 'cancelled' ? 0 : l.qty), 0);
+  return `${o.sentVia === 'online' ? 'Placed' : 'Saved'} ${esc(D.fmtStamp(o.createdAt))} ·
+    ${n} ${n === 1 ? 'item' : 'items'} · ${D.rupees(o.grand)}`;
+}
+
+/** Where it is, in one word, the same word as on Your orders. */
+function pill(o) {
+  const word = o.status === 'sent' ? (o.sentVia === 'online' ? 'Ordered' : 'Sent')
+    : o.status === 'abandoned' && o.sentVia === 'online' ? 'Cancelled'
+    : D.STATUS_LABEL[o.status];
+  return `<span class="pill pill-${D.STATUS_TONE[o.status]}">${esc(word)}</span>`;
+}
 
 /**
  * KEEP IT ON ANY PHONE. A guest's order page is the moment the offer means
@@ -433,19 +461,22 @@ function ordered(o, all) {
           const sh = per && l.shipment && (l.shipment.courier || l.shipment.ref)
             ? `With ${l.shipment.courier || 'the courier'}${l.shipment.ref
               ? `, tracking number ${l.shipment.ref}` : ''}` : '';
-          return `<div class="oline${gone ? ' is-cancelled' : ''}">
-            ${p ? `<a class="oline-pic" href="#/p/${esc(p.slug)}"
-                 aria-label="${esc(l.name)}">${art(p, view)}</a>`
-              : '<span class="oline-pic" aria-hidden="true"></span>'}
-            <div class="oline-mid">
-              <div class="oline-name">${esc(l.name)}</div>
-              ${l.variantLabel ? `<div class="oline-meta">${esc(l.variantLabel)}</div>` : ''}
-              <div class="oline-meta">${D.rupees(l.unitPrice)} &times; ${l.qty}</div>
-              ${say ? `<div class="oline-state is-${esc(l.status)}">${esc(say)}</div>` : ''}
-              ${sh && !gone ? `<div class="oline-meta">${esc(sh)}</div>` : ''}
-            </div>
-            <div class="oline-sum">${D.rupees(l.lineTotal)}</div>
-          </div>`;
+          // The whole row opens the product, while it is still sold (the
+          // owner, 8 November 2026: "if I click on any product, it should open
+          // that product"). Gone from the catalogue, the row is only a record.
+          const tag = p ? `a href="#/p/${esc(p.slug)}"` : 'div';
+          return `<${tag} class="oline${gone ? ' is-cancelled' : ''}${p ? ' is-link' : ''}">
+            <span class="oline-pic" aria-hidden="true">${p ? art(p, view) : ''}</span>
+            <span class="oline-mid">
+              <span class="oline-name">${esc(l.name)}</span>
+              ${l.variantLabel ? `<span class="oline-meta">${esc(l.variantLabel)}</span>` : ''}
+              <span class="oline-meta">${D.rupees(l.unitPrice)} &times; ${l.qty}</span>
+              ${say ? `<span class="oline-state is-${esc(l.status)}">${esc(say)}</span>` : ''}
+              ${sh && !gone ? `<span class="oline-meta">${esc(sh)}</span>` : ''}
+            </span>
+            <span class="oline-sum">${D.rupees(l.lineTotal)}${p
+              ? `<span class="oline-go">${icon('chevron', 14)}</span>` : ''}</span>
+          </${p ? 'a' : 'div'}>`;
         }).join('')}
       </div>
       ${per && was !== o.grand && !['cancelled', 'abandoned'].includes(o.status)

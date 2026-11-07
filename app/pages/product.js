@@ -112,7 +112,7 @@ router.registerScreen('product', async (host, r) => {
           <div class="t-eyebrow sc-row">
             <span>Size</span>
             ${chart ? `<button type="button" class="sc-link" data-sizeguide>
-              ${icon('info', 14)} Size guide</button>` : ''}
+              ${icon('ruler', 14)} Size chart</button>` : ''}
           </div>
           <div class="pdp-sizes" data-sizes>
             ${p.variants.size.map((s) => `
@@ -250,7 +250,7 @@ router.registerScreen('product', async (host, r) => {
   const guide = host.querySelector('[data-sizeguide]');
   if (guide) {
     guide.addEventListener('click', () => {
-      openSheet(`Size guide — ${chart.label || p.name}`,
+      openSheet(`Size chart — ${chart.label || p.name}`,
                 sizeChart(p, shop, sel.size));
     });
   }

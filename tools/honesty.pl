@@ -194,20 +194,36 @@ if (!$place) {
 # a second writer -- a page stamping it on display, a timer -- would move the
 # day a customer can no longer send something back.
 # ---------------------------------------------------------------------------
-my @dwrite;
+#
+# ONE more writer since 8 November 2026, deliberately: stepBack(), which the
+# store uses to undo a wrong tap, sets it back to NULL as an order leaves
+# Delivered -- a parcel that has not landed must not have a return window
+# running. Null only, in that function only; anything else still fails.
+# ---------------------------------------------------------------------------
+my (@dwrite, @dclear);
 for my $rel (@FILES) {
   my @lines = split /\n/, $CODE{$rel};
   for my $i (0 .. $#lines) {
-    push @dwrite, "app$rel:" . ($i + 1) if $lines[$i] =~ /\.deliveredAt\s*=(?!=)/;
+    next unless $lines[$i] =~ /\.deliveredAt\s*=(?!=)/;
+    if ($rel eq '/backend-local.js'
+        && $lines[$i] =~ /^\s*if\s*\(\s*was\s*===\s*'delivered'\s*\)\s*o\.deliveredAt\s*=\s*null\s*;\s*$/) {
+      push @dclear, "app$rel:" . ($i + 1);
+    } else {
+      push @dwrite, "app$rel:" . ($i + 1);
+    }
   }
 }
 my ($adv) = $bl =~ /\nfunction advance\s*\([^)]*\)\s*\{(.*?)\n\}/s;
+my ($sback) = $bl =~ /\n  async stepBack\s*\([^)]*\)\s*\{(.*?)\n  \},/s;
 if (@dwrite != 1) {
   fail('deliveredAt is written in ' . scalar(@dwrite) . ' places, not one: ' . join(', ', @dwrite));
 } elsif (!$adv || $adv !~ /if\s*\(\s*to\s*===\s*'delivered'\s*\)\s*o\.deliveredAt\s*=\s*at\s*;/) {
   fail("deliveredAt is not stamped by advance() as the order becomes delivered ($dwrite[0])");
+} elsif (@dclear > 1 || (@dclear && (!$sback || $sback !~ /o\.deliveredAt\s*=\s*null/))) {
+  fail('deliveredAt is cleared somewhere other than stepBack(): ' . join(', ', @dclear));
 } else {
-  ok('deliveredAt is stamped in one place, as an order becomes delivered');
+  ok('deliveredAt is stamped in one place, as an order becomes delivered'
+     . (@dclear ? ', and cleared only by a step back from Delivered' : ''));
 }
 
 # ---------------------------------------------------------------------------
@@ -255,7 +271,13 @@ ok('the delivery promise is made once, as an order is sent, and only read after 
   unless $promise_bad;
 
 # ---------------------------------------------------------------------------
-# 5. Signing in is OFFERED, NEVER REQUIRED, and never a password.
+# 5. Signing in is never a password, never a screen of its own, and never
+#    required BY THE SERVER.
+#
+# Since 8 November 2026 checkout asks for it -- the owner's call: "how will
+# they ever view that order again" -- through config.js SIGN_IN_TO_ORDER, a
+# PAGE rule. d. below is why that is safe: the server still takes a guest, so
+# if codes ever stop arriving, one flag brings guest checkout back.
 #
 # Until step 7 this rule was "there is no login, anywhere": a login form that
 # accepts any password is the most dishonest thing this site could ship, and
@@ -272,8 +294,9 @@ ok('the delivery promise is made once, as an order is sent, and only read after 
 #      the one password input in the project, and it is not the shop's.
 #   c. Only backend-supabase.js talks to Supabase's sign-in, and never with a
 #      password: no signInWithPassword, no signUp.
-#   d. Buying never waits on an account: orders.place() makes its own guest
-#      session first, so an order goes through for somebody never signed in.
+#   d. The server never waits on an account: orders.place() makes its own
+#      guest session first, so an order goes through for somebody never
+#      signed in the moment SIGN_IN_TO_ORDER is off.
 # ---------------------------------------------------------------------------
 my $dom = slurp("$APP/domain.js");
 my $html = slurp("$APP/index.html");
@@ -335,10 +358,10 @@ ok('only backend-supabase.js signs anyone in, and never with a password')
   unless @pw_calls || @auth_calls;
 
 # d. An order goes through for somebody never signed in.
-my ($place) = ($CODE{'/backend-supabase.js'} // '') =~ /async\s+place\s*\(\s*draft\s*\)\s*\{(.*?)\n  \},/s;
-if (!defined $place) {
+my ($splace) = ($CODE{'/backend-supabase.js'} // '') =~ /async\s+place\s*\(\s*draft\s*\)\s*\{(.*?)\n  \},/s;
+if (!defined $splace) {
   fail('could not find orders.place() in backend-supabase.js');
-} elsif ($place !~ /^\s*await\s+begin\(\)\s*;/) {
+} elsif ($splace !~ /^\s*await\s+begin\(\)\s*;/) {
   fail('orders.place() no longer starts by making its own guest session -- '
      . 'buying must never wait on an account');
 } else {

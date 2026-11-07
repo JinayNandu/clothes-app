@@ -11,6 +11,12 @@ accounts, is built and switched ON** (`SIGN_IN` in `app/config.js`), the same
 day, once the owner had set up the email sender and templates (db/SETUP.md
 step 7). The owner's own sign-in code **arrived by email**, 7 November 2026 —
 the shop's own sender and the code template, working on the real project.
+**8 November 2026, on the owner's list:** checkout asks the customer to
+**sign in first** and saves their addresses; a **profile page** behind a
+person icon on every screen; an **order-details page** with the order's
+chain; **Size chart** in words under every card's sizes; and on the store,
+a **pop-up** in place of every second tap and **going back a step** —
+which needs `schema.sql` run again (db/SETUP.md step 9).
 See *Where this is*, *Accounts* and *The order of work*.
 
 ---
@@ -84,15 +90,15 @@ for the store owner**.
 | Browse — home, category listing, product page, gallery, variant picker | **Built.** Started from a copy of DEVI's code and re-pointed at garments; nothing is shared with DEVI now |
 | Cart, coupon, totals | **Built.** `money.pl` green, including the size delta |
 | Add to bag, as it feels | **Built, 7 November 2026, on the owner's ask.** A card's Add to bag **asks for a size** (a panel over the photo; each chip names its size and any extra cost), then turns into **− M · n in bag +** for that line; − at one takes it off. A card's colour dots switch its photo and the colour added. A see-through copy of the photo flies into the bag (`ui.js` `flyToBag`) and the bag's count goes up **as it lands**, one per flight, so quick taps read 1, 2, 3. The bag fills with ink once something is in it and says "Bag" from 1024 up. See *Sizes that are garment sizes* for the rule |
-| Checkout, address, pay options | **Built**: it saves to this browser and hands off on WhatsApp |
-| An order, end to end | **Built (step 4).** Saved → sent by the customer → confirmed, packed, shipped (courier and tracking number optional) and delivered by the store. The customer's order page draws the journey as a timeline and follows it live; `deliveredAt` is stamped on delivery. ⚠️ Shop and store meet only in the same browser until step 6. **Stock is not taken off on ordering** — that belongs on the server, where two phones cannot both buy the last one |
+| Checkout, address, pay options | **Built.** With the database it places the order. **Since 8 November 2026 it asks the customer to sign in first** — the owner: "how will they ever view that order again" — as step 1, in place on the page (`config.js` `SIGN_IN_TO_ORDER`, a PAGE rule: the server still takes a guest, so one flag brings guest checkout back if codes stop arriving). Signed in: the account's saved addresses as cards, the default first, and "Add a new address", prefilled from the account's name and mobile; a new address is **saved to the account as the order goes through** — no tick box, not twice, not past ten — and the account's name and mobile are kept the first time. UPI or cash on delivery. In one browser, as before: no sign-in, a form, the WhatsApp handoff |
+| An order, end to end | **Built (step 4).** Saved → sent by the customer → confirmed, packed, shipped (courier and tracking number optional) and delivered by the store. `deliveredAt` is stamped on delivery. **The order-details page** (8 November 2026, the owner's ask): a way back to Your orders, the code and its pill, then the order's **chain** — Ordered, Confirmed, Packed, Shipped, Delivered, green up to where it is (`components.js` `orderChain`, built from `trackSteps()`) — following the store live; what it says about that; what was bought, **each item opening its product page**; every step with its date; payment; help. **Your orders** shows each order as a card, tapped anywhere (only the code could be tapped before), with its photos, total, delivery range and a small chain. **Stock is not taken off on ordering** — that belongs on the server, where two phones cannot both buy the last one |
 | Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED. Photographs are Unsplash stand-ins, credited in `shop.json` `photos` and on the About page |
-| Size charts | **Built.** A Size guide panel on the product page, plus a no-tap fit hint under the picker |
+| Size charts | **Built.** A **Size chart** pop-up from the product page and, since 8 November 2026, from every card's size picker — a full-width line in words under the chips, because the info icon in the panel's corner (words only from 600px) went unseen on a phone. The table opens with one line on how to read it ("Measure your chest, and find it under To fit chest"), plus the no-tap fit hint under the product page's picker |
 | Delivery range | **Frozen into the order (step 5)** as it reaches the shop, and read back everywhere after. Live only where it should be: the product page and the shipping page. The store flags an order **Late** once its last promised day has passed |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
-| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). **Each item has its own status** (built 7 November 2026, on the owner's yes): a "Move this item to…" menu and Cancel item on every item; the order's status is its slowest item still on its way (`roll_up_order`), rising through every step it passes; cancelling an item takes it out of the total and shrinks the coupon in proportion to `discount_placed`; paid and then cut, the store sees "Refund ₹X" and notes it sent (`mark_refund`), and the customer sees what is owed, then when it went. Needs `schema.sql` re-run — the page hides every per-item control until items carry a status (`D.hasItemStatus`) — and `db/selftest.sql` proves the SQL on the real database and rolls back. See *Two pages* |
+| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). **Each item has its own status** (built 7 November 2026, on the owner's yes): a "Move this item to…" menu and Cancel item on every item; the order's status is its slowest item still on its way (`roll_up_order`), rising through every step it passes; cancelling an item takes it out of the total and shrinks the coupon in proportion to `discount_placed`; paid and then cut, the store sees "Refund ₹X" and notes it sent (`mark_refund`), and the customer sees what is owed, then when it went. Needs `schema.sql` re-run — the page hides every per-item control until items carry a status (`D.hasItemStatus`) — and `db/selftest.sql` proves the SQL on the real database and rolls back. **Since 8 November 2026, on the owner's word:** every second tap is a **pop-up that says what will happen** (`ui.js` `askFirst` — never `window.confirm()`, which the artifact viewers answer "no" unseen); a step BEHIND the order is a button as well as every step ahead, plus "Back to <step>", and the order — or one item — goes **back** (see *Each item's own status*); each item's one menu holds Move on, Move back, Cancel this item and Returned (the owner looked for Cancel there), with Cancel item a button beside it too; courier and tracking number are asked in the Shipped pop-up; the overview's "Late" is **Running late**, "None past the delivery date promised to the customer" ("What is 0 late? Late for what?"). Going back needs `schema.sql` run again (db/SETUP.md step 9); until then the board says so. See *Two pages* |
 | Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
-| Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. **The first real code arrived by email** (the owner, 7 November 2026), so the sender, SMTP and the code template work. ⚠️ Still unseen: signing in on a SECOND phone, which takes the other template (Magic Link). See *Accounts* |
+| Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. **The first real code arrived by email** (the owner, 7 November 2026), so the sender, SMTP and the code template work. ⚠️ Still unseen: signing in on a SECOND phone, which takes the other template (Magic Link). **8 November 2026:** required at checkout (above), and a **profile page** (`#/account`) behind a person icon in the header on every screen, a phone included — who you are, your orders, saved addresses (signed in with none, the form is already open), your name and mobile (kept on the account, Supabase `user_metadata`), Help and support (the shop's phone, WhatsApp, email, hours, the policy pages) and Settings (wishlist, bag, sign out, clear this browser), after Milan's settings screen. See *Accounts* |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
 | Public site | Shop <https://jinaynandu.github.io/clothes-app/>, store <https://jinaynandu.github.io/clothes-app/store/> — see *Published*. The shop wears a Preview bar while placeholder is true; the store a Not locked yet bar until step 8 |
 
@@ -255,6 +261,31 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   `set_paid`, so `refundDue()` = paid − what is now owed − refunded, the
   same sum as `mark_refund`. Like `paid`, a refund is a person's note;
   `honesty.pl` keeps `markRefund()` to the store board.
+- **Going back** (8 November 2026, the owner: "they can undo the status too
+  later"). `step_back_order` and `step_back_line`, staff only, move an
+  order or one item to any EARLIER step of `LINE_ROAD` — never forward,
+  never out of a cancellation or a return, which stay final because money
+  and stock follow them (the pop-up says "This cannot be undone" before
+  either). The order going back takes the items AT its step with it — the
+  mirror of `advance_order` — and an item further along on its own stays;
+  an item going back below the order takes the order down with it
+  (`roll_up_order` now moves both ways). Written as `{at, to, back: true}`;
+  `statusAt()` prefers an entry that is not a step back, so Packed keeps
+  the time it was first packed. Back before Shipped clears the courier;
+  back from Delivered clears `delivered_at`, so no return window runs for
+  a parcel that has not landed — in one browser that is `stepBack()`, the
+  second writer of `deliveredAt` that `honesty.pl` allows, to null only.
+  ⚠️ **`trackSteps()` and the board count "done" by where the order IS**,
+  not by whether a step has a date: a stepped-back order still has Shipped
+  in its history. `db.pl` compares both functions' road with `LINE_ROAD`
+  and that each checks `is_staff()` first; both proved by breaking them.
+  The self-test has five orders and four more rules (10–13). Tested in the
+  preview against a stand-in mirroring the SQL: Mark packed from New in
+  one pop-up (Confirm, then Pack), Mark shipped with a courier, Back to
+  Packed (courier cleared, Packed at its first time, Shipped not green on
+  the customer's chain), an item cancelled from its menu with the refund
+  offered, the shipped item moved back taking the order down, and the
+  message a database not yet re-run gives.
 - **Tolerant both ways:** an order read from a database not yet re-run,
   or kept in one browser, has no item statuses, and every per-item control
   and label stays away (`D.hasItemStatus`). The one-browser backend has
@@ -286,8 +317,15 @@ Built 7 November 2026, on the owner's ask ("like we have in the Milan
 app"), from Milan's account layer (`kirana/app/backend-supabase.js`,
 `kirana/db/SETUP.md` steps 3–5) with two of its gaps closed.
 
-- **Offered, never required, never a password.** A guest browses, bags
-  and orders exactly as before. The sign-in box (`app/signin.js`) lives
+- **Required at checkout since 8 November 2026 — by the page, never by the
+  server, and never a password.** The owner: "a person cannot order unless
+  they are signed in — how will they ever view that order again". Browsing
+  and the bag never ask. `SIGN_IN_TO_ORDER` in `config.js` is the switch;
+  `place_order()` still takes a guest (`db.pl` section 8, `honesty.pl`
+  5d), deliberately, so a lapsed email sender is one flag from guest
+  checkout again rather than a shop that cannot sell. Until 8 November it
+  was "offered, never required": a guest ordered exactly as before.
+  The sign-in box (`app/signin.js`) lives
   inside three pages — account, checkout, and an order's page after a
   guest's order — and is never a screen of its own. `honesty.pl` rule 5
   was "no login, anywhere" until this step; it was relaxed DELIBERATELY to
@@ -332,7 +370,15 @@ app"), from Milan's account layer (`kirana/app/backend-supabase.js`,
   it); written only by `save_address`, `set_default_address`,
   `delete_address`, each refusing anyone not `signed_in()`. Ten per
   account; the first is the default. Checkout offers them as cards; a new
-  address is saved to the account only after the order goes through.
+  address is saved to the account only after the order goes through —
+  always since 8 November 2026 (the tick box is gone), unless the same
+  address is there already or the book is full.
+- **The account's own name and mobile** (8 November 2026) live in
+  Supabase's `user_metadata` — `account.saveDetails()`, through
+  `updateUser({ data })`, which only the account's owner can call — so they
+  follow the person to any phone and prefill a new address. Never read by
+  the server to decide anything. The profile page edits them; checkout
+  keeps them the first time an order is placed.
 - **`signed_in()` reads `auth.users`**, not the token, and is granted to
   nobody: only the functions call it. `db.pl` also fails if
   `place_order()` ever calls it — buying must never need an account.
@@ -353,6 +399,18 @@ app"), from Milan's account layer (`kirana/app/backend-supabase.js`,
   real project can show**: the codes arriving, the two templates, the
   new SQL running. db/SETUP.md step 7, then the owner signs in with their
   own email.
+- **Tested 8 November 2026 against a stand-in** — one fake Supabase for
+  both pages, its state in localStorage so an order placed in the shop is
+  on the store's board (temporary `app/zz-*` pages, kept out of git by
+  `.git/info/exclude` and deleted after): the profile's sign-in with the
+  address form already open, an address and the name and mobile saved;
+  checkout signed out asking for sign-in first, its button saying so and
+  taking the customer to the box; signing in there with an email already
+  known (the second-phone road: Magic Link and the hand-over ticket)
+  bringing both saved addresses; a new address typed at checkout saved
+  with the order; the order cards and the order page's chain following
+  the store's moves; 375 px and 1280 px. ⚠️ Still only the real project
+  can show the Magic Link template's email arriving.
 
 ## Two pages: the shop and the store
 
@@ -393,8 +451,10 @@ app"), from Milan's account layer (`kirana/app/backend-supabase.js`,
   (WhatsApp, phone, email or copied text); that is the only step that is
   theirs. Everything after is a button on the store's board: *Confirm*,
   *Mark packed*, *Mark shipped* (with an optional courier and tracking
-  number), *Mark delivered*. Cancel, returned and abandoned are ends and take
-  two taps. `domain.js` owns the road (`ORDER_PATH`, `ORDER_NEXT`), the words
+  number), *Mark delivered*. Cancel, returned and abandoned are ends. Since
+  8 November 2026 every step asks first in a pop-up (`askFirst`) instead of
+  a second tap, and a step can be taken back along the road. `domain.js`
+  owns the road (`ORDER_PATH`, `ORDER_NEXT`, `canStepBack`), the words
   (`STATUS_LABEL` for the store, `TRACK_LABEL` for the customer,
   `ACTION_LABEL` for the buttons) and `trackSteps()`, which takes every date
   from the order's own history and never works one out.
@@ -682,7 +742,11 @@ Steps 1–5 are the demo. 6–10 make it a shop.
   payment received" is the owner's button for what they saw in the bank;
   every shop page is still held to all four. And the "Not set up yet"
   gateway notice left the load-bearing list, because the card options it
-  explained are gone.
+  explained are gone. **Twice more on 8 November 2026, as deliberately:**
+  rule 4b lets `stepBack()` set `deliveredAt` back to null (and nothing
+  else write it); rule 5 is no longer "signing in is never required" but
+  "never required BY THE SERVER" — checkout asks for it, `place_order()`
+  still takes a guest.
 
 - ⚠️ **The photographs are stand-ins, and that is still the biggest risk
   to the whole idea.** Since 4 November 2026 every product, both category

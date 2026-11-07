@@ -263,6 +263,13 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   (VA-9001…, item ids 9000000011…, so no real sequence moves), checks
   nine rules, and ends with an error on purpose so everything rolls back:
   `ALL GOOD -- every check passed, and nothing was saved`.
+- **Proved on the real database, 7 November 2026**: the owner re-ran
+  `schema.sql`, then `selftest.sql` answered `ALL GOOD -- every check
+  passed, and nothing was saved`. The self-test runs with the SQL editor's
+  rights, which skip grants, so the grants were probed from outside as a
+  throwaway guest: `advance_line`, `mark_refund` and `advance_order` are
+  reachable and say NOT_STAFF; `roll_up_order` is refused outright (403);
+  the new item and order columns read back (200, empty under RLS).
 - **Tested in the preview** against a stand-in that mirrors the SQL in JS:
   a two-step item move asks first; one item packed leaves the order New;
   paid then the other item cancelled lifts the order to Packed through

@@ -37,11 +37,16 @@ router.registerScreen('product', async (host, r) => {
 
   // Selection lives in a closure, not in the URL: a half-chosen variant is not
   // a place anyone wants to land from a shared link.
+  //
+  // ⚠️ NO SIZE until one is tapped (7 November 2026). The first size used to
+  // come preselected, so Add to bag put an S in the bag for anyone who never
+  // looked at the sizes -- the same return the cards used to cause. A product
+  // with a single size has nothing to choose, and gets it.
+  const sizes = (p.variants && p.variants.size) || [];
   const sel = {
     colour: p.variants && p.variants.colour && p.variants.colour.length
       ? p.variants.colour[0].id : null,
-    size: p.variants && p.variants.size && p.variants.size.length
-      ? p.variants.size[0].id : null,
+    size: sizes.length === 1 ? sizes[0].id : null,
   };
   let qty = 1;
   let view = 0;
@@ -63,6 +68,10 @@ router.registerScreen('product', async (host, r) => {
   // already fails on a product that sells sizes with no chart behind them, so
   // this branch only fires on a tree where the checks were never run.
   const chart = chartFor(p, shop);
+
+  /** The line under the sizes: how the chosen size fits, or a request for one. */
+  const hintFor = (size) => (size ? fitHint(p, shop, size)
+    : `Pick your size${chart ? ' to see how it fits' : ''}.`);
 
   host.innerHTML = `
   ${crumbs([
@@ -111,8 +120,10 @@ router.registerScreen('product', async (host, r) => {
                 data-size="${esc(s.id)}">${esc(s.label)}</button>`).join('')}
           </div>
           <!-- ⚠️ The fit hint, not the table, is the thing most people read.
-               It costs no taps and sits beside the size they just chose. -->
-          <p class="sc-hint" data-fithint>${fitHint(p, shop, sel.size)}</p>
+               It costs no taps and sits beside the size they just chose.
+               Before a size is chosen it asks for one, and Add to bag with
+               none chosen says so here, where the eye already is. -->
+          <p class="sc-hint" data-fithint aria-live="polite">${hintFor(sel.size)}</p>
         </div>` : ''}
 
       ${out ? notice('bad', '<b>Sold out.</b> We buy in small batches, so this '
@@ -226,7 +237,10 @@ router.registerScreen('product', async (host, r) => {
       // under a highlighted XXL is worse than no hint: it is a wrong
       // measurement shown at the exact moment of the decision.
       const fh = host.querySelector('[data-fithint]');
-      if (fh) fh.innerHTML = fitHint(p, shop, sel.size);
+      if (fh) {
+        fh.innerHTML = hintFor(sel.size);
+        fh.classList.remove('sc-need');
+      }
     });
   }
 
@@ -257,6 +271,18 @@ router.registerScreen('product', async (host, r) => {
   const buy = $('[data-buy]');
   if (buy && !out) {
     buy.addEventListener('click', async () => {
+      if (!sel.size && sizes.length > 1) {
+        // Nothing goes in the bag. The request sits under the sizes, and the
+        // focus goes to the first of them, so a keyboard can answer it at once.
+        const fh = $('[data-fithint]');
+        if (fh) {
+          fh.innerHTML = '<b>Pick a size first.</b> Nothing has gone in your bag yet.';
+          fh.classList.add('sc-need');
+        }
+        const first = $('[data-size]');
+        if (first) first.focus();
+        return;
+      }
       flyToBag($('[data-main]'), qty);     // before the add: see ui.js
       await store.cart.add(p.id, qty, { ...sel });
       const label = D.variantLabel(p, sel);

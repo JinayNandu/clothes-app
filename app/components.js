@@ -9,7 +9,7 @@
 
 import { esc } from './ui.js';
 import { icon, heartFilled } from './icons.js';
-import { art } from './art.js';
+import { art, viewCount } from './art.js';
 import * as D from './domain.js';
 
 // ---------------------------------------------------------------------------
@@ -72,56 +72,129 @@ function tileBadge(p, shop) {
 }
 
 // ---------------------------------------------------------------------------
-// THE CARD'S BUTTON: Add to bag, then − n + once its line is in the bag.
+// THE CARD'S BUTTON: Add to bag -> a size -> − M · n +.
 //
-// A card has no picker, so it stands for ONE line -- D.defaultVariant(), the
-// first colour and the first size -- and its count is that line's, not every
-// size of the product added up: − on a card must take off something the card
-// put on, never a size chosen on the product page.
+// ⚠️ A GARMENT IS NEVER ADDED IN A SIZE NOBODY CHOSE. On a product with more
+// than one size, Add to bag opens the size panel (sizePanel, below; app.js
+// opens and closes it) and only a size somebody tapped goes in the bag. It
+// used to add the first size, S, without asking: a return waiting to happen,
+// and the − n + made three of them three taps.
 //
-// `bag` is the bag as last read. app.js sets it at boot and on every change,
-// so a card drawn by ANY screen comes out in the right state without each
-// page reading the bag, and paintCtas() moves the cards already on screen
-// without redrawing them. + is a data-add like the first button, so both go
-// through the one handler in app.js, flight to the bag included.
+// After that a card counts ONE line: this product, in the colour the card
+// shows, in the size added LAST -- the newest such line in the bag, so the
+// size just tapped is the size on the bar. − takes one of that size off; at
+// none, Add to bag comes back. A second size is the product page's job.
+//
+// `bag` is the bag as last read, in bag order. app.js sets it at boot and on
+// every change, so a card drawn by ANY screen comes out in the right state
+// without each page reading the bag, and paintCtas() moves the cards already
+// on screen without redrawing them.
 // ---------------------------------------------------------------------------
-let bag = new Map();
-export function setBag(lines) {
-  bag = new Map(lines.map((l) => [D.lineKey(l), l.qty]));
-}
+let bag = [];
+export function setBag(lines) { bag = lines; }
 
+const sizesOf = (p) => (p && p.variants && p.variants.size) || [];
 const fullTitle = (qty, max) => (qty >= max ? `Only ${max} in stock` : '');
 
-const ctaBody = (pid, qty, max) => (qty
-  ? `<div class="bag-step" role="group" aria-label="In your bag">
-      <button type="button" data-less aria-label="One fewer">${icon('minus', 16)}</button>
-      <span class="bag-step-n" aria-live="polite">${qty} in bag</span>
-      <button type="button" data-add="${esc(pid)}" aria-label="One more"
-        title="${fullTitle(qty, max)}" ${qty >= max ? 'disabled' : ''}>${icon('plus', 16)}</button>
-    </div>`
-  : `<button class="btn btn-secondary btn-sm btn-block" data-add="${esc(pid)}">Add to bag</button>`);
+/** The line a card counts: the newest one of this product in this colour. */
+function cardLine(pid, colour) {
+  for (let i = bag.length - 1; i >= 0; i -= 1) {
+    const l = bag[i];
+    if (l.pid === pid && ((l.variant && l.variant.colour) || '') === colour) return l;
+  }
+  return null;
+}
+
+/** `labels` is { sizeId: label }, and empty for a product with one size or
+ *  none: there is nothing to choose, so nothing to name and no panel. */
+function ctaInner(pid, line, max, labels) {
+  const asks = Object.keys(labels).length > 1;
+  if (!line) {
+    return `<button class="btn btn-secondary btn-sm btn-block" data-add="${esc(pid)}"
+      ${asks ? 'aria-expanded="false"' : ''}>Add to bag</button>`;
+  }
+  const size = labels[(line.variant && line.variant.size) || ''] || '';
+  return `<div class="bag-step" role="group" data-line="${esc(D.lineKey(line))}"
+      aria-label="In your bag${size ? `, size ${esc(size)}` : ''}">
+    <button type="button" data-less aria-label="One fewer">${icon('minus', 16)}</button>
+    <span class="bag-step-n" aria-live="polite">${size ? `<b>${esc(size)}</b> · ` : ''}<span
+      data-n>${line.qty}</span><span class="bag-step-word"> in bag</span></span>
+    <button type="button" data-more aria-label="One more" title="${fullTitle(line.qty, max)}"
+      ${line.qty >= max ? 'disabled' : ''}>${icon('plus', 16)}</button>
+  </div>`;
+}
+
+const labelsOf = (box) => (box.dataset.sizes ? JSON.parse(box.dataset.sizes) : {});
 
 export function paintCtas(root = document) {
   for (const box of root.querySelectorAll('[data-cta]')) {
-    const qty = bag.get(box.dataset.key) || 0;
+    const line = cardLine(box.dataset.cta, box.dataset.colour || '');
     const max = Number(box.dataset.max);
-    const n = box.querySelector('.bag-step-n');
-    if (qty && n) {
-      // Already a stepper: change the number and nothing else, so the button
-      // just pressed keeps focus and a second quick tap still lands on it.
-      const plus = box.querySelector('[data-add]');
-      n.textContent = `${qty} in bag`;
-      plus.disabled = qty >= max;
-      plus.title = fullTitle(qty, max);
+    const step = box.querySelector('.bag-step');
+    if (line && step && step.dataset.line === D.lineKey(line)) {
+      // The same line: the number and nothing else, so the button just
+      // pressed keeps focus and a second quick tap still lands on it.
+      const more = step.querySelector('[data-more]');
+      step.querySelector('[data-n]').textContent = line.qty;
+      more.disabled = line.qty >= max;
+      more.title = fullTitle(line.qty, max);
       continue;
     }
-    if (!qty && !n) continue;
-    // Button <-> stepper. Focus follows, or a keyboard user who pressed Add
-    // to bag is left on a button that no longer exists.
+    if (!line && !step) continue;
+    // Button <-> bar, or the bar onto another size. Focus follows, or a
+    // keyboard user is left on a button that no longer exists.
     const had = box.contains(document.activeElement);
-    box.innerHTML = ctaBody(box.dataset.cta, qty, max);
-    const next = box.querySelector('[data-add]:not(:disabled)') || box.querySelector('[data-less]');
+    box.innerHTML = ctaInner(box.dataset.cta, line, max, labelsOf(box));
+    const next = box.querySelector('[data-more]:not(:disabled), [data-add]')
+      || box.querySelector('[data-less]');
     if (had && next) next.focus();
+  }
+}
+
+/** The panel a card's Add to bag opens on a product with sizes. Each chip
+ *  names its size and, where it costs more, how much more: the card shows
+ *  the S price, and XL is ₹50 over it because it takes more cloth. The fit
+ *  line ("Fits a 40 in chest") rides on each chip as its tooltip. */
+export function sizePanel(p, shop) {
+  const chart = chartFor(p, shop);
+  const chips = sizesOf(p).map((s) => {
+    const fit = fitHint(p, shop, s.id).replace(/<[^>]+>/g, '');
+    return `<button type="button" class="chip" data-pick="${esc(s.id)}"
+      aria-label="Size ${esc(s.label)}${s.delta ? `, ${D.rupees(s.delta)} more` : ''}"
+      ${fit ? `title="${fit}"` : ''}>${esc(s.label)}${s.delta
+        ? `<small>+${D.rupees(s.delta)}</small>` : ''}</button>`;
+  }).join('');
+  return `<div class="card-sizes" data-sizes-panel>
+    <div class="card-sizes-panel" role="group" aria-label="Pick a size">
+      <div class="card-sizes-head">
+        <span class="card-sizes-title">Pick a size</span>
+        ${chart ? `<button type="button" class="card-sizes-btn" data-sizes-guide
+          aria-label="Size guide" title="Size guide">${icon('info', 15)}<span
+          class="card-sizes-gtext">Size guide</span></button>` : ''}
+        <button type="button" class="card-sizes-btn" data-sizes-close
+          aria-label="Close the sizes">${icon('close', 15)}</button>
+      </div>
+      <div class="card-sizes-grid">${chips}</div>
+    </div>
+  </div>`;
+}
+
+/** A card's colour dot. The photo, the ringed dot and the line the card counts
+ *  all move to that colour, so the bag gets the colour on screen. The dots
+ *  used to do nothing on a card: tap Turmeric, add, and receive Indigo. */
+export function setCardColour(card, p, id) {
+  const c = ((p.variants && p.variants.colour) || []).find((x) => x.id === id);
+  if (!c) return;
+  card.querySelector('[data-art]').innerHTML =
+    art(p, c.img != null && c.img < viewCount(p) ? c.img : 0);
+  for (const b of card.querySelectorAll('[data-sw]')) {
+    b.classList.toggle('on', b.dataset.sw === id);
+    b.setAttribute('aria-pressed', String(b.dataset.sw === id));
+  }
+  const box = card.querySelector('[data-cta]');
+  if (box) {
+    box.dataset.colour = id;
+    paintCtas(card);
   }
 }
 
@@ -133,12 +206,17 @@ export function productCard(p, shop, wished) {
   const out = d.includes('sold-out');
   const href = `#/p/${p.slug}`;
   const wishLabel = wished ? 'Saved to wishlist' : 'Save to wishlist';
-  const key = D.lineKey({ pid: p.id, variant: D.defaultVariant(p) });
+  // The first colour, as the photo shows it, until a dot says otherwise.
+  const cols = (p.variants && p.variants.colour) || [];
+  const colour = cols.length ? cols[0].id : '';
+  const sizes = sizesOf(p);
+  const labels = sizes.length > 1 ? Object.fromEntries(sizes.map((s) => [s.id, s.label])) : {};
   const max = p.kind === 'voucher' ? 99 : p.stock;
   const cta = out
     ? '<div><button class="btn btn-secondary btn-sm btn-block" disabled>Sold out</button></div>'
-    : `<div data-cta="${esc(p.id)}" data-key="${esc(key)}" data-max="${max}">${
-      ctaBody(p.id, bag.get(key) || 0, max)}</div>`;
+    : `<div data-cta="${esc(p.id)}" data-colour="${esc(colour)}" data-max="${max}"
+        ${sizes.length > 1 ? `data-sizes="${esc(JSON.stringify(labels))}"` : ''}>${
+      ctaInner(p.id, cardLine(p.id, colour), max, labels)}</div>`;
 
   return `<article class="card" data-pid="${esc(p.id)}">
   <a class="card-tile" href="${href}" aria-label="${esc(p.name)}">
@@ -154,7 +232,7 @@ export function productCard(p, shop, wished) {
     <a href="${href}" class="card-name">${esc(p.name)}</a>
     <p class="card-desc">${esc(p.shortDesc)}</p>
     ${priceBlock(p, null)}
-    ${swatchRow(p, null)}
+    ${swatchRow(p, colour || null)}
     ${cta}
   </div>
 </article>`;

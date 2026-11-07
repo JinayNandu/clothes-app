@@ -363,10 +363,12 @@
   font-variant-numeric:tabular-nums;
 }
 
-/* THE CARD'S − n + (components.js ctaBody): what Add to bag turns into once
-   the card's line is in the bag. Filled where the button is outlined, so a
+/* THE CARD'S − M · n + (components.js ctaInner): what Add to bag turns into
+   once a size of it is in the bag. Filled where the button is outlined, so a
    glance down a grid tells which ones are already in. 38px, the height of
-   .btn-sm, so a card does not jump when one swaps for the other.
+   .btn-sm, so a card does not jump when one swaps for the other. Below 600
+   it drops the words "in bag" and keeps the size: "XXL · 10" fits a 164px
+   card, "XXL · 10 IN BAG" does not.
    ⚠️ No overflow:hidden. It would clip the focus ring, which base.css draws
    OUTSIDE the button; the end buttons carry the radius instead. */
 .bag-step{
@@ -389,10 +391,65 @@
   letter-spacing:.08em; text-transform:uppercase;
   font-variant-numeric:tabular-nums; white-space:nowrap;
 }
+.bag-step-n b{ font-weight:700; }
 @media (max-width:599px){
   .bag-step button{ width:36px; }
   .bag-step-n{ letter-spacing:.04em; }
+  .bag-step-word{ display:none; }
 }
+
+/* THE CARD'S SIZE PANEL (components.js sizePanel; app.js opens it). It rises
+   over the bottom of the photo, inside the card's own box, so nothing on the
+   page moves. The box is the tile's twin -- the same 4:5 from the top of the
+   card -- because the tile itself is a link, and a link may not hold buttons.
+   The rise is a CSS animation, so base.css's reduced-motion rule stills it. */
+.card-sizes{
+  position:absolute; left:0; right:0; top:0; z-index:4;
+  aspect-ratio:4/5;
+  display:flex; flex-direction:column; justify-content:flex-end;
+  overflow:hidden;
+  border-radius:var(--r1);
+  pointer-events:none;
+}
+.card-sizes-panel{
+  pointer-events:auto;
+  padding:var(--s2) var(--s2) var(--s3);
+  background:var(--card);
+  border-top:1px solid var(--edge);
+  box-shadow:var(--sh-lift);
+  animation:sizes-up var(--t-move) var(--e-enter) both;
+}
+@keyframes sizes-up{ from{ transform:translateY(100%); } to{ transform:none; } }
+.card-sizes-head{
+  display:flex; align-items:center; gap:var(--s1);
+  margin-bottom:var(--s2);
+}
+.card-sizes-title{
+  flex:1;
+  font-size:11px; font-weight:600;
+  letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink);
+}
+.card-sizes-btn{
+  height:28px; min-width:28px; padding:0 6px;
+  display:flex; align-items:center; justify-content:center; gap:4px;
+  font-size:12px; color:var(--ink-soft);
+  border-radius:var(--r1);
+}
+.card-sizes-btn:hover{ color:var(--ink); background:var(--sunk); }
+/* The words beside the info icon only where a card is wide enough for them. */
+.card-sizes-gtext{ display:none; }
+@media (min-width:600px){ .card-sizes-gtext{ display:inline; } }
+.card-sizes-grid{
+  display:grid; gap:6px;
+  grid-template-columns:repeat(auto-fill,minmax(40px,1fr));
+}
+.card-sizes-grid .chip{
+  height:40px; padding:0;
+  flex-direction:column; justify-content:center; gap:0;
+  line-height:1.15; color:var(--ink); font-weight:600;
+}
+.card-sizes-grid .chip small{ font-size:10px; font-weight:500; color:var(--ink-dim); }
 
 /* ---------------------------------------------------------------------------
    THE FLIGHT TO THE BAG (ui.js flyToBag). Fixed, above the sticky header
@@ -690,6 +747,8 @@
   font-family:var(--f-ui); font-size:13px; color:var(--ink-soft);
 }
 .sc-hint b{ color:var(--ink); font-weight:600; }
+/* Add to bag pressed with no size chosen (product.js). */
+.sc-hint.sc-need,.sc-hint.sc-need b{ color:var(--alert-ink); }
 
 .sc-wrap{ overflow-x:auto; }
 .sc{ width:100%; border-collapse:collapse; font-family:var(--f-ui); font-size:13px; }

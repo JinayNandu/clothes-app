@@ -236,19 +236,6 @@ export const lineKey = (line) =>
   [line.pid, (line.variant && line.variant.colour) || '',
              (line.variant && line.variant.size) || ''].join('|');
 
-/** The line a product CARD stands for: the first colour and the first size.
- *  A card has no picker, so its Add to bag and its − n + both mean this one
- *  line; the product page is where a real choice is made. One function, so
- *  the button that adds and the count that shows can never disagree. */
-export const defaultVariant = (p) => {
-  const v = {};
-  const c = p && p.variants && p.variants.colour;
-  const s = p && p.variants && p.variants.size;
-  if (c && c.length) v.colour = c[0].id;
-  if (s && s.length) v.size = s[0].id;
-  return v;
-};
-
 export const variantLabel = (p, sel) => {
   if (!p || !sel) return '';
   const out = [];

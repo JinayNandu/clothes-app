@@ -45,13 +45,17 @@ export const SUPABASE = {
 // ---------------------------------------------------------------------------
 // SIGNING IN -- an email and a six-digit code (step 7). See db/SETUP.md, 7.
 //
-// ⚠️ OFF until the project can send a code. Out of the box Supabase mails a
-// sign-in LINK, not a code, and only a handful an hour: switched on before
-// SETUP step 7 is done, the box would promise a code that never comes. Off,
-// nothing anywhere offers to sign in -- store.js leaves `account` null, as in
-// one-browser mode -- and the shop is exactly what it was before step 7.
+// ON since 7 November 2026, once the project had a sender of its own (Brevo)
+// and both templates carried {{ .Token }} -- SETUP step 7.
+//
+// ⚠️ TURN IT OFF if the project ever stops sending codes: a lapsed sender, a
+// template put back to the default link, SMTP switched off. Out of the box
+// Supabase mails a LINK, and only a handful an hour, so on, the box would
+// promise a code that never comes. Off, nothing anywhere offers to sign in --
+// store.js leaves `account` null, as in one-browser mode -- and every order
+// still goes through as a guest, exactly as before step 7.
 // ---------------------------------------------------------------------------
-export const SIGN_IN = false;
+export const SIGN_IN = true;
 
 // How many digits the code has. ⚠️ MUST MATCH THE PROJECT: Authentication ->
 // Sign In / Providers -> Email -> Email OTP Length. Supabase ships 6 and allows

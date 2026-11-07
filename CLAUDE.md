@@ -7,9 +7,10 @@ established by testing or decided deliberately; none of it is a guess.
 garments, sizes, a bag, and an order that goes from checkout to delivered
 -- all of it in one browser until step 6. **Step 6 is connected** (7 November
 2026): the live site sends orders to the shop's own Supabase project. **Step 7,
-accounts, is built and switched OFF** (`SIGN_IN` in `app/config.js`) until the
-project can send a code — db/SETUP.md step 7. See *Where this is*, *Accounts*
-and *The order of work*.
+accounts, is built and switched ON** (`SIGN_IN` in `app/config.js`), the same
+day, once the owner had set up the email sender and templates (db/SETUP.md
+step 7). ⚠️ The owner's first real sign-in is still to come. See *Where this
+is*, *Accounts* and *The order of work*.
 
 ---
 
@@ -90,7 +91,7 @@ for the store owner**.
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
 | Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders with the address, the phone and the next step; catalogue; stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
 | Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
-| Accounts | **Built, switched off** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. Off (`SIGN_IN = false`) until the owner sets up the email sender and templates, db/SETUP.md step 7. Tested against a stand-in for Supabase, not yet against the real project. See *Accounts* |
+| Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. ⚠️ **Not yet seen working end to end**: no real code has been sent or used. See *Accounts* |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
 | Public site | Shop <https://jinaynandu.github.io/clothes-app/>, store <https://jinaynandu.github.io/clothes-app/store/> — see *Published*. The shop wears a Preview bar while placeholder is true; the store a Not locked yet bar until step 8 |
 
@@ -249,10 +250,23 @@ app"), from Milan's account layer (`kirana/app/backend-supabase.js`,
   `backend-supabase.js` calls Supabase's sign-in, never with a password;
   `orders.place()` starts by making its own guest session. Each proved
   by breaking it.
-- **`SIGN_IN` in `config.js` is the switch.** Off, `store.account` and
-  `store.addresses` stay null — as in one-browser mode — and nothing
-  offers to sign in. It stays off until the project sends a code, because
-  out of the box Supabase mails a LINK, and only a few an hour.
+- **`SIGN_IN` in `config.js` is the switch** — on since 7 November 2026.
+  Off, `store.account` and `store.addresses` stay null — as in
+  one-browser mode — and nothing offers to sign in. ⚠️ Turn it off if the
+  project ever stops sending codes: out of the box Supabase mails a LINK,
+  and only a few an hour, so the box would promise a code that never
+  comes.
+- **The project's side, done by the owner 7 November 2026:** Brevo, with
+  the shop's own sender (a Gmail, so DKIM and DMARC show "not
+  recommended" and some codes may land in spam until the shop has a
+  domain); Brevo's "block unauthorized IPs" left OFF, because Supabase
+  sends from addresses that are not fixed; Supabase custom SMTP;
+  manual linking on, secure email change off, OTP length 6; both
+  templates carrying `{{ .Token }}`. `schema.sql` re-run, and the new
+  rules probed from outside: nothing granted to anon; a guest reads an
+  empty address book, cannot read `handovers` or call `signed_in()`,
+  gets NOT_SIGNED_IN from all three address functions and from
+  `take_handover`, and can make a ticket (48 hex characters).
 - **Two roads** (`account.sendCode`). A NEW email is attached to the guest
   session the phone already has (or gets then): Supabase's email change,
   the Change Email Address template, `verifyOtp` type `email_change`.
@@ -584,7 +598,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 4. ✅ **Checkout and a real order**, still in local storage. The order page tracks it step by step, the store moves it from Confirm to Mark delivered, and `deliveredAt` is a field of its own. 4 November 2026.
 5. ✅ **Freeze the delivery range into the order at placement** — as it reaches the shop, read back everywhere after, with a Late flag on the store's board. 4 November 2026.
 6. ✅ **Supabase** — built 4 November 2026, connected 7 November 2026 to the shop's own project. Left: the owner's first real test order, from a phone, seen on the store page.
-7. ◐ **Accounts**, so a parcel can be tracked from a second phone. Built 7 November 2026 and switched off (`SIGN_IN`); left: the owner's email setup (db/SETUP.md step 7), re-running `schema.sql`, a probe of the new rules, switching it on, and the owner's first sign-in with their own email.
+7. ◐ **Accounts**, so a parcel can be tracked from a second phone. Built, set up and switched on, 7 November 2026. Left: the owner's first sign-in with their own email — the first real code — and a second phone.
 8. ⬜ **The store view, locked**, behind `claim_staff()`. The page and its own link exist since 4 November 2026; what is left is the code check on the server and reading every phone's orders from the database.
 9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.
 10. ⬜ **Real photographs**, whenever the owner can supply them. Stand-ins have been in place since 4 November 2026, and `data.pl` will not let `placeholder` go false while one is still shown.

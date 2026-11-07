@@ -243,6 +243,27 @@ the latest database update."* Everything else works as before.
 
 ---
 
+## Starting again with no data — 3 min
+
+To clear out every test order and account and begin as a new customer
+(the owner, 8 November 2026). ⚠️ **It cannot be undone**, and it
+refuses to run after 9 November 2026 unless its LATCH date is changed
+on purpose — so an old copy cannot empty a shop with real customers.
+
+1. [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) →
+   paste **all** of [`db/reset.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/reset.sql)
+   → **Run** → the editor warns that the query deletes rows → **Run
+   this query**. It shows what is left: every count **0**, the next
+   order **VA-0001**, the store code **kept**. If the accounts row says
+   *NOT DELETED*, open **Authentication → Users**, tick them all, and
+   delete them there.
+2. On every phone that used the shop: open it → the person icon →
+   **Sign out of this phone** → **Clear this browser**. The phone may
+   otherwise still think it is signed in to an account that is gone.
+3. Open the store page and type the store code again: the reset took
+   every phone out of the store. It keeps the code itself.
+4. Shop as a new customer: the first order is **VA-0001**.
+
 ## Renaming the shop, later
 
 Order codes are the shop name's initials — `VA-0001` for Vastra Apparel

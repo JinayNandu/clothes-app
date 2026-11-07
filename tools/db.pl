@@ -244,6 +244,33 @@ elsif ($ap =~ /is_staff/ || $ap !~ /using\s*\(\s*user_id\s*=\s*auth\.uid\(\)\s*\
 }
 else { ok('an address book is read by its owner only -- not even by the store'); }
 
+# ---------------------------------------------------------------------------
+# 9. db/reset.sql (8 November 2026) empties the shop to start again. It must
+#    never touch the store code, never change a table, function or rule, and
+#    keep its LATCH -- a date after which it refuses -- ahead of its first
+#    delete, so an old copy pasted by mistake cannot empty a shop with real
+#    customers in it.
+# ---------------------------------------------------------------------------
+if (-e "$root/db/reset.sql") {
+  (my $rs = slurp("$root/db/reset.sql")) =~ s/--[^\n]*//g;
+  my $rbad = 0;
+  if ($rs =~ /\bshop_secret\b/) { $rbad++; fail('reset.sql touches shop_secret -- the store code must survive a reset'); }
+  my @ddl = grep { !/^drop\s+table\s+if\s+exists\s+pg_temp\.reset_report$/ }
+            map { (my $x = lc $_) =~ s/\s+/ /g; $x =~ s/^\s+|\s+$//g; $x }
+            ($rs =~ /\b((?:drop|alter|truncate|create|grant|revoke)\b(?:\s+(?:table|function|policy|schema|sequence|role|if|exists|temp|or|replace))*\s+[\w.]+)/gi);
+  @ddl = grep { !/^create temp table reset_report$/ } @ddl;
+  if (@ddl) { $rbad++; fail('reset.sql changes the database itself, not only its rows: ' . join('; ', @ddl)); }
+  my $latch = index($rs, "raise exception 'NOTHING DELETED");
+  my $first = $rs =~ /\bdelete\s+from\b/i ? $-[0] : -1;
+  if ($latch < 0 || $rs !~ /\(now\(\)\s+at\s+time\s+zone\s+'Asia\/Kolkata'\)::date\s*>\s*date\s*'\d{4}-\d\d-\d\d'\s*then\s+raise\s+exception\s+'NOTHING DELETED/) {
+    $rbad++; fail('reset.sql has lost its LATCH -- an old copy could empty a live shop');
+  } elsif ($first >= 0 && $first < $latch) {
+    $rbad++; fail('reset.sql deletes something before its LATCH is checked');
+  }
+  ok('reset.sql keeps the store code, changes no table or rule, and refuses after its latch date')
+    unless $rbad;
+}
+
 print "\n";
 if ($fails) { print "$fails FAILED\n"; exit 1; }
 print "all database checks passed\n";

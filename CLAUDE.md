@@ -233,6 +233,26 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   through the office network.
 - **The Preview bar** now says an order placed here "is a test, not a
   purchase", because with a database connected it does reach the shop.
+- **`db/reset.sql` empties the shop** (8 November 2026, the owner: "delete
+  all the existing data, I will start as a new customer"): every order and
+  item, address, hand-over ticket, store-code try, phone let into the
+  store, and every account and guest session in `auth.users`; order
+  numbers restart at VA-0001. It keeps `shop_secret`, so the same store
+  code opens the store again, and every table, function and rule. All or
+  nothing, one implicit transaction; the accounts are deleted in a block of
+  their own, so a project that forbids it still empties the rest and says
+  to delete them in Authentication → Users. ⚠️ A LATCH date (9 November
+  2026) makes an old copy refuse — the owner runs SQL "from the files in
+  the folder", and a reset picked up for `schema.sql` on a live shop would
+  be the worst mistake on offer. `db.pl` section 9 fails if it touches the
+  store code, changes the database itself, or deletes before the latch;
+  each proved by breaking it. Afterwards a phone may think it is still
+  signed in to an account that is gone: Sign out of this phone, then Clear
+  this browser (which removes only `vastra.*` keys on the shared origin).
+- **Verified 8 November 2026 that `schema.sql` (step 9) ran** without
+  making a session: `step_back_order` and `step_back_line` answer 401 to
+  the anonymous role — they exist and are refused to it — while a made-up
+  function name answers 404.
 - **How it was checked without a project:** a fake Supabase API in the
   browser (a `fetch` stand-in, in temporary pages never committed) took
   an order through `place_order`, let the store in with the code, and

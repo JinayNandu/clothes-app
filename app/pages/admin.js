@@ -105,8 +105,11 @@ function renderOverview({ orders, all, shop, cats }) {
     ${stat('On offer', all.filter((p) => p.mrp > p.price).length, 'Priced below MRP', tabHref('catalogue'))}
   </div>
 
-  <div class="two-col" style="margin-top:var(--s6)">
-    <section class="panel">
+  <!-- One panel across the page. "Where the data lives" sat beside it, a
+       note about catalog.json and patch sets for whoever builds the site;
+       the owner, 8 November 2026: "not needed". The Data tab still says
+       it, where exporting happens. -->
+  <section class="panel" style="margin-top:var(--s6)">
       <h2 class="t-h3">Needs attention</h2>
       ${late.length || lowStock.length || unpaid.length ? `
       <div class="totals" style="margin-top:var(--s4)">
@@ -123,21 +126,7 @@ function renderOverview({ orders, all, shop, cats }) {
           <span>${p.stock === 0 ? 'out of stock' : 'only ' + p.stock + ' left in stock'}</span></div>`).join('')}
       </div>` : `<p class="t-micro dim" style="margin-top:var(--s3)">
         Nothing is late, nothing is low on stock and no order is waiting on a payment check.</p>`}
-    </section>
-
-    <aside>
-      <section class="panel">
-        <h2 class="t-h3">Where the data lives</h2>
-        <p class="t-micro dim" style="margin-top:var(--s2)">
-          Everything the business owns is in <code>app/data/shop.json</code>
-          and <code>app/data/catalog.json</code>. This page edits a
-          <b>patch set</b> over the catalogue rather than a copy of it, so a
-          field you have not touched still picks up the next catalogue update.
-          <a href="${tabHref('data')}">Export</a> turns the patches back into
-          a file to commit.</p>
-      </section>
-    </aside>
-  </div>`;
+  </section>`;
 }
 
 /** A count, what it counts, and one line saying what is in it. */

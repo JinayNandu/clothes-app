@@ -204,6 +204,14 @@
    ------------------------------------------------------------------------ */
 .two-col{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:var(--s7); align-items:start; }
 
+/* Other products you may like (cart.js, 8 November 2026): at the end of the
+   bag's column, so on a phone they come before the order summary. Gone
+   altogether when there is nothing to suggest. */
+.cart-recs{ margin-top:var(--s6); padding-top:var(--s5); border-top:1px solid var(--edge); }
+.cart-recs:empty{ display:none; }
+.cart-recs .sec{ margin-bottom:0; }
+.cart-recs .sec-head{ margin-bottom:var(--s4); }
+
 .panel{
   background:var(--card);
   border:1px solid var(--edge);

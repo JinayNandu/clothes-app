@@ -10,29 +10,81 @@
 import * as store from '../store.js';
 import * as router from '../router.js';
 import { esc, h1, emptyState, toast, notice } from '../ui.js';
-import { priceBlock, qtyStepper } from '../components.js';
+import { priceBlock, qtyStepper, rail } from '../components.js';
 import { art } from '../art.js';
 import { seal } from '../brand.js';
 import { icon } from '../icons.js';
 import * as D from '../domain.js';
 
+// The products this customer has ordered before, for the suggestions: null
+// until known. Read once per visit -- the bag repaints on every + and −, and
+// asking the server each time would be a request per tap.
+let past = null;
+
 router.registerScreen('cart', async (host) => {
+  // ⚠️ WIRED ONCE PER SCREEN, NEVER PER PAINT. paint() used to wire, so every
+  // repaint added one more click listener to this same element, and each
+  // tap's write repainted once per listener: a + tapped six times ran
+  // setQty 1, 2, 4, 8, 16 and 32 times (measured 8 November 2026). The
+  // count stayed right only because every call wrote the same number.
+  if (!host.dataset.wired) {
+    wire(host);
+    host.dataset.wired = '1';
+  }
+  past = null;
+  pastIds().then((ids) => { past = ids; paintRecs(host); });
   await paint(host);
   // The bag has to follow a change made in another tab, or two windows side by
   // side disagree about what is in it.
   router.onLeave(store.live.subscribe('cart', () => paint(host)));
 });
 
+/** What this customer has ordered before: every item of every order not
+ *  cancelled, from the server once signed in, or from this browser. */
+async function pastIds() {
+  try {
+    const orders = await store.orders.mine();
+    return orders.filter((o) => !['cancelled', 'abandoned'].includes(o.status))
+      .flatMap((o) => (o.lines || []).filter((l) => l.status !== 'cancelled').map((l) => l.pid));
+  } catch (e) {
+    return [];      // suggestions are a nicety; a failed read leaves them to the bag
+  }
+}
+
+// ---------------------------------------------------------------------------
+// OTHER PRODUCTS YOU MAY LIKE (8 November 2026, the owner's ask): the same
+// categories as the bag and as every earlier order (D.alsoLike), after the
+// bag's lines -- so on a phone they come before the order summary. The cards
+// are the shop's own, with Add to bag and its sizes; one added moves up into
+// the bag and out of the suggestions.
+// ---------------------------------------------------------------------------
+function recsHtml(all, lines, shop, wishIds) {
+  const list = D.alsoLike(all, lines.map((l) => l.pid), past || [], 6);
+  return rail('cart-recs', 'Other products you may like', list, shop, wishIds);
+}
+
+async function paintRecs(host) {
+  const box = host.querySelector('[data-recs]');
+  if (!box) return;
+  const [all, lines, shop, wishIds] = await Promise.all([
+    store.catalog.all(), store.cart.lines(), store.catalog.shop(), store.wishlist.ids(),
+  ]);
+  if (box.isConnected) box.innerHTML = recsHtml(all, lines, shop, wishIds);
+}
+
 async function paint(host) {
-  const [lines, shop, coupon] = await Promise.all([
+  const [lines, shop, coupon, all, wishIds] = await Promise.all([
     store.cart.lines(), store.catalog.shop(), store.cart.coupon(),
+    store.catalog.all(), store.wishlist.ids(),
   ]);
 
   if (!lines.length) {
+    // Empty, the suggestions follow the earlier orders alone.
     host.innerHTML = h1('Your bag', 'Shopping')
       + emptyState(seal(64), 'Your bag is empty.',
         'Everything we make is in small batches. New Arrivals is a good place to start.',
-        'Browse new arrivals', '#/new');
+        'Browse new arrivals', '#/new')
+      + `<div class="cart-recs" data-recs>${recsHtml(all, lines, shop, wishIds)}</div>`;
     return;
   }
 
@@ -81,6 +133,7 @@ async function paint(host) {
       <div style="margin-top:var(--s5)">
         <a class="btn-ghost" href="#/shop">${icon('left', 14)} Continue shopping</a>
       </div>
+      <div class="cart-recs" data-recs>${recsHtml(all, lines, shop, wishIds)}</div>
     </div>
 
     <aside class="panel panel-sticky">
@@ -128,10 +181,10 @@ async function paint(host) {
       </div>
     </aside>
   </div>`;
-
-  wire(host);
 }
 
+/** Every control on the bag, delegated from the screen itself: wired once
+ *  (see the top of this file), so a repaint never adds a second listener. */
 function wire(host) {
   host.addEventListener('click', async (e) => {
     const step = e.target.closest('[data-step]');
@@ -165,10 +218,12 @@ function wire(host) {
     }
   });
 
-  const input = host.querySelector('[data-code]');
-  if (input) {
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); host.querySelector('[data-apply]').click(); }
-    });
-  }
+  // Enter in the discount code applies it. Delegated as well: the field is
+  // drawn anew with every paint.
+  host.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !e.target.matches('[data-code]')) return;
+    e.preventDefault();
+    const apply = host.querySelector('[data-apply]');
+    if (apply) apply.click();
+  });
 }

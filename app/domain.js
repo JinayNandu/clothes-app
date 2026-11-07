@@ -395,6 +395,34 @@ export function relatedTo(p, list, n = 4) {
   return same.concat(near).slice(0, n);
 }
 
+/**
+ * "Other products you may like", on the bag page (8 November 2026, the
+ * owner's ask): of the same categories as what is in the bag now or was in
+ * an earlier order. Never what is in the bag already, never a sold-out one.
+ * Ranked: the same subcategory as something in the bag, then the same
+ * category, then the same subcategory as something bought before, then the
+ * same category; within a rank, styles not bought yet before ones that
+ * were, and catalogue order after that. `bagIds` and `pastIds` are product
+ * ids; pure, like relatedTo() above.
+ */
+export function alsoLike(list, bagIds, pastIds, n = 6) {
+  const byId = new Map(list.map((p) => [p.id, p]));
+  const pick = (ids) => ids.map((id) => byId.get(id)).filter(Boolean);
+  const bag = pick(bagIds);
+  const past = pick(pastIds);
+  const inBag = new Set(bagIds);
+  const bought = new Set(pastIds);
+  const has = (ps, key, v) => v != null && ps.some((p) => p[key] === v);
+  const rank = (p) => (has(bag, 'sub', p.sub) ? 0 : has(bag, 'cat', p.cat) ? 1
+    : has(past, 'sub', p.sub) ? 2 : has(past, 'cat', p.cat) ? 3 : null);
+  return list
+    .map((p, i) => ({ p, i, r: rank(p) }))
+    .filter((x) => x.r !== null && !inBag.has(x.p.id) && x.p.kind !== 'voucher' && x.p.stock > 0)
+    .sort((a, b) => a.r - b.r || (bought.has(a.p.id) - bought.has(b.p.id)) || a.i - b.i)
+    .slice(0, n)
+    .map((x) => x.p);
+}
+
 export function priceBands(list) {
   if (!list.length) return [];
   const max = Math.max(...list.map((p) => p.price));

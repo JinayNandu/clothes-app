@@ -212,6 +212,12 @@ export const orders = {
   /** This visitor's own orders -- not every order a store session can see,
    *  or the owner would find the whole shop under "Your orders". */
   async mine() {
+    // ⚠️ No session stored, no orders -- answered WITHOUT loading the
+    // library. The bag page asks this for its suggestions (8 November 2026),
+    // and a visitor who has never ordered must not download supabase-js
+    // just to browse: "browsing never touches the server". If storage
+    // cannot be read, the library is asked, as before.
+    try { if (localStorage.getItem('vastra.auth') === null) return []; } catch (e) { /* ask */ }
     const s = await session();
     if (!s) return [];
     return fetchOrders((q) => q.eq('user_id', s.user.id).order('placed_at', { ascending: false }));

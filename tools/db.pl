@@ -82,6 +82,32 @@ if ("@dbr" eq "@road") { ok(scalar(@dbr) . ' steps between them, the same in dom
 else { fail("the road differs -- domain.js: @road; advance_order(): @dbr"); }
 
 # ---------------------------------------------------------------------------
+# 3b. Each ITEM's statuses and road (7 November 2026): LINE_NEXT in
+#     domain.js, against the order_lines_status_ok check and advance_line().
+# ---------------------------------------------------------------------------
+my ($lnb) = $dom =~ /export const LINE_NEXT = \{(.*?)\n\};/s
+  or die "could not find LINE_NEXT in domain.js\n";
+my (%lnext, @lpairs);
+while ($lnb =~ /^\s*([a-z]+):\s*\[([^\]]*)\]/mg) {
+  my ($from, $list) = ($1, $2);
+  $lnext{$from} = 1;
+  push @lpairs, "$from>$_" for $list =~ /'([a-z]+)'/g;
+}
+my @lstat = sort keys %lnext;
+my ($lsl) = $sqlc =~ /order_lines_status_ok\s+check\s*\(\s*status\s+in\s*\((.*?)\)\s*\)/s;
+my @dbls = sort(($lsl // '') =~ /'([a-z]+)'/g);
+if ("@dbls" eq "@lstat") { ok(scalar(@dbls) . ' item statuses, the same in domain.js and the database'); }
+else { fail("item statuses differ -- domain.js LINE_NEXT: @lstat; order_lines_status_ok: @dbls"); }
+
+my ($ltl) = $sqlc =~ /if\s*\(\s*lcur\s*,\s*p_to\s*\)\s*not\s+in\s*\((.*?)\)\s*then/s;
+my @dblr;
+push @dblr, "$1>$2" while ($ltl // '') =~ /\(\s*'([a-z]+)'\s*,\s*'([a-z]+)'\s*\)/g;
+@dblr = sort @dblr;
+my @lroad = sort @lpairs;
+if (@dblr && "@dblr" eq "@lroad") { ok(scalar(@dblr) . ' item steps, the same in domain.js and advance_line()'); }
+else { fail("an item's road differs -- domain.js LINE_NEXT: @lroad; advance_line(): @dblr"); }
+
+# ---------------------------------------------------------------------------
 # 4. Every table locked down: row-level security on, and named in the revoke
 #    that takes away whatever the project handed out by default.
 # ---------------------------------------------------------------------------

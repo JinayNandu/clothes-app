@@ -89,7 +89,7 @@ for the store owner**.
 | Size charts | **Built.** A Size guide panel on the product page, plus a no-tap fit hint under the picker |
 | Delivery range | **Frozen into the order (step 5)** as it reaches the shop, and read back everywhere after. Live only where it should be: the product page and the shipping page. The store flags an order **Late** once its last promised day has passed |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
-| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). ⚠️ **Per-item status and cancelling one item** were asked for and are not built: they need `schema.sql` changes and a decision on what happens to the amount owed. See *Two pages* |
+| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). **Each item has its own status** (built 7 November 2026, on the owner's yes): a "Move this item to…" menu and Cancel item on every item; the order's status is its slowest item still on its way (`roll_up_order`), rising through every step it passes; cancelling an item takes it out of the total and shrinks the coupon in proportion to `discount_placed`; paid and then cut, the store sees "Refund ₹X" and notes it sent (`mark_refund`), and the customer sees what is owed, then when it went. Needs `schema.sql` re-run — the page hides every per-item control until items carry a status (`D.hasItemStatus`) — and `db/selftest.sql` proves the SQL on the real database and rolls back. See *Two pages* |
 | Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
 | Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. ⚠️ **Not yet seen working end to end**: no real code has been sent or used. See *Accounts* |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
@@ -233,6 +233,44 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   reads. And with the config pointed at a dead address: browsing still
   works, "Place order" says it could not reach the shop and keeps the
   bag, and the store page fails shut rather than showing local orders.
+
+## Each item's own status (7 November 2026)
+
+- **The road twice, now four times:** `ORDER_NEXT`/`advance_order` for the
+  order, `LINE_NEXT`/`advance_line` for an item (the order's road less
+  draft and `abandoned`). `db.pl` compares both pairs of lists and both
+  status lists. `sent → cancelled` joined the order's road the same day,
+  so a declined online order is cancelled, not "abandoned".
+- **The order follows its items** (`roll_up_order`, granted to nobody):
+  its status is the slowest item not cancelled; every item cancelled, it
+  is cancelled; a rise of several steps writes each into the history.
+  `advance_order` moves the items AT the order's old status (an item
+  already ahead stays ahead), refuses to cancel an order with an item
+  already shipped (`SOME_ITEMS_SHIPPED`), and cancels/returns the rest.
+- **Money on a cancel:** items total = what is left; discount =
+  `discount_placed × left ÷ all`, so two cancellations never round
+  twice; total re-added; shipping and handling unchanged; nothing
+  recalculated once every item is gone. `paid_amount` is kept by
+  `set_paid`, so `refundDue()` = paid − what is now owed − refunded, the
+  same sum as `mark_refund`. Like `paid`, a refund is a person's note;
+  `honesty.pl` keeps `markRefund()` to the store board.
+- **Tolerant both ways:** an order read from a database not yet re-run,
+  or kept in one browser, has no item statuses, and every per-item control
+  and label stays away (`D.hasItemStatus`). The one-browser backend has
+  no `advanceLine` at all.
+- **`db/selftest.sql`** — run in the SQL editor after `schema.sql` — acts
+  as the first staff session, makes four test orders on their own numbers
+  (VA-9001…, item ids 9000000011…, so no real sequence moves), checks
+  nine rules, and ends with an error on purpose so everything rolls back:
+  `ALL GOOD -- every check passed, and nothing was saved`.
+- **Tested in the preview** against a stand-in that mirrors the SQL in JS:
+  a two-step item move asks first; one item packed leaves the order New;
+  paid then the other item cancelled lifts the order to Packed through
+  Confirmed, drops the total to the item left, shows "was", and offers
+  "Refund ₹1,899" which, marked, becomes "₹1,899 refunded"; the
+  customer's page labels items only when they differ, strikes a
+  cancelled one, explains the new total, says what is owed and then when
+  it went; and with no item statuses shows the plain list.
 
 ## Accounts (step 7)
 

@@ -93,6 +93,9 @@ router.registerScreen('confirm', async (host, r) => {
       ['[data-arrive]', arriveLine(order, shop)],
       ['[data-status]', statusBlock(order, shop)],
       ['[data-track]', track(order)],
+      // Each item's status and the money move with the store's taps too. No
+      // input lives in here, so a redraw cannot take anything typed.
+      ['[data-ordered]', ordered(order, all)],
       ['[data-handoff-head]', handoffHead(order)],
     ]) {
       const el = host.querySelector(sel);
@@ -140,7 +143,7 @@ function page(o, shop, all) {
       <div data-track>${track(o)}</div>
     </section>
 
-    ${ordered(o, all)}
+    <div data-ordered>${ordered(o, all)}</div>
 
     <div data-pay></div>
 
@@ -321,8 +324,10 @@ function shipText(o) {
 // PAYMENT. Redrawn only when what it says can change, because the UPI QR is
 // drawn by a library into a real element.
 // ---------------------------------------------------------------------------
+// The amount is in it since items can be cancelled: a QR left showing the old
+// total would ask for money the order no longer comes to.
 const keyOfPay = (o) => [o.paid, ['cancelled', 'abandoned'].includes(o.status),
-  o.status === 'draft'].join('|');
+  o.status === 'draft', o.grand, o.refunded || 0, D.refundDue(o)].join('|');
 
 function drawPay(host, o, shop) {
   const box = host.querySelector('[data-pay]');
@@ -334,11 +339,20 @@ function drawPay(host, o, shop) {
 
 function payPanel(o, shop) {
   if (o.paid) {
+    // What is owed back after a cancellation, and when it was sent: both the
+    // shop's own notes (mark_refund), never anything this page saw happen.
+    const due = D.refundDue(o);
     return `<section class="panel" style="margin-top:var(--s4)">
       <h2 class="t-h3">Payment</h2>
       <div style="margin-top:var(--s3)">${notice('good',
-        `<b>Paid, ${D.rupees(o.grand)}.</b> ${esc(shop.brand.name)} confirmed the `
+        `<b>Paid, ${D.rupees(o.paidAmount || o.grand)}.</b> ${esc(shop.brand.name)} confirmed the `
       + `payment on ${esc(D.fmtStamp(o.paidAt))}.`)}</div>
+      ${due > 0 ? `<div style="margin-top:var(--s3)">${notice('info',
+        `<b>We owe you ${D.rupees(due)}</b> for what was cancelled. We send it back to the `
+      + 'account you paid from, and this page shows it once we have.')}</div>` : ''}
+      ${o.refunded ? `<div style="margin-top:var(--s3)">${notice('good',
+        `<b>We sent ${D.rupees(o.refunded)} back to you</b>${o.refundedAt
+          ? ` on ${esc(D.fmtStamp(o.refundedAt))}` : ''}.`)}</div>` : ''}
     </section>`;
   }
   // Nothing to pay on an order that will never be sent.
@@ -387,9 +401,22 @@ function payPanel(o, shop) {
 // is the order's own, never re-read from the catalogue, so a price changed
 // tomorrow does not rewrite a receipt from today.
 // ---------------------------------------------------------------------------
+/** Each item's status in the customer's words, when the items differ. */
+const ITEM_SAYS = {
+  sent: 'Ordered', confirmed: 'Confirmed', packed: 'Packed', shipped: 'On its way',
+  delivered: 'Delivered', returned: 'Returned', cancelled: 'Cancelled by us',
+};
+
 function ordered(o, all) {
   const c = o.customer || {};
   const byId = (id) => (all || []).find((p) => p.id === id);
+  // Each item's own status is shown only where it says something the
+  // timeline does not: when the items still on their way differ, or when one
+  // was cancelled. All alike, the timeline above says it once.
+  const per = D.hasItemStatus(o);
+  const live = per ? o.lines.filter((l) => l.status !== 'cancelled') : [];
+  const mixed = per && new Set(live.map((l) => l.status)).size > 1;
+  const was = D.placedGrand(o);
   return `
     <section class="panel" style="margin-top:var(--s4)">
       <h2 class="t-h3">What you ordered</h2>
@@ -401,7 +428,12 @@ function ordered(o, all) {
           const col = p && p.variants && (p.variants.colour || [])
             .find((x) => x.id === (l.variant || {}).colour);
           const view = col && col.img != null ? col.img : 0;
-          return `<div class="oline">
+          const gone = per && l.status === 'cancelled';
+          const say = per && (gone || mixed) ? ITEM_SAYS[l.status] : '';
+          const sh = per && l.shipment && (l.shipment.courier || l.shipment.ref)
+            ? `With ${l.shipment.courier || 'the courier'}${l.shipment.ref
+              ? `, tracking number ${l.shipment.ref}` : ''}` : '';
+          return `<div class="oline${gone ? ' is-cancelled' : ''}">
             ${p ? `<a class="oline-pic" href="#/p/${esc(p.slug)}"
                  aria-label="${esc(l.name)}">${art(p, view)}</a>`
               : '<span class="oline-pic" aria-hidden="true"></span>'}
@@ -409,11 +441,16 @@ function ordered(o, all) {
               <div class="oline-name">${esc(l.name)}</div>
               ${l.variantLabel ? `<div class="oline-meta">${esc(l.variantLabel)}</div>` : ''}
               <div class="oline-meta">${D.rupees(l.unitPrice)} &times; ${l.qty}</div>
+              ${say ? `<div class="oline-state is-${esc(l.status)}">${esc(say)}</div>` : ''}
+              ${sh && !gone ? `<div class="oline-meta">${esc(sh)}</div>` : ''}
             </div>
             <div class="oline-sum">${D.rupees(l.lineTotal)}</div>
           </div>`;
         }).join('')}
       </div>
+      ${per && was !== o.grand && !['cancelled', 'abandoned'].includes(o.status)
+        ? `<p class="t-micro dim" style="margin-top:var(--s3)">The total was ${D.rupees(was)}
+            before we cancelled an item; it now comes to ${D.rupees(o.grand)}.</p>` : ''}
       <div class="totals" style="margin-top:var(--s4)">
         <div class="total-row muted">
           <span>Items</span><span>${D.rupees(o.itemsTotal)}</span></div>

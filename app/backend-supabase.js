@@ -99,16 +99,23 @@ const toApp = (r) => ({
     name: r.cust_name, mobile: r.cust_mobile, email: r.cust_email || '',
     addr: r.addr, city: r.city, state: r.state, pin: r.pin,
   },
+  // Each item's own status, history and shipment since 7 November 2026.
+  // `status` is undefined on a database whose schema.sql has not been re-run
+  // since, and D.hasItemStatus() then keeps every per-item control away.
   lines: (r.order_lines || []).slice().sort((a, b) => a.id - b.id).map((l) => ({
-    pid: l.pid, name: l.name, slug: l.slug, variant: l.variant || {},
+    id: l.id, pid: l.pid, name: l.name, slug: l.slug, variant: l.variant || {},
     variantLabel: l.variant_label || '', qty: l.qty,
     unitPrice: l.unit_price, unitMrp: l.unit_mrp, lineTotal: l.line_total,
+    status: l.status, history: l.history || [], shipment: l.shipment || null,
   })),
   itemsTotal: r.items_total, mrpTotal: r.mrp_total, saved: r.saved,
   coupon: r.coupon, discount: r.discount, shipping: r.shipping,
   bulky: r.bulky, grand: r.grand,
+  discountPlaced: r.discount_placed != null ? r.discount_placed : r.discount,
   payMethod: r.pay_method,
   paid: r.paid, paidAt: r.paid_at, paidVia: r.paid_via,
+  paidAmount: r.paid_amount != null ? r.paid_amount : (r.paid ? r.grand : null),
+  refunded: r.refunded || 0, refundedAt: r.refunded_at || null,
   gatewayRef: null,
   // Placed online IS sent: the order reached the shop the moment it was.
   sent: true, sentAt: r.placed_at, sentVia: 'online',
@@ -216,6 +223,22 @@ export const orders = {
     await rpc('set_paid', { p_oid: id, p_paid: !!isPaid, p_via: via || null });
     fire('orders');
     return one(id);
+  },
+
+  /** ONE item moved, or cancelled. The server moves the order after it
+   *  (roll_up_order) and re-adds the money when an item is cancelled. */
+  async advanceLine(id, lineId, to, { courier = '', ref = '' } = {}) {
+    await rpc('advance_line', { p_line: lineId, p_to: to, p_courier: courier, p_ref: ref });
+    fire('orders');
+    return one(id);
+  },
+
+  /** A person at the shop has sent back what is owed. A note, like `paid`:
+   *  nothing here sends money. Returns the amount marked refunded. */
+  async markRefund(id) {
+    const amount = await rpc('mark_refund', { p_oid: id });
+    fire('orders');
+    return Number(amount) || 0;
   },
 
   /** No gateway is configured, and a browser-reported payment id would be

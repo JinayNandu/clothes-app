@@ -121,6 +121,19 @@ if (@setpaid) {
   ok('setPaid() is reachable only from the store page orders board');
 }
 
+# A refund is the same kind of note -- a person saying they sent money back
+# -- so markRefund() has the same one caller (7 November 2026).
+my @refund;
+for my $rel (@FILES) {
+  next if $rel eq '/backend-supabase.js' || $rel eq '/pages/admin.js';
+  my @lines = split /\n/, $CODE{$rel};
+  for my $i (0 .. $#lines) {
+    push @refund, "app$rel:" . ($i + 1) if $lines[$i] =~ /markRefund\s*\(/;
+  }
+}
+if (@refund) { fail('markRefund() is called outside the admin at: ' . join(', ', @refund)); }
+else { ok('markRefund() is reachable only from the store page orders board'); }
+
 # ---------------------------------------------------------------------------
 # 3. A gateway response must never set `paid`.
 #

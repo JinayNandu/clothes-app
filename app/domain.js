@@ -517,7 +517,9 @@ export function buildHash(path, query) {
 
 export const ORDER_NEXT = {
   draft:     ['sent', 'abandoned'],
-  sent:      ['confirmed', 'abandoned'],
+  // sent -> cancelled since 7 November 2026: an order placed online that
+  // the shop declines is CANCELLED, and the customer reads it so.
+  sent:      ['confirmed', 'cancelled', 'abandoned'],
   confirmed: ['packed', 'cancelled'],
   packed:    ['shipped', 'cancelled'],
   shipped:   ['delivered', 'returned'],
@@ -528,6 +530,64 @@ export const ORDER_NEXT = {
 };
 
 export const canAdvance = (from, to) => (ORDER_NEXT[from] || []).includes(to);
+
+// ---------------------------------------------------------------------------
+// EACH ITEM'S OWN STATUS (7 November 2026). An item walks the order's road,
+// less the draft (an item is never one) and `abandoned` (an item is
+// cancelled). The ORDER's status is where its slowest item still on its way
+// is -- the server works that out (roll_up_order in db/schema.sql); this
+// side only draws it and offers the moves.
+//
+// ⚠️ THE SAME PAIRS AS advance_line() in db/schema.sql, and the same
+// statuses as its order_lines_status_ok check. tools/db.pl compares both.
+// ---------------------------------------------------------------------------
+export const LINE_NEXT = {
+  sent:      ['confirmed', 'cancelled'],
+  confirmed: ['packed', 'cancelled'],
+  packed:    ['shipped', 'cancelled'],
+  shipped:   ['delivered', 'returned'],
+  delivered: ['returned'],
+  returned:  [],
+  cancelled: [],
+};
+export const LINE_ROAD = ['sent', 'confirmed', 'packed', 'shipped', 'delivered'];
+
+/** An item's steps from `from` to `to` along LINE_ROAD; [] if not ahead. */
+export function lineRoadTo(from, to) {
+  const a = LINE_ROAD.indexOf(from);
+  const b = LINE_ROAD.indexOf(to);
+  if (a < 0 || b <= a) return [];
+  const steps = LINE_ROAD.slice(a + 1, b + 1);
+  let cur = from;
+  for (const s of steps) {
+    if (!(LINE_NEXT[cur] || []).includes(s)) return [];
+    cur = s;
+  }
+  return steps;
+}
+
+/** Does this order carry a status on each item? An order read from a
+ *  database not yet given them (schema.sql re-run), or kept in one browser,
+ *  does not -- and then nothing offers to move one item. */
+export const hasItemStatus = (o) => !!(o && o.lines && o.lines.length
+  && o.lines.every((l) => l.status && l.id != null));
+
+/** What is owed back, in rupees: what was paid, less what the order now
+ *  comes to (nothing, once cancelled), less what has been refunded. The
+ *  same sum as mark_refund() in db/schema.sql. Never negative. */
+export function refundDue(o) {
+  if (!o || !o.paid || !o.paidAmount) return 0;
+  const owed = ['cancelled', 'abandoned'].includes(o.status) ? 0 : o.grand;
+  return Math.max(0, o.paidAmount - owed - (o.refunded || 0));
+}
+
+/** The order's total as it was placed, before any item was cancelled:
+ *  every line's own total, the coupon as given, shipping and handling. */
+export function placedGrand(o) {
+  const items = ((o && o.lines) || []).reduce((n, l) => n + (l.lineTotal || 0), 0);
+  const disc = o.discountPlaced != null ? o.discountPlaced : (o.discount || 0);
+  return items - disc + (o.shipping || 0) + (o.bulky || 0);
+}
 
 /**
  * The steps from `from` to `to` along ORDER_PATH, each one a move canAdvance()

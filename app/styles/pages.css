@@ -367,6 +367,16 @@
 .oline-name{ font-size:14px; font-weight:600; color:var(--ink); }
 .oline-meta{ margin-top:2px; font-size:12px; color:var(--ink-dim); }
 .oline-sum{ font-weight:600; font-variant-numeric:tabular-nums; }
+/* An item's own status, when the items differ; a cancelled one struck through. */
+.oline-state{
+  display:inline-block; margin-top:var(--s1); padding:1px 6px;
+  font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--good-ink); background:var(--good-wash); border-radius:var(--r1);
+}
+.oline-state.is-sent,.oline-state.is-confirmed{ color:var(--gold-ink); background:var(--gold-wash); }
+.oline-state.is-cancelled,.oline-state.is-returned{ color:var(--alert-ink); background:var(--alert-wash); }
+.oline.is-cancelled .oline-name,.oline.is-cancelled .oline-sum{ color:var(--ink-dim); text-decoration:line-through; }
+.oline.is-cancelled .oline-pic{ opacity:.5; }
 .pay-proof{ margin-top:var(--s3); }
 .track-tag{
   margin-left:var(--s2); padding:1px 6px; border-radius:var(--r1);
@@ -589,7 +599,30 @@
 }
 .adm-step .track-at{ margin-top:0; }
 .adm-track .adm-ship{ margin-top:var(--s2); }
-.adm-ends{ display:flex; flex-wrap:wrap; gap:var(--s3); margin-top:var(--s4); }
+.adm-ends{ display:flex; flex-wrap:wrap; gap:var(--s3); margin-top:var(--s4); align-items:center; }
+
+/* Each item on the store's order (admin.js itemRow): what it is and costs,
+   then its own status, the steps ahead, and Cancel item. A cancelled item
+   stays on the order, struck through, so the money still adds up on screen. */
+.adm-item{ display:flex; flex-direction:column; gap:var(--s2); padding:var(--s2) 0; }
+.adm-item + .adm-item{ border-top:1px dashed var(--edge); }
+.adm-item-top{ display:flex; justify-content:space-between; gap:var(--s3); font-size:14px; color:var(--ink-soft); }
+.adm-item-sum{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+.adm-item-ctl{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2) var(--s3); }
+.adm-item-move{
+  height:32px; padding:0 var(--s3);
+  font-size:13px; color:var(--ink);
+  background:var(--card); border:1px solid var(--edge-2); border-radius:var(--r1);
+}
+.adm-item [data-line-confirm]{
+  display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2) var(--s3);
+  padding:var(--s2) var(--s3); background:var(--gold-wash); border-radius:var(--r1);
+}
+.adm-item [data-line-confirm][hidden]{ display:none; }
+.adm-item.is-cancelled .adm-item-top{ color:var(--ink-dim); text-decoration:line-through; }
+.adm-was{ color:var(--ink-dim); }
+.adm-refund{ display:flex; flex-direction:column; align-items:flex-start; gap:var(--s2); margin:var(--s3) 0; }
+.adm-refunded{ margin:var(--s2) 0 var(--s3); }
 .adm-block .adm-paid-why{ margin:var(--s2) 0 var(--s3); font-size:13px; line-height:1.55; color:var(--ink-soft); }
 
 .adm-cat-head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); flex-wrap:wrap; }

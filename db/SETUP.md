@@ -198,6 +198,30 @@ Say it is done. Claude probes the new rules from outside, switches
 `SIGN_IN` on and publishes; then **you** sign in on the live site with
 your own email — the code comes to your inbox, which only you can read.
 
+## 8. Each item's own status, and refunds — 2 min
+
+Since 7 November 2026 the store can move or cancel **one item** of an
+order, and note a refund when a paid item is cancelled. The page shows
+none of it until the database has it.
+
+1. [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) →
+   paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
+   → **Run** → *"Success. No rows returned."* It adds a status to every
+   item (orders already placed get theirs from the order), and the
+   functions that move one item, follow it with the order, and note a
+   refund. Nothing that exists is lost.
+2. A new SQL tab → paste **all** of
+   [`db/selftest.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/selftest.sql)
+   → **Run**. It acts as the store, walks four test orders through
+   every rule, and then undoes all of it **by ending in an error on
+   purpose**. The message you want is:
+
+   > ALL GOOD -- every check passed, and nothing was saved
+
+   Any other message names the check that failed — send it to Claude.
+   If it says no phone has been let into the store yet, open the store
+   page, type the store code, and run it again.
+
 ---
 
 ## Renaming the shop, later

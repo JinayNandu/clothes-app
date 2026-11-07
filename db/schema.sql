@@ -156,6 +156,53 @@ create table if not exists order_lines (
 create index if not exists order_lines_order on order_lines (order_id);
 alter table order_lines enable row level security;
 
+-- ---------------------------------------------------------------------
+--  EACH ITEM HAS ITS OWN STATUS (7 November 2026, the owner's ask)
+--
+--  The store can move one item on its own -- pack the kurti while the
+--  dress waits -- or cancel one item and send the rest. The ORDER's
+--  status is then where its slowest item still on its way is (see
+--  roll_up_order below): "packed" means every item not cancelled is
+--  packed. Moving the whole order moves every item with it.
+--
+--  Added with `if not exists`, so this file still runs twice safely, and
+--  an order placed before today gets its items' statuses from the order
+--  itself, once, below.
+-- ---------------------------------------------------------------------
+alter table order_lines add column if not exists status   text  not null default 'sent';
+alter table order_lines add column if not exists history  jsonb not null default '[]'::jsonb;
+alter table order_lines add column if not exists shipment jsonb;
+do $chk$
+begin
+  -- ⚠️ THE SAME LIST AS LINE_NEXT's keys in app/domain.js; tools/db.pl
+  -- compares them. An item is never a draft and never "abandoned".
+  if not exists (select 1 from pg_constraint where conname = 'order_lines_status_ok') then
+    alter table order_lines add constraint order_lines_status_ok check (status in
+      ('sent','confirmed','packed','shipped','delivered','returned','cancelled'));
+  end if;
+end $chk$;
+
+-- Items of an order placed before today take the order's status. Only
+-- items still at the default under an order that moved on are touched, so
+-- a second run of this file changes nothing.
+update order_lines l
+   set status = case when o.status in ('cancelled', 'abandoned') then 'cancelled' else o.status end
+  from orders o
+ where l.order_id = o.id and l.status = 'sent' and o.status <> 'sent';
+
+-- What the order cost as placed (the discount shrinks in proportion when
+-- an item is cancelled, and is worked out from this, never from itself),
+-- what was paid (so a cancellation after payment knows what is owed
+-- back), what has been refunded, and when the order last changed (every
+-- write touches it, so a customer's page follows an item's move live).
+alter table orders add column if not exists discount_placed int;
+update orders set discount_placed = discount where discount_placed is null;
+alter table orders add column if not exists paid_amount int;
+update orders set paid_amount = grand where paid and paid_amount is null;
+alter table orders add column if not exists refunded    int not null default 0;
+alter table orders add column if not exists refunded_at timestamptz;
+alter table orders add column if not exists updated_at  timestamptz not null default now();
+
 -- You see your own orders. The store sees all of them. Nobody sees
 -- anybody else's. There is no insert, update or delete policy on either
 -- table: every write is one of the functions below.
@@ -246,13 +293,13 @@ begin
 
   insert into orders (
     user_id, status, cust_name, cust_mobile, cust_email, addr, city, state, pin,
-    items_total, mrp_total, saved, coupon, discount, shipping, bulky, grand,
+    items_total, mrp_total, saved, coupon, discount, discount_placed, shipping, bulky, grand,
     pay_method, paid, arrives_from, arrives_to, arrives_rule, history)
   values (
     auth.uid(), 'sent', c->>'name', c->>'mobile', nullif(c->>'email', ''),
     c->>'addr', c->>'city', c->>'state', c->>'pin',
     items, mrp, greatest(0, mrp - items), nullif(p->>'coupon', ''),
-    disc, ship, bulk, items - disc + ship + bulk,
+    disc, disc, ship, bulk, items - disc + ship + bulk,
     p->>'payMethod', false, a_from, a_to,
     jsonb_build_object('minDays', (p->'arrives'->>'minDays')::int,
                        'maxDays', (p->'arrives'->>'maxDays')::int,
@@ -295,15 +342,26 @@ begin
 
   -- ⚠️ THE ROAD, WRITTEN A SECOND TIME: the same pairs as ORDER_NEXT in
   -- app/domain.js, less the draft, which never reaches this database.
-  -- tools/db.pl fails if the two lists drift.
+  -- tools/db.pl fails if the two lists drift. sent -> cancelled since
+  -- 7 November 2026: an online order the shop declines is cancelled, and
+  -- the customer reads it so.
   if (cur, p_to) not in (
-    ('sent', 'confirmed'), ('sent', 'abandoned'),
+    ('sent', 'confirmed'), ('sent', 'cancelled'), ('sent', 'abandoned'),
     ('confirmed', 'packed'), ('confirmed', 'cancelled'),
     ('packed', 'shipped'), ('packed', 'cancelled'),
     ('shipped', 'delivered'), ('shipped', 'returned'),
     ('delivered', 'returned')
   ) then
     raise exception 'BAD_TRANSITION % -> %', cur, p_to;
+  end if;
+
+  -- Cancelling the whole order cannot take back an item already shipped
+  -- on its own; that item is the courier's now. Cancel the others one by
+  -- one instead.
+  if p_to in ('cancelled', 'abandoned') and exists (
+       select 1 from order_lines where order_id = p_oid
+          and status in ('shipped', 'delivered', 'returned')) then
+    raise exception 'SOME_ITEMS_SHIPPED';
   end if;
 
   update orders set
@@ -315,8 +373,27 @@ begin
        and (coalesce(trim(p_courier), '') <> '' or coalesce(trim(p_ref), '') <> '')
       then jsonb_build_object('courier', left(coalesce(trim(p_courier), ''), 60),
                               'ref',     left(coalesce(trim(p_ref), ''), 60))
-      else shipment end
+      else shipment end,
+    updated_at   = now()
   where id = p_oid;
+
+  -- Every item still on its way moves with the order: the ones AT the
+  -- order's old status (an item already ahead stays ahead). Cancelling
+  -- takes every item not yet shipped; a return, every item that was.
+  update order_lines set
+    status   = case when p_to = 'abandoned' then 'cancelled' else p_to end,
+    history  = history || jsonb_build_array(jsonb_build_object('at', stamp,
+                 'to', case when p_to = 'abandoned' then 'cancelled' else p_to end)),
+    shipment = case
+      when p_to = 'shipped'
+       and (coalesce(trim(p_courier), '') <> '' or coalesce(trim(p_ref), '') <> '')
+      then jsonb_build_object('courier', left(coalesce(trim(p_courier), ''), 60),
+                              'ref',     left(coalesce(trim(p_ref), ''), 60))
+      else shipment end
+  where order_id = p_oid and status <> 'cancelled'
+    and (status = cur
+      or (p_to in ('cancelled', 'abandoned') and status in ('sent', 'confirmed', 'packed'))
+      or (p_to = 'returned' and status in ('shipped', 'delivered')));
 end;
 $fn$;
 
@@ -332,11 +409,159 @@ begin
   if not is_staff() then raise exception 'NOT_STAFF'; end if;
   if p_paid is null then raise exception 'BAD_PAID'; end if;
   update orders set
-    paid     = p_paid,
-    paid_at  = case when p_paid then now() else null end,
-    paid_via = case when p_paid then left(coalesce(p_via, 'checked by hand'), 60) else null end
+    paid        = p_paid,
+    paid_at     = case when p_paid then now() else null end,
+    paid_via    = case when p_paid then left(coalesce(p_via, 'checked by hand'), 60) else null end,
+    -- The amount seen, kept: an item cancelled after this is money owed back.
+    paid_amount = case when p_paid then grand else null end,
+    updated_at  = now()
   where id = p_oid;
   if not found then raise exception 'NO_SUCH_ORDER'; end if;
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  roll_up_order -- the order follows its items. Called by advance_line
+--  after every item move; granted to nobody, only called from inside.
+--
+--  STATUS: where the slowest item still on its way is; every item
+--  cancelled, the order is cancelled. A rise of more than one step writes
+--  each step passed into the history, so the customer's timeline never
+--  shows "Packed: not yet" under "Shipped".
+--
+--  MONEY, when an item is cancelled: the items total is what is left, and
+--  the coupon shrinks in PROPORTION -- worked out from what it was when
+--  the order was placed, so two cancellations do not round twice -- and
+--  the total is re-added. Shipping and bulky handling stay. Nothing is
+--  recalculated once every item is gone: the order is simply cancelled.
+-- ---------------------------------------------------------------------
+create or replace function roll_up_order(p_oid uuid, p_stamp text) returns void
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  road    text[] := array['sent', 'confirmed', 'packed', 'shipped', 'delivered', 'returned'];
+  was     text;
+  now_st  text;
+  hist    jsonb := '[]'::jsonb;
+  items   int;
+  mrp     int;
+  all_it  int;
+  placed  int;
+  disc    int;
+  i       int;
+begin
+  select status, coalesce(discount_placed, discount) into was, placed
+    from orders where id = p_oid for update;
+
+  select status into now_st from order_lines
+   where order_id = p_oid and status <> 'cancelled'
+   order by array_position(road, status) limit 1;
+  if now_st is null then now_st := 'cancelled'; end if;
+
+  select coalesce(sum(line_total) filter (where status <> 'cancelled'), 0),
+         coalesce(sum(unit_mrp * qty) filter (where status <> 'cancelled'), 0),
+         coalesce(sum(line_total), 0)
+    into items, mrp, all_it
+    from order_lines where order_id = p_oid;
+
+  if items > 0 and all_it > 0 then
+    disc := round(placed::numeric * items / all_it);
+    update orders set
+      items_total = items, mrp_total = mrp, saved = greatest(0, mrp - items),
+      discount = disc, grand = items - disc + shipping + bulky
+     where id = p_oid;
+  end if;
+
+  if now_st is distinct from was then
+    if now_st in ('cancelled', 'returned') or not (was = any(road)) then
+      hist := jsonb_build_array(jsonb_build_object('at', p_stamp, 'to', now_st));
+    else
+      for i in array_position(road, was) + 1 .. array_position(road, now_st) loop
+        hist := hist || jsonb_build_array(jsonb_build_object('at', p_stamp, 'to', road[i]));
+      end loop;
+    end if;
+    update orders set
+      status       = now_st,
+      history      = history || hist,
+      delivered_at = case when now_st = 'delivered' then p_stamp::timestamptz else delivered_at end
+     where id = p_oid;
+  end if;
+
+  update orders set updated_at = now() where id = p_oid;
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  advance_line -- the store moves ONE item. Staff only.
+-- ---------------------------------------------------------------------
+create or replace function advance_line(p_line bigint, p_to text,
+                                        p_courier text default null,
+                                        p_ref text default null)
+  returns void language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  ord_id uuid;
+  lcur  text;
+  stamp text := iso_now();
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  select order_id, status into ord_id, lcur from order_lines where id = p_line for update;
+  if ord_id is null then raise exception 'NO_SUCH_LINE'; end if;
+  if p_to is null then raise exception 'BAD_TRANSITION'; end if;
+
+  -- ⚠️ AN ITEM'S ROAD: the same pairs as LINE_NEXT in app/domain.js --
+  -- the order's road less the draft and `abandoned`. tools/db.pl
+  -- compares the two.
+  if (lcur, p_to) not in (
+    ('sent', 'confirmed'), ('sent', 'cancelled'),
+    ('confirmed', 'packed'), ('confirmed', 'cancelled'),
+    ('packed', 'shipped'), ('packed', 'cancelled'),
+    ('shipped', 'delivered'), ('shipped', 'returned'),
+    ('delivered', 'returned')
+  ) then
+    raise exception 'BAD_TRANSITION % -> %', lcur, p_to;
+  end if;
+
+  update order_lines set
+    status   = p_to,
+    history  = history || jsonb_build_array(jsonb_build_object('at', stamp, 'to', p_to)),
+    shipment = case
+      when p_to = 'shipped'
+       and (coalesce(trim(p_courier), '') <> '' or coalesce(trim(p_ref), '') <> '')
+      then jsonb_build_object('courier', left(coalesce(trim(p_courier), ''), 60),
+                              'ref',     left(coalesce(trim(p_ref), ''), 60))
+      else shipment end
+  where id = p_line;
+
+  perform roll_up_order(ord_id, stamp);
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  mark_refund -- a person at the shop has sent back what is owed. Staff
+--  only, and like `paid` a note made after the fact: nothing here can
+--  send money or see it go. What is owed is what was paid less what the
+--  order now comes to (nothing, if it was cancelled), less what was
+--  already refunded -- the same sum as refundDue() in app/domain.js.
+-- ---------------------------------------------------------------------
+create or replace function mark_refund(p_oid uuid) returns int
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  st    text;
+  pd    boolean;
+  amt   int;
+  total int;
+  done  int;
+  due   int;
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  select status, paid, paid_amount, grand, refunded into st, pd, amt, total, done
+    from orders where id = p_oid for update;
+  if st is null then raise exception 'NO_SUCH_ORDER'; end if;
+  if not pd or amt is null then raise exception 'NOTHING_TO_REFUND'; end if;
+  due := amt - (case when st in ('cancelled', 'abandoned') then 0 else total end) - done;
+  if due <= 0 then raise exception 'NOTHING_TO_REFUND'; end if;
+  update orders set refunded = refunded + due, refunded_at = now(), updated_at = now()
+   where id = p_oid;
+  return due;
 end;
 $fn$;
 
@@ -656,11 +881,14 @@ revoke all on function set_default_address(uuid)              from public, anon,
 revoke all on function delete_address(uuid)                   from public, anon, authenticated;
 revoke all on function make_handover()                        from public, anon, authenticated;
 revoke all on function take_handover(text)                    from public, anon, authenticated;
+revoke all on function roll_up_order(uuid, text)              from public, anon, authenticated;
+revoke all on function advance_line(bigint, text, text, text) from public, anon, authenticated;
+revoke all on function mark_refund(uuid)                      from public, anon, authenticated;
 
 -- is_staff() runs inside the read policies, so the reader must be
 -- allowed to call it. The rest are the only writes there are.
--- signed_in() is granted to nobody: it is only ever called from inside
--- the functions above, which run as their owner.
+-- signed_in() and roll_up_order() are granted to nobody: they are only
+-- ever called from inside the functions above, which run as their owner.
 grant execute on function is_staff()                            to authenticated;
 grant execute on function place_order(jsonb)                    to authenticated;
 grant execute on function advance_order(uuid, text, text, text) to authenticated;
@@ -671,3 +899,5 @@ grant execute on function set_default_address(uuid)             to authenticated
 grant execute on function delete_address(uuid)                  to authenticated;
 grant execute on function make_handover()                       to authenticated;
 grant execute on function take_handover(text)                   to authenticated;
+grant execute on function advance_line(bigint, text, text, text) to authenticated;
+grant execute on function mark_refund(uuid)                     to authenticated;

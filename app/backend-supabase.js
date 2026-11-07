@@ -11,14 +11,16 @@
 //
 //  ---------------------------------------------------------------
 //  WHAT STAYS IN THIS BROWSER: the catalogue, which is static JSON and
-//  the same for everybody; the bag; the wishlist; the details that fill
-//  checkout in. A bag is a thing on one phone in one sitting -- syncing
-//  it would let a half-built bag on a laptop rewrite the one on a phone.
-//  store.js takes only orders, live, clearEverything and staff from here.
+//  the same for everybody; the bag; the wishlist; a guest's details that
+//  fill checkout in. A bag is a thing on one phone in one sitting --
+//  syncing it would let a half-built bag on a laptop rewrite the one on
+//  a phone. store.js takes orders, live, clearEverything and staff from
+//  here, and account and addresses once config.js SIGN_IN is on.
 //
 //  EVERY WRITE IS A FUNCTION ON THE SERVER: place_order, advance_order,
-//  set_paid, claim_staff. No table takes a write from here directly; the
-//  top of db/schema.sql says why that is the point.
+//  set_paid, claim_staff, and for an account save_address and its two
+//  siblings and the hand-over pair. No table takes a write from here
+//  directly; the top of db/schema.sql says why that is the point.
 //
 //  SNAKE_CASE STOPS AT toApp(). A database row never reaches a screen.
 // =====================================================================
@@ -73,8 +75,8 @@ async function session() {
  * A session for this visitor, made silently if there is none. Anonymous:
  * nobody is asked to sign in to buy a shirt, and every order still has an
  * owner, which is what lets each read rule be one line. Signing in with an
- * email (step 7) will make this SAME user permanent, so the orders placed
- * before it stay theirs.
+ * email (account, below) makes this SAME user permanent, so the orders
+ * placed before it stay theirs.
  */
 export async function begin() {
   const s = await session();
@@ -225,8 +227,11 @@ export const orders = {
 
 // ---------------------------------------------------------------------
 // LIVE. 'orders' comes from the database, so the board ticks when a phone
-// places one; everything else is this browser's and stays on its bus.
+// places one. 'session' and 'addresses' are this file's own news -- who
+// is signed in, and the address book after a change -- told to whoever
+// listens. Everything else is this browser's and stays on its bus.
 // ---------------------------------------------------------------------
+const OWN = ['orders', 'session', 'addresses'];
 const subs = new Map();
 let channel = null;
 
@@ -247,8 +252,8 @@ function openChannel() {
 
 export const live = {
   subscribe(topic, cb) {
-    if (topic !== 'orders') return local.live.subscribe(topic, cb);
-    openChannel();
+    if (!OWN.includes(topic)) return local.live.subscribe(topic, cb);
+    if (topic === 'orders') openChannel();
     if (!subs.has(topic)) subs.set(topic, new Set());
     subs.get(topic).add(cb);
     return () => { const s = subs.get(topic); if (s) s.delete(cb); };
@@ -278,5 +283,158 @@ export const staff = {
   async claim(code) {
     await begin();
     return !!(await rpc('claim_staff', { p_code: String(code || '').trim().toLowerCase() }));
+  },
+};
+
+// ---------------------------------------------------------------------
+// THE CUSTOMER'S ACCOUNT (step 7) -- an email and a six-digit code, never
+// a password. Nobody is made to do this: a guest orders exactly as before.
+// What signing in buys is that their orders and addresses stop being tied
+// to one phone.
+//
+// Two roads, chosen by whether the email is new to the shop (Milan's,
+// kirana/app/backend-supabase.js, walked end to end there):
+//
+//   NEW EMAIL    The guest session this phone has -- or gets now -- takes
+//                the email. Supabase calls that an email change and sends
+//                the Change Email Address template. Same user, so every
+//                order placed here is the account's already.
+//   KNOWN EMAIL  An account made on another phone. This phone signs in AS
+//                it (the Magic Link template) and so becomes a different
+//                user. A hand-over ticket, made first while it is still
+//                the guest, carries its orders across; schema.sql says why
+//                a ticket and not a user id.
+//
+// ⚠️ Both templates must carry {{ .Token }} and not the link, or the code
+// never arrives: db/SETUP.md step 7.
+// ---------------------------------------------------------------------
+const taken = (e) => !!e && (e.code === 'email_exists'
+  || /already (been )?registered|already exists/i.test(e.message || ''));
+
+const cleanEmail = (e) => String(e || '').trim().toLowerCase();
+
+// The ticket, held between "send me a code" and "here it is". Memory only:
+// a reload in between means asking for a new code, which makes a new one.
+let handover = null;
+
+export const account = {
+  /** Who this phone is: null (no session yet), a guest, or an account.
+   *  Read from the session this browser holds -- no request -- and decides
+   *  only what the page offers. The server asks auth.users for itself. */
+  async whoami() {
+    const s = await session();
+    if (!s) return null;
+    const u = s.user || {};
+    return { id: u.id, email: u.email || null, guest: !!u.is_anonymous || !u.email };
+  },
+
+  /** Mail a code. Returns the road taken, which verifyCode() needs back. */
+  async sendCode(email) {
+    const addr = cleanEmail(email);
+    await begin();
+    const sb = await client();
+    const s = await session();
+    handover = null;
+    if (s && s.user && s.user.is_anonymous) {
+      const { error } = await sb.auth.updateUser({ email: addr });
+      if (!error) return { mode: 'upgrade', email: addr };
+      if (!taken(error)) oops(error);
+      // A ticket for this phone's guest orders. If one cannot be made the
+      // sign-in still goes ahead: the orders stay with the guest session,
+      // and the store has every one of them either way.
+      try { handover = await rpc('make_handover'); } catch (e) {
+        console.warn('[vastra] hand-over ticket', e);
+      }
+    }
+    // shouldCreateUser: false -- this road is for an account that exists.
+    // A new email always takes the road above, so nothing is ever created
+    // here, and the Confirm Signup template is never involved.
+    const { error } = await sb.auth.signInWithOtp({
+      email: addr, options: { shouldCreateUser: false },
+    });
+    oops(error);
+    return { mode: 'signin', email: addr };
+  },
+
+  /** The code, checked by Supabase. Returns who this phone now is, and how
+   *  many guest orders came across with it. */
+  async verifyCode(email, code, mode) {
+    const sb = await client();
+    const { error } = await sb.auth.verifyOtp({
+      email: cleanEmail(email),
+      token: String(code || '').replace(/\D/g, ''),
+      // 'email_change' confirms an email just given to the guest session;
+      // 'email' signs in to an account that already had it.
+      type: mode === 'upgrade' ? 'email_change' : 'email',
+    });
+    oops(error);
+    let moved = 0;
+    if (mode === 'signin' && handover) {
+      try { moved = Number(await rpc('take_handover', { p_token: handover })) || 0; } catch (e) {
+        console.warn('[vastra] hand-over', e);
+      }
+    }
+    handover = null;
+    fire('session');
+    fire('orders');
+    return { ...(await account.whoami()), moved };
+  },
+
+  async signOut() {
+    const sb = await client();
+    // ⚠️ 'local': THIS phone. supabase-js signs out of every phone the
+    // person is signed in on unless told otherwise, and the button does
+    // not say that.
+    await sb.auth.signOut({ scope: 'local' });
+    handover = null;
+    // The details checkout fills in go with the person: a shared phone must
+    // not hand the next customer someone else's address.
+    await local.profile.clear();
+    fire('session');
+    fire('orders');
+  },
+};
+
+// ---------------------------------------------------------------------
+// THE ADDRESS BOOK -- accounts only (a guest's details stay in this
+// browser), read under the rule that shows each person their own, and
+// every write a function on the server that checks it again.
+// ---------------------------------------------------------------------
+const addrToApp = (r) => ({
+  id: r.id, name: r.name, mobile: r.mobile, addr: r.addr,
+  city: r.city, state: r.state, pin: r.pin, isDefault: !!r.is_default,
+});
+
+export const addresses = {
+  /** The default first, then the newest. */
+  async list() {
+    const s = await session();
+    if (!s || !s.user || s.user.is_anonymous) return [];
+    const sb = await client();
+    const { data, error } = await sb.from('addresses').select('*')
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false });
+    oops(error);
+    return (data || []).map(addrToApp);
+  },
+
+  /** New without an id, a change with one. Returns the id. */
+  async save(a) {
+    const id = await rpc('save_address', { p: {
+      id: a.id || null, name: a.name, mobile: a.mobile, addr: a.addr,
+      city: a.city, state: a.state, pin: a.pin, isDefault: !!a.isDefault,
+    } });
+    fire('addresses');
+    return id;
+  },
+
+  async makeDefault(id) {
+    await rpc('set_default_address', { p_id: id });
+    fire('addresses');
+  },
+
+  async remove(id) {
+    await rpc('delete_address', { p_id: id });
+    fire('addresses');
   },
 };

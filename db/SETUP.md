@@ -43,7 +43,8 @@ already have two, pause one first, or this one will not be created.
 → **Run**. Expect *"Success. No rows returned."* It is safe to run again.
 
 It makes the orders, their lines, the staff list and the store-code
-lock, and the rules for who may read what. Nobody — customer or store —
+lock, a signed-in customer's address book (step 7), and the rules for
+who may read what. Nobody — customer or store —
 writes a table directly; every write is a function that checks itself.
 
 ## 3. Set the store code — 1 min
@@ -69,7 +70,7 @@ with your code → **Run**.
 Every customer gets a quiet session at the moment they place an order,
 so nobody is asked to sign in to buy a shirt, and every order still has
 an owner the rules can check. Email sign-in, and the six-digit code it
-sends, is the next step and needs Brevo; nothing to do for it yet.
+sends, is step 7 below.
 
 ## 5. Send two values — 1 min
 
@@ -92,6 +93,110 @@ anywhere, rotate it in the dashboard.
 
 Open `…/clothes-app/store/` and type the store code. That phone is now
 the store: it sees every order from every phone, as they are placed.
+
+## 7. Customers signing in — about 15 min
+
+A customer may sign in with their email and a **six-digit code** —
+never a password — and their orders and saved addresses then open on any
+phone. Nobody has to: a guest orders exactly as before. Until this step
+is done and Claude switches `SIGN_IN` on in `app/config.js`, the shop
+offers no sign-in anywhere.
+
+Followed from Milan's guide (`kirana/db/SETUP.md`, steps 3 to 5), which
+was walked end to end — with this shop's **own** sender.
+
+### 7a. Run `schema.sql` again — 1 min
+
+As in step 2: [SQL Editor](https://supabase.com/dashboard/project/_/sql/new)
+→ paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
+→ **Run** → *"Success. No rows returned."*
+
+It adds the address book and the hand-over table. Nothing that exists is
+changed: no order, no line, not the store code.
+
+### 7b. An email sender — 10 min
+
+⚠️ **Supabase lets you edit an email template only once custom SMTP is
+set up**, and an unedited template mails a sign-in **link**, not a code.
+No SMTP, no code.
+
+[brevo.com](https://www.brevo.com) is free for 300 emails a day and needs
+no domain:
+
+1. Sign up, or use the Brevo account you already have.
+2. **Senders** → add **this shop's own address** — the one customers
+   will see the code come from. ⚠️ **Not Milan's**: a Vastra customer
+   must not get a code from a grocery's address. A plain Gmail works;
+   Brevo emails it a link to confirm.
+3. [app.brevo.com/settings/keys/smtp](https://app.brevo.com/settings/keys/smtp)
+   → copy the **SMTP login** shown there, and **generate an SMTP key**.
+   ⚠️ An **SMTP key**, not an API key: the wrong one fails with *535
+   Authentication failed*. It is shown **once** — paste it straight into
+   the next step, and **never into the chat**.
+4. [Supabase → Authentication → SMTP](https://supabase.com/dashboard/project/_/auth/smtp)
+   → **Enable custom SMTP**:
+
+   | | |
+   |---|---|
+   | Host | `smtp-relay.brevo.com` |
+   | Port | `587` |
+   | Username | the SMTP login from step 3 — **copy what Brevo shows** |
+   | Password | the SMTP key |
+   | Sender email | the address added in step 2 |
+   | Sender name | the shop's name, as customers should read it |
+
+5. [Authentication → Rate Limits](https://supabase.com/dashboard/project/_/auth/rate-limits)
+   → raise the cap on emails sent per hour; it starts low even with your
+   own SMTP.
+
+### 7c. Four switches — 2 min
+
+[Authentication → Sign In / Providers](https://supabase.com/dashboard/project/_/auth/providers):
+
+| | |
+|---|---|
+| **Allow anonymous sign-ins** | **on** — already, from step 4 |
+| **Allow manual linking** | **on** — a guest who signs in keeps what they did as a guest |
+| **Email** (the provider) | **on**, and inside it: |
+| ↳ **Secure email change** | **off** — on, it would send a second code to an "old" address nobody signing in here has |
+| ↳ **Email OTP Length** | **6** — `OTP_LEN` in `app/config.js` must match it |
+
+### 7d. Make the email carry a code — 2 min
+
+⚠️ **Two templates, and editing only one is why no code arrives.** Which
+one Supabase sends depends on whether the email is new to the shop:
+
+| the customer | the template |
+|---|---|
+| signs in for the first time — the email is new | **Change Email Address** |
+| signs in to the account they made on another phone | **Magic Link** |
+
+The first is the common one, and the surprising one: the guest session
+a phone already has *takes* the email, so the orders placed on it stay
+theirs, and Supabase calls that an email change.
+
+[Authentication → Emails](https://supabase.com/dashboard/project/_/auth/templates)
+→ **both** of those templates → **Source**, the same body in each:
+
+```html
+<h2>Your sign-in code</h2>
+<p><strong>{{ .Token }}</strong></p>
+<p>It expires in an hour. If you did not ask for it, ignore this email.</p>
+```
+
+Subject: `Your sign-in code`.
+
+⚠️ **`{{ .ConfirmationURL }}` must not stay in either body.** That one
+variable decides link or code, and a body holding both sends the link.
+
+The **Confirm signup** template is never sent by this shop: a new email
+always takes the first road above.
+
+### 7e. Tell Claude — 1 min
+
+Say it is done. Claude probes the new rules from outside, switches
+`SIGN_IN` on and publishes; then **you** sign in on the live site with
+your own email — the code comes to your inbox, which only you can read.
 
 ---
 
@@ -136,5 +241,5 @@ fortnight of testing will hit it, a shop taking orders daily will not.
 - **`paid` is a note a person makes**, after looking at the bank. UPI
   sends nothing back to a web page.
 - **A customer sees their orders only in the browser they ordered from**,
-  until email sign-in lands.
+  unless they sign in (step 7). Signed in, every phone shows them.
 - **Stock is not taken off** when an order is placed.

@@ -42,6 +42,23 @@ export const SUPABASE = {
   key: 'sb_publishable_KrRjRgDAdgtBbzEKcuAGdw_Saeci61h',
 };
 
+// ---------------------------------------------------------------------------
+// SIGNING IN -- an email and a six-digit code (step 7). See db/SETUP.md, 7.
+//
+// ⚠️ OFF until the project can send a code. Out of the box Supabase mails a
+// sign-in LINK, not a code, and only a handful an hour: switched on before
+// SETUP step 7 is done, the box would promise a code that never comes. Off,
+// nothing anywhere offers to sign in -- store.js leaves `account` null, as in
+// one-browser mode -- and the shop is exactly what it was before step 7.
+// ---------------------------------------------------------------------------
+export const SIGN_IN = false;
+
+// How many digits the code has. ⚠️ MUST MATCH THE PROJECT: Authentication ->
+// Sign In / Providers -> Email -> Email OTP Length. Supabase ships 6 and allows
+// up to 10; set to 8 against a page expecting 6, the box sends the first six
+// digits and every code the customer types is "wrong" (Milan's config.js).
+export const OTP_LEN = 6;
+
 /**
  * Inject a script once, and FAIL LOUDLY if it does not arrive.
  * ⚠️ The onerror branch is the whole reason this helper exists. Without it a

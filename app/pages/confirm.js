@@ -17,6 +17,8 @@ import * as store from '../store.js';
 import * as router from '../router.js';
 import { esc, emptyState, notice, toast } from '../ui.js';
 import { handoffBlock, wireHandoff } from '../handoff.js';
+import { signInBox, wireSignIn } from '../signin.js';
+import { OTP_LEN } from '../config.js';
 import { drawQR, demoStrip } from '../pay.js';
 import { seal, ornament } from '../brand.js';
 import * as D from '../domain.js';
@@ -36,6 +38,14 @@ router.registerScreen('confirm', async (host, r) => {
   ]);
   if (mine !== generation) return;
 
+  if (!first && store.shared() && store.account) {
+    host.innerHTML = emptyState(seal(64), 'We cannot find that order here.',
+      'An order opens on the phone it was placed from, and on any phone signed in to '
+      + 'the account it belongs to. Sign in on your account page, check the code, or '
+      + 'write to us with it.',
+      'Your account', '#/account');
+    return;
+  }
   if (!first && store.shared()) {
     host.innerHTML = emptyState(seal(64), 'We cannot find that order here.',
       'An order opens only in the browser it was placed from: with no sign-in yet, '
@@ -56,6 +66,7 @@ router.registerScreen('confirm', async (host, r) => {
   let order = first;
   host.innerHTML = page(order, shop);
   drawPay(host, order, shop);
+  drawKeep(host);
 
   wireHandoff(host.querySelector('[data-handoff]'), async (via) => {
     if (order.status !== 'draft') return;
@@ -123,6 +134,8 @@ function page(o, shop) {
 
     <div data-pay></div>
 
+    <div data-keep></div>
+
     ${ordered(o)}
 
     <div style="margin-top:var(--s6)">${ornament()}</div>
@@ -137,6 +150,33 @@ function page(o, shop) {
 
 const title = (o) =>
   `${o.status === 'draft' ? 'Order request saved' : 'Your order'} &mdash; ${esc(o.code)}`;
+
+/**
+ * KEEP IT ON ANY PHONE. A guest's order page is the moment the offer means
+ * something: this order, and every one after it, wherever they sign in. An
+ * offer, under the order and its payment -- never in front of them, and gone
+ * for good once taken. Drawn once into its own box, which the live refresh
+ * above never touches, so a status change cannot wipe a code half typed.
+ */
+async function drawKeep(host) {
+  const box = host.querySelector('[data-keep]');
+  if (!box || !store.account) return;
+  const who = await store.account.whoami();
+  if (!who || !who.guest || !box.isConnected) return;
+  box.innerHTML = `
+    <section class="panel" style="margin-top:var(--s4)">
+      <h2 class="t-h3">Keep this order on any phone</h2>
+      <div style="margin-top:var(--s3)">
+        ${signInBox(`Add your email and we send you a ${OTP_LEN}-digit code — there is no
+          password. This order, and every one after it, then opens wherever you sign in.`)}
+      </div>
+    </section>`;
+  wireSignIn(box, (w) => {
+    box.innerHTML = `<div style="margin-top:var(--s4)">${notice('good',
+      `<b>Signed in as ${esc(w.email)}.</b> This order is in your account now, and opens `
+      + 'on any phone where you sign in.')}</div>`;
+  });
+}
 
 /**
  * The delivery promise, as this order stands.

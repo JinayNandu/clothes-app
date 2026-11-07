@@ -6,7 +6,10 @@ established by testing or decided deliberately; none of it is a guess.
 **Status: steps 1 to 5 of 10 are built — the demo** (4 November 2026). Three
 garments, sizes, a bag, and an order that goes from checkout to delivered
 -- all of it in one browser until step 6. **Step 6 is connected** (7 November
-2026): the live site sends orders to the shop's own Supabase project. See *Where this is* and *The order of work*.
+2026): the live site sends orders to the shop's own Supabase project. **Step 7,
+accounts, is built and switched OFF** (`SIGN_IN` in `app/config.js`) until the
+project can send a code — db/SETUP.md step 7. See *Where this is*, *Accounts*
+and *The order of work*.
 
 ---
 
@@ -87,7 +90,7 @@ for the store owner**.
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
 | Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders with the address, the phone and the next step; catalogue; stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
 | Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
-| Accounts | **Not started** — step 7 |
+| Accounts | **Built, switched off** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. Off (`SIGN_IN = false`) until the owner sets up the email sender and templates, db/SETUP.md step 7. Tested against a stand-in for Supabase, not yet against the real project. See *Accounts* |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
 | Public site | Shop <https://jinaynandu.github.io/clothes-app/>, store <https://jinaynandu.github.io/clothes-app/store/> — see *Published*. The shop wears a Preview bar while placeholder is true; the store a Not locked yet bar until step 8 |
 
@@ -103,7 +106,7 @@ for a phone on the same Wi-Fi — opt-in, and it will often fail on a
 managed network, which is not a bug in the server.
 
 ```bash
-perl tools/check.pl        # ten checks
+perl tools/check.pl        # eleven checks
 ```
 
 ⚠️ **`data.pl` fails on a clean tree, on purpose.** See *Open*.
@@ -229,6 +232,67 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   reads. And with the config pointed at a dead address: browsing still
   works, "Place order" says it could not reach the shop and keeps the
   bag, and the store page fails shut rather than showing local orders.
+
+## Accounts (step 7)
+
+Built 7 November 2026, on the owner's ask ("like we have in the Milan
+app"), from Milan's account layer (`kirana/app/backend-supabase.js`,
+`kirana/db/SETUP.md` steps 3–5) with two of its gaps closed.
+
+- **Offered, never required, never a password.** A guest browses, bags
+  and orders exactly as before. The sign-in box (`app/signin.js`) lives
+  inside three pages — account, checkout, and an order's page after a
+  guest's order — and is never a screen of its own. `honesty.pl` rule 5
+  was "no login, anywhere" until this step; it was relaxed DELIBERATELY to
+  four checks: no login/sign-in route, screen or section; no password
+  field in the shop (the store's code form is the one exception); only
+  `backend-supabase.js` calls Supabase's sign-in, never with a password;
+  `orders.place()` starts by making its own guest session. Each proved
+  by breaking it.
+- **`SIGN_IN` in `config.js` is the switch.** Off, `store.account` and
+  `store.addresses` stay null — as in one-browser mode — and nothing
+  offers to sign in. It stays off until the project sends a code, because
+  out of the box Supabase mails a LINK, and only a few an hour.
+- **Two roads** (`account.sendCode`). A NEW email is attached to the guest
+  session the phone already has (or gets then): Supabase's email change,
+  the Change Email Address template, `verifyOtp` type `email_change`.
+  Same user, so the guest's orders are the account's already. A KNOWN
+  email (an account from another phone): `signInWithOtp` with
+  `shouldCreateUser: false`, the Magic Link template, type `email`. This
+  phone becomes a different user, so…
+- **…a hand-over ticket** carries the guest's orders across: made by
+  `make_handover()` while still the guest (a random token only this
+  browser held, hashed in `handovers`, one use within the hour), spent by
+  `take_handover()` once signed in. Milan lets that guest's data go;
+  handing over by user id would let anyone who learned a guest's id take
+  its orders.
+- **The address book** (`addresses`) is for accounts only — a guest's
+  details stay in their browser, as before. Read under `addr_read`
+  (owner only — `db.pl` fails if the store, or anyone else, could read
+  it); written only by `save_address`, `set_default_address`,
+  `delete_address`, each refusing anyone not `signed_in()`. Ten per
+  account; the first is the default. Checkout offers them as cards; a new
+  address is saved to the account only after the order goes through.
+- **`signed_in()` reads `auth.users`**, not the token, and is granted to
+  nobody: only the functions call it. `db.pl` also fails if
+  `place_order()` ever calls it — buying must never need an account.
+- **Sign-out is `scope: 'local'`** — supabase-js signs out of every phone
+  by default — and takes this browser's details (`profile`) with it, so a
+  shared phone does not hand the next customer someone else's address.
+  `profile.clear()` used to write a `null` that `get()` then returned;
+  it removes the key now.
+- **Tested against a stand-in, not the real project.** A fake Supabase in
+  the browser (a `fetch` replacement, in the preview only, never
+  committed) answered the real supabase-js calls: a new email signed in
+  as the same user; a wrong code refused; the address book added, edited,
+  defaulted and removed; checkout with a saved address and with a new
+  one saved after the order; sign-out local; a guest's order carried into
+  an existing account by the ticket, from the order page; checkout's
+  in-place sign-in keeping what was typed; 375 and 360 px. With `SIGN_IN`
+  off the shop was checked to be what it was before. ⚠️ **What only the
+  real project can show**: the codes arriving, the two templates, the
+  new SQL running. db/SETUP.md step 7, then the owner signs in with their
+  own email.
 
 ## Two pages: the shop and the store
 
@@ -371,15 +435,14 @@ See *Still not answered*.
 
 ### 3. Orders that leave the browser
 
-Not built. DEVI has **no login, anywhere, ever** — right for a shop that
-sends a WhatsApp handoff, and `honesty.pl` still enforces it. This app
-cannot work that way: a customer waiting ten days for a parcel must be
-able to open the app on a different phone and see where it is.
+**Built in steps 6 and 7.** DEVI has **no login, anywhere, ever** —
+right for a shop that sends a WhatsApp handoff. This app cannot work that
+way: a customer waiting ten days for a parcel must be able to open the
+app on a different phone and see where it is.
 
 Milan's account layer — anonymous Supabase session upgraded with email +
-a six-digit code. **Do not invent a password.** Steps 6 and 7, and
-`honesty.pl`'s no-login rule has to be relaxed deliberately when they
-land, not quietly.
+a six-digit code. **No password, ever.** `honesty.pl`'s no-login rule was
+relaxed deliberately when step 7 landed, not quietly: see *Accounts*.
 
 ### 4. Sizes that are garment sizes
 
@@ -521,7 +584,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 4. ✅ **Checkout and a real order**, still in local storage. The order page tracks it step by step, the store moves it from Confirm to Mark delivered, and `deliveredAt` is a field of its own. 4 November 2026.
 5. ✅ **Freeze the delivery range into the order at placement** — as it reaches the shop, read back everywhere after, with a Late flag on the store's board. 4 November 2026.
 6. ✅ **Supabase** — built 4 November 2026, connected 7 November 2026 to the shop's own project. Left: the owner's first real test order, from a phone, seen on the store page.
-7. ⬜ **Accounts**, so a parcel can be tracked from a second phone.
+7. ◐ **Accounts**, so a parcel can be tracked from a second phone. Built 7 November 2026 and switched off (`SIGN_IN`); left: the owner's email setup (db/SETUP.md step 7), re-running `schema.sql`, a probe of the new rules, switching it on, and the owner's first sign-in with their own email.
 8. ⬜ **The store view, locked**, behind `claim_staff()`. The page and its own link exist since 4 November 2026; what is left is the code check on the server and reading every phone's orders from the database.
 9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.
 10. ⬜ **Real photographs**, whenever the owner can supply them. Stand-ins have been in place since 4 November 2026, and `data.pl` will not let `placeholder` go false while one is still shown.

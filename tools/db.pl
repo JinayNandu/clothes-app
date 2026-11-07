@@ -178,6 +178,25 @@ if (!defined $cu || !defined $ck) {
 fail('CDN.supabase is not pinned to an exact version')
   unless $cfg =~ m{supabase:\s*'https://cdn\.jsdelivr\.net/npm/\@supabase/supabase-js\@\d+\.\d+\.\d+/\+esm'};
 
+# ---------------------------------------------------------------------------
+# 8. Signing in stays an offer (step 7). place_order() must never ask for an
+#    account, and nobody but its owner reads an address book -- not even the
+#    store, which sees the address each ORDER went to and needs no more.
+# ---------------------------------------------------------------------------
+my ($po) = $sqlc =~ /function\s+place_order\s*\(.*?\$fn\$(.*?)\$fn\$/s;
+if (!defined $po) { fail('could not find place_order() in schema.sql'); }
+elsif ($po =~ /signed_in\s*\(/) {
+  fail('place_order() asks for a signed-in account -- buying must never need one');
+}
+else { ok('place_order() takes a guest as readily as an account'); }
+
+my ($ap) = $sqlc =~ /create\s+policy\s+addr_read\s+on\s+addresses\s+(.*?);/s;
+if (!defined $ap) { fail('no read policy on addresses'); }
+elsif ($ap =~ /is_staff/ || $ap !~ /using\s*\(\s*user_id\s*=\s*auth\.uid\(\)\s*\)/) {
+  fail('an address book is readable by more than its owner');
+}
+else { ok('an address book is read by its owner only -- not even by the store'); }
+
 print "\n";
 if ($fails) { print "$fails FAILED\n"; exit 1; }
 print "all database checks passed\n";

@@ -235,8 +235,10 @@
 .pay-opt.off{ cursor:not-allowed; background:var(--sunk); border-color:var(--edge); }
 .pay-opt.off .pay-name{ color:var(--ink-dim); }
 .pay-opt input{ margin-top:3px; flex:none; accent-color:var(--ink); }
-.pay-name{ font-weight:600; font-size:14px; color:var(--ink); }
-.pay-why{ font-size:12px; color:var(--ink-dim); margin-top:3px; line-height:1.5; }
+/* Blocks: the name on its line, the reason under it. As inline spans the
+   reason ran on from the name and its margin-top did nothing. */
+.pay-name{ display:block; font-weight:600; font-size:14px; color:var(--ink); }
+.pay-why{ display:block; font-size:12px; color:var(--ink-dim); margin-top:3px; line-height:1.5; }
 
 .qr-tile{
   width:200px; height:200px; padding:var(--s3);
@@ -261,6 +263,58 @@
 }
 .ord-code{ font-weight:700; font-variant-numeric:tabular-nums; }
 .ord-meta{ font-size:12px; color:var(--ink-dim); }
+
+/* THE ACCOUNT PAGE (pages/account.js). Each column a stack of panels, so a
+   panel that is not there -- the sign-in box in one-browser mode -- leaves
+   no gap behind it. */
+.acct-col{ display:flex; flex-direction:column; gap:var(--s4); min-width:0; }
+.acct-who{
+  display:flex; align-items:center; gap:var(--s2);
+  margin-top:var(--s3);
+  font-size:15px; color:var(--ink); overflow-wrap:anywhere;
+}
+.acct-who svg{ flex:none; color:var(--gold-ink); }
+
+/* The address book. A row per address, its actions on the right; on a phone
+   the actions drop under it. */
+.book-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:var(--s3); flex-wrap:wrap;
+}
+.book{ display:flex; flex-direction:column; margin-top:var(--s2); }
+.addr-card{
+  display:flex; justify-content:space-between; gap:var(--s4);
+  padding:var(--s4) 0;
+  border-top:1px solid var(--edge);
+}
+.addr-card:first-child{ border-top:0; }
+.addr-name{
+  display:flex; align-items:center; flex-wrap:wrap; gap:var(--s2);
+  font-weight:600; color:var(--ink);
+}
+.addr-lines{ margin-top:var(--s1); font-size:13px; line-height:1.55; color:var(--ink-soft); }
+.addr-acts{ display:flex; flex-direction:column; align-items:flex-end; gap:var(--s2); flex:none; }
+.addr-form{
+  display:flex; flex-direction:column; gap:var(--s4);
+  margin-top:var(--s4); padding:var(--s4);
+  background:var(--paper);
+  border:1px solid var(--edge); border-radius:var(--r2);
+}
+.panel .addr-form h3{ margin:0; }
+.addr-form-acts{ display:flex; flex-wrap:wrap; gap:var(--s3); }
+@media (max-width:599px){
+  .addr-card{ flex-direction:column; gap:var(--s2); }
+  .addr-acts{ flex-direction:row; flex-wrap:wrap; align-items:center; gap:var(--s4); }
+}
+
+/* CHECKOUT, signed in: the saved addresses as choices, in the same cards as
+   the ways to pay below them; signed out, one line offering to sign in. */
+.co-book{ margin-bottom:var(--s4); }
+.co-who{ margin-bottom:var(--s4); font-size:13px; color:var(--ink-soft); overflow-wrap:anywhere; }
+.co-offer{ margin-bottom:var(--s4); font-size:13px; line-height:1.55; color:var(--ink-soft); }
+.co-offer .btn-ghost{ font-size:13px; }
+.co-signin{ margin-bottom:var(--s5); padding:var(--s4); border:1px solid var(--edge); border-radius:var(--r2); }
+.co-save{ margin-top:var(--s4); }
 
 /* THE TRACKING TIMELINE, on the customer's order page. A column of steps,
    each done, current or still to come. ⚠️ Colour is never the only signal:

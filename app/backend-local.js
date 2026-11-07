@@ -688,12 +688,20 @@ function advance(id, to, mutate, note) {
 // ---------------------------------------------------------------------------
 export const profile = {
   async get() {
-    return clone(read(K.profile, {
+    // `|| blank`, not only read()'s fallback: a stored `null` parses to null,
+    // and every caller reads .name off whatever comes back.
+    return clone(read(K.profile, null) || {
       name: '', mobile: '', email: '', addr: '', city: '', state: '', pin: '',
-    }));
+    });
   },
   async save(p) { write(K.profile, clone(p), 'profile'); return clone(p); },
-  async clear() { write(K.profile, null, 'profile'); },
+  /** Gone from this browser -- signing out calls this, so a shared phone does
+   *  not hand the next person someone else's address. The key is REMOVED: it
+   *  used to be written as null, which get() then returned. */
+  async clear() {
+    try { localStorage.removeItem(K.profile); } catch { /* nothing to do */ }
+    bump('profile');
+  },
 };
 
 // ---------------------------------------------------------------------------

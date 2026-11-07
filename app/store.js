@@ -18,7 +18,7 @@
 // ============================================================================
 
 import * as local from './backend-local.js';
-import { SUPABASE } from './config.js';
+import { SUPABASE, SIGN_IN } from './config.js';
 
 /** True when this page has a database behind it: a project named in config.js
  *  AND an http(s) page. The single-file build opens from file://, where there
@@ -39,6 +39,11 @@ export let clearEverything = local.clearEverything;
 /** The store page's door: null in one-browser mode, where there is no server
  *  to check a code and so no code. */
 export let staff = null;
+/** A customer's sign-in (an email and a code) and their address book. Null in
+ *  one-browser mode, and while config.js SIGN_IN is off: a page that finds
+ *  `account` null offers no sign-in anywhere. */
+export let account = null;
+export let addresses = null;
 
 let server = null;
 
@@ -47,6 +52,7 @@ export async function ready() {
   if (!shared()) return;
   server = await import('./backend-supabase.js');
   ({ orders, live, clearEverything, staff } = server);
+  if (SIGN_IN) ({ account, addresses } = server);
 }
 
 /** A session, made if there is none: the store page needs one before it can

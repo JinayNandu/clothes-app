@@ -98,6 +98,7 @@
   background:none; color:var(--gold-ink);
   text-transform:none; letter-spacing:.02em; font-size:13px;
 }
+.btn-ghost:disabled{ color:var(--ink-dim); cursor:default; }
 .btn-ghost:hover:not(:disabled){
   text-decoration:underline; text-underline-offset:4px;
 }
@@ -505,6 +506,32 @@
   font-size:12px; color:var(--alert-ink);
 }
 .field-err svg{ flex:none; margin-top:1px; }
+
+/* A checkbox with its sentence beside it -- "Save this address". */
+.tick{
+  display:flex; align-items:flex-start; gap:var(--s2);
+  font-size:14px; line-height:1.4; color:var(--ink); cursor:pointer;
+}
+.tick input{ margin-top:2px; flex:none; accent-color:var(--ink); }
+.tick input:disabled + *{ color:var(--ink-dim); }
+
+/* ---------------------------------------------------------------------------
+   SIGN IN (signin.js) -- an email, then the code. The fields are the shop's own
+   .field; this lays the two steps out and makes the code thumb-sized.
+   ------------------------------------------------------------------------ */
+.signin{ display:flex; flex-direction:column; gap:var(--s3); }
+.signin-lead{ font-size:14px; line-height:1.6; color:var(--ink-soft); }
+.signin-step{ display:flex; flex-direction:column; gap:var(--s3); }
+.signin .btn{ align-self:flex-start; }
+.signin-sent{ font-size:14px; line-height:1.55; color:var(--ink); }
+.field input.signin-code{
+  font-size:22px; letter-spacing:.35em;
+  font-variant-numeric:tabular-nums;
+  max-width:14em;
+}
+.signin-links{ display:flex; flex-wrap:wrap; gap:var(--s2) var(--s5); }
+.signin-msg{ font-size:13px; line-height:1.5; color:var(--ink-soft); min-height:1.2em; }
+.signin-msg.bad{ color:var(--alert-ink); }
 
 /* â ï¸ The select chevron is a real inline <svg> positioned here, never a
    data-URI background. A data-URI needs a literal colour inside a component

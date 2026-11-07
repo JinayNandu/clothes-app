@@ -14,7 +14,8 @@
 --  The catalogue. Products, prices, sizes, coupons and the delivery
 --  rule stay in app/data/*.json, in git, checked by tools/data.pl and
 --  the same for everybody. What is here is only what moves per person:
---  orders, their lines, and who may run the store.
+--  orders, their lines, a signed-in customer's addresses, and who may
+--  run the store.
 --
 --  ---------------------------------------------------------------
 --  NOBODY WRITES A TABLE DIRECTLY
@@ -402,6 +403,202 @@ end;
 $fn$;
 
 -- ---------------------------------------------------------------------
+--  SIGNED-IN CUSTOMERS (step 7)
+--
+--  Nobody has to sign in to buy. A customer who wants their orders on a
+--  second phone, or an address kept, signs in with an email and a
+--  six-digit code -- never a password. Supabase sends and checks the
+--  code; this file has three jobs: tell a guest from an account, keep
+--  each account's addresses to itself, and let a guest's orders follow
+--  them into an account they already had.
+--
+--  A GUEST is an anonymous session: the quiet one a phone gets as it
+--  places its first order. Signing in on THAT phone attaches the email
+--  to the same user -- Supabase calls it an email change -- so its
+--  orders are already the account's and nothing moves. Only when the
+--  email already belongs to an account (signed in on another phone
+--  before) does this phone sign in AS that account and become another
+--  user; then its guest orders are handed across, by the two hand-over
+--  functions further down.
+-- ---------------------------------------------------------------------
+
+-- A real account with an email, not an anonymous session. Read from
+-- auth.users rather than the token, so a token minted before the email
+-- was attached can claim no more than the user now is.
+create or replace function signed_in() returns boolean
+  language sql stable security definer set search_path = public as $fn$
+  select exists (select 1 from auth.users u
+                  where u.id = auth.uid() and u.email is not null
+                    and not coalesce(u.is_anonymous, false));
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  addresses -- a signed-in customer's address book
+--
+--  Copied INTO an order at checkout, never referenced by one (top of
+--  this file). Only accounts keep one: a guest's details stay in their
+--  own browser, as before, so the server holds no address book for a
+--  session nobody can come back to. The store has no read on this table
+--  at all -- it sees the address each ORDER went to, which is all it
+--  needs.
+-- ---------------------------------------------------------------------
+create table if not exists addresses (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users on delete cascade,
+  name        text not null check (char_length(name) between 2 and 80),
+  mobile      text not null check (char_length(mobile) between 10 and 16),
+  addr        text not null check (char_length(addr) between 10 and 300),
+  city        text not null check (char_length(city) between 1 and 60),
+  state       text not null check (char_length(state) between 2 and 60),
+  pin         text not null check (pin ~ '^[1-9][0-9]{5}$'),
+  is_default  boolean not null default false,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists addresses_user on addresses (user_id, created_at desc);
+alter table addresses enable row level security;
+
+drop policy if exists addr_read on addresses;
+create policy addr_read on addresses for select using (user_id = auth.uid());
+
+-- Add one (no id) or change one of your own (with its id). Ten is the
+-- ceiling: a family's worth, and not a place to park rows by the
+-- thousand. The first address is the default whatever the page asked;
+-- isDefault moves the default to this one.
+create or replace function save_address(p jsonb) returns uuid
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  aid uuid    := nullif(p->>'id', '')::uuid;
+  mk  boolean := coalesce((p->>'isDefault')::boolean, false);
+begin
+  if not signed_in() then raise exception 'NOT_SIGNED_IN'; end if;
+  if aid is null then
+    if (select count(*) from addresses where user_id = auth.uid()) >= 10 then
+      raise exception 'TOO_MANY_ADDRESSES';
+    end if;
+    mk := mk or not exists (select 1 from addresses where user_id = auth.uid());
+    insert into addresses (user_id, name, mobile, addr, city, state, pin)
+    values (auth.uid(), trim(p->>'name'), trim(p->>'mobile'), trim(p->>'addr'),
+            trim(p->>'city'), trim(p->>'state'), trim(p->>'pin'))
+    returning id into aid;
+  else
+    update addresses set
+      name = trim(p->>'name'), mobile = trim(p->>'mobile'), addr = trim(p->>'addr'),
+      city = trim(p->>'city'), state = trim(p->>'state'), pin = trim(p->>'pin'),
+      updated_at = now()
+    where id = aid and user_id = auth.uid();
+    if not found then raise exception 'NO_SUCH_ADDRESS'; end if;
+  end if;
+  if mk then
+    update addresses set is_default = (id = aid) where user_id = auth.uid();
+  end if;
+  return aid;
+end;
+$fn$;
+
+create or replace function set_default_address(p_id uuid) returns void
+  language plpgsql volatile security definer set search_path = public as $fn$
+begin
+  if not signed_in() then raise exception 'NOT_SIGNED_IN'; end if;
+  if not exists (select 1 from addresses where id = p_id and user_id = auth.uid()) then
+    raise exception 'NO_SUCH_ADDRESS';
+  end if;
+  update addresses set is_default = (id = p_id) where user_id = auth.uid();
+end;
+$fn$;
+
+-- Gone for good. If it was the default, the newest one left takes over,
+-- so checkout always has one to offer first.
+create or replace function delete_address(p_id uuid) returns void
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare was boolean;
+begin
+  if not signed_in() then raise exception 'NOT_SIGNED_IN'; end if;
+  delete from addresses where id = p_id and user_id = auth.uid()
+    returning is_default into was;
+  if not found then raise exception 'NO_SUCH_ADDRESS'; end if;
+  if was then
+    update addresses set is_default = true
+     where id = (select id from addresses where user_id = auth.uid()
+                  order by created_at desc limit 1);
+  end if;
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  handovers -- a guest's orders, carried into the account they sign
+--  in to.
+--
+--  The case it is for: somebody with an account (they signed in on
+--  another phone once) orders on this phone as a guest, then signs in.
+--  The email is taken, so this phone cannot become that account by an
+--  email change; it signs in to it instead and becomes a different
+--  user -- and the orders it placed would vanish from view the moment
+--  it did.
+--
+--  The proof that those orders are theirs to move is a TICKET, made
+--  while this phone is still the guest: a random token only this browser
+--  ever held, good for one use within the hour. Handing over by user id
+--  instead would let anyone who learned a guest's id take its orders.
+--  Only a hash of the token is kept.
+-- ---------------------------------------------------------------------
+create table if not exists handovers (
+  token_hash text primary key,
+  from_user  uuid        not null,
+  made_at    timestamptz not null default now(),
+  taken_at   timestamptz
+);
+create index if not exists handovers_from on handovers (from_user, made_at desc);
+alter table handovers enable row level security;
+-- No policy: nothing reaches this table but the two functions.
+
+-- ⚠️ `extensions` in the search path, as in claim_staff(): pgcrypto's
+-- gen_random_bytes() and digest() live there on Supabase.
+create or replace function make_handover() returns text
+  language plpgsql volatile security definer
+  set search_path = public, extensions as $fn$
+declare tok text;
+begin
+  if auth.uid() is null then raise exception 'NO_SESSION'; end if;
+  if signed_in() then raise exception 'NOT_A_GUEST'; end if;
+  if (select count(*) from handovers
+       where from_user = auth.uid() and made_at > now() - interval '1 hour') >= 5 then
+    raise exception 'TOO_MANY_TRIES';
+  end if;
+  tok := encode(gen_random_bytes(24), 'hex');
+  insert into handovers (token_hash, from_user)
+  values (encode(digest(tok, 'sha256'), 'hex'), auth.uid());
+  return tok;
+end;
+$fn$;
+
+create or replace function take_handover(p_token text) returns int
+  language plpgsql volatile security definer
+  set search_path = public, extensions as $fn$
+declare
+  src   uuid;
+  moved int := 0;
+begin
+  if not signed_in() then raise exception 'NOT_SIGNED_IN'; end if;
+  update handovers set taken_at = now()
+   where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex')
+     and taken_at is null and made_at > now() - interval '1 hour'
+  returning from_user into src;
+  -- Used, expired or never made: nothing to carry, and nothing said
+  -- about which.
+  if src is null or src = auth.uid() then return 0; end if;
+  -- From a guest only. A session that has since become an account of
+  -- its own keeps its orders.
+  if not exists (select 1 from auth.users where id = src and coalesce(is_anonymous, false)) then
+    return 0;
+  end if;
+  update orders set user_id = auth.uid() where user_id = src;
+  get diagnostics moved = row_count;
+  return moved;
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
 --  Realtime: the board ticks when an order arrives, and a customer's
 --  order page moves when the store marks it packed. RLS is applied per
 --  subscriber, so a customer's socket carries only their own orders.
@@ -439,12 +636,13 @@ end $pub$;
 --  before the one grant it should have. tools/db.pl checks there is a
 --  revoke for every function in this file.
 -- =====================================================================
-revoke all on table staff, orders, order_lines, shop_secret, claim_attempts
+revoke all on table staff, orders, order_lines, shop_secret, claim_attempts,
+                    addresses, handovers
   from anon, authenticated;
 revoke all on sequence order_seq, order_lines_id_seq from anon, authenticated;
 
 grant usage on schema public to authenticated;
-grant select on staff, orders, order_lines to authenticated;
+grant select on staff, orders, order_lines, addresses to authenticated;
 
 revoke all on function iso_now()                              from public, anon, authenticated;
 revoke all on function is_staff()                             from public, anon, authenticated;
@@ -452,11 +650,24 @@ revoke all on function place_order(jsonb)                     from public, anon,
 revoke all on function advance_order(uuid, text, text, text)  from public, anon, authenticated;
 revoke all on function set_paid(uuid, boolean, text)          from public, anon, authenticated;
 revoke all on function claim_staff(text)                      from public, anon, authenticated;
+revoke all on function signed_in()                            from public, anon, authenticated;
+revoke all on function save_address(jsonb)                    from public, anon, authenticated;
+revoke all on function set_default_address(uuid)              from public, anon, authenticated;
+revoke all on function delete_address(uuid)                   from public, anon, authenticated;
+revoke all on function make_handover()                        from public, anon, authenticated;
+revoke all on function take_handover(text)                    from public, anon, authenticated;
 
 -- is_staff() runs inside the read policies, so the reader must be
 -- allowed to call it. The rest are the only writes there are.
+-- signed_in() is granted to nobody: it is only ever called from inside
+-- the functions above, which run as their owner.
 grant execute on function is_staff()                            to authenticated;
 grant execute on function place_order(jsonb)                    to authenticated;
 grant execute on function advance_order(uuid, text, text, text) to authenticated;
 grant execute on function set_paid(uuid, boolean, text)         to authenticated;
 grant execute on function claim_staff(text)                     to authenticated;
+grant execute on function save_address(jsonb)                   to authenticated;
+grant execute on function set_default_address(uuid)             to authenticated;
+grant execute on function delete_address(uuid)                  to authenticated;
+grant execute on function make_handover()                       to authenticated;
+grant execute on function take_handover(text)                   to authenticated;

@@ -324,6 +324,7 @@ export function drawChrome(shop) {
   if (band) band.innerHTML = brandBand(shop);
 
   for (const [sel, name] of [['#i-search', 'search'], ['#i-wish', 'heart'],
+                             ['#i-user', 'user'],
                              ['#i-bag', 'bag'], ['#i-burger', 'menu'],
                              ['#i-search-m', 'search'], ['#i-close', 'close'],
                              ['#i-sheet-close', 'close']]) {

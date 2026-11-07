@@ -236,12 +236,25 @@ ok('the delivery promise is made once, as an order is sent, and only read after 
   unless $promise_bad;
 
 # ---------------------------------------------------------------------------
-# 5. There is no login, anywhere.
+# 5. Signing in is OFFERED, NEVER REQUIRED, and never a password.
 #
-# A login form that accepts any password is the most dishonest thing this site
-# could ship, and the easiest to build by accident while scaffolding. This
-# fails on a ROUTE, a screen name or a section id -- the three places one would
-# appear -- and deliberately not on the word "login" in prose.
+# Until step 7 this rule was "there is no login, anywhere": a login form that
+# accepts any password is the most dishonest thing this site could ship, and
+# the easiest to build by accident while scaffolding. Step 7 relaxed it
+# DELIBERATELY, on 7 November 2026 -- a customer may sign in with an email and
+# a six-digit code that Supabase checks on the server -- and this is what is
+# left of it, four ways:
+#
+#   a. Sign-in is never a screen of its own. It is a box inside the account
+#      page, checkout and an order's page; a ROUTE, a screen name or a section
+#      id called login, signin, signup, register or otp is the shape a wall in
+#      front of the shop would take. (Deliberately not the word in prose.)
+#   b. No password field anywhere in the shop. The store page's code form is
+#      the one password input in the project, and it is not the shop's.
+#   c. Only backend-supabase.js talks to Supabase's sign-in, and never with a
+#      password: no signInWithPassword, no signUp.
+#   d. Buying never waits on an account: orders.place() makes its own guest
+#      session first, so an order goes through for somebody never signed in.
 # ---------------------------------------------------------------------------
 my $dom = slurp("$APP/domain.js");
 my $html = slurp("$APP/index.html");
@@ -273,7 +286,45 @@ for my $w (@auth) {
     $auth_hits++; fail("app$rel registers an auth screen: $w");
   }
 }
-ok('no login, sign-up or OTP route, screen or section exists') unless $auth_hits;
+ok('sign-in is never a screen of its own: no login, sign-up or OTP route, screen or section')
+  unless $auth_hits;
+
+# b. No password field in the shop. The store's own files are the exception.
+my %STORE_SIDE = map { $_ => 1 } ('/owner.js', '/owner.html', '/pages/admin.js',
+                                  '/pages/admin-catalog.js');
+my @pw;
+for my $rel (@FILES) {
+  next if $STORE_SIDE{$rel};
+  push @pw, "app$rel" if $CODE{$rel} =~ /type\s*[=:]\s*["']password["']/i;
+}
+if (@pw) { fail('a password field in the shop: ' . join(', ', @pw)
+              . ' -- signing in is an email and a code, never a password'); }
+else { ok('no password field anywhere in the shop'); }
+
+# c. One module talks to Supabase's sign-in, and never with a password.
+my (@auth_calls, @pw_calls);
+for my $rel (@FILES) {
+  push @pw_calls, "app$rel" if $CODE{$rel} =~ /\b(?:signInWithPassword|signUp)\s*\(/;
+  next if $rel eq '/backend-supabase.js';
+  push @auth_calls, "app$rel"
+    if $CODE{$rel} =~ /\.(?:signInWithOtp|verifyOtp|updateUser|signInAnonymously)\s*\(/;
+}
+if (@pw_calls) { fail('a password sign-in or sign-up: ' . join(', ', @pw_calls)); }
+if (@auth_calls) { fail('Supabase sign-in called outside backend-supabase.js: '
+                      . join(', ', @auth_calls)); }
+ok('only backend-supabase.js signs anyone in, and never with a password')
+  unless @pw_calls || @auth_calls;
+
+# d. An order goes through for somebody never signed in.
+my ($place) = ($CODE{'/backend-supabase.js'} // '') =~ /async\s+place\s*\(\s*draft\s*\)\s*\{(.*?)\n  \},/s;
+if (!defined $place) {
+  fail('could not find orders.place() in backend-supabase.js');
+} elsif ($place !~ /^\s*await\s+begin\(\)\s*;/) {
+  fail('orders.place() no longer starts by making its own guest session -- '
+     . 'buying must never wait on an account');
+} else {
+  ok('placing an order makes its own guest session: buying never waits on an account');
+}
 
 # ---------------------------------------------------------------------------
 # 6. No <form> pretends to submit.

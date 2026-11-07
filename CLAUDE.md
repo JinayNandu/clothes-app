@@ -9,8 +9,9 @@ garments, sizes, a bag, and an order that goes from checkout to delivered
 2026): the live site sends orders to the shop's own Supabase project. **Step 7,
 accounts, is built and switched ON** (`SIGN_IN` in `app/config.js`), the same
 day, once the owner had set up the email sender and templates (db/SETUP.md
-step 7). ⚠️ The owner's first real sign-in is still to come. See *Where this
-is*, *Accounts* and *The order of work*.
+step 7). The owner's own sign-in code **arrived by email**, 7 November 2026 —
+the shop's own sender and the code template, working on the real project.
+See *Where this is*, *Accounts* and *The order of work*.
 
 ---
 
@@ -91,7 +92,7 @@ for the store owner**.
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
 | Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). **Each item has its own status** (built 7 November 2026, on the owner's yes): a "Move this item to…" menu and Cancel item on every item; the order's status is its slowest item still on its way (`roll_up_order`), rising through every step it passes; cancelling an item takes it out of the total and shrinks the coupon in proportion to `discount_placed`; paid and then cut, the store sees "Refund ₹X" and notes it sent (`mark_refund`), and the customer sees what is owed, then when it went. Needs `schema.sql` re-run — the page hides every per-item control until items carry a status (`D.hasItemStatus`) — and `db/selftest.sql` proves the SQL on the real database and rolls back. See *Two pages* |
 | Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
-| Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. ⚠️ **Not yet seen working end to end**: no real code has been sent or used. See *Accounts* |
+| Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. **The first real code arrived by email** (the owner, 7 November 2026), so the sender, SMTP and the code template work. ⚠️ Still unseen: signing in on a SECOND phone, which takes the other template (Magic Link). See *Accounts* |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
 | Public site | Shop <https://jinaynandu.github.io/clothes-app/>, store <https://jinaynandu.github.io/clothes-app/store/> — see *Published*. The shop wears a Preview bar while placeholder is true; the store a Not locked yet bar until step 8 |
 
@@ -643,7 +644,7 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 4. ✅ **Checkout and a real order**, still in local storage. The order page tracks it step by step, the store moves it from Confirm to Mark delivered, and `deliveredAt` is a field of its own. 4 November 2026.
 5. ✅ **Freeze the delivery range into the order at placement** — as it reaches the shop, read back everywhere after, with a Late flag on the store's board. 4 November 2026.
 6. ✅ **Supabase** — built 4 November 2026, connected 7 November 2026 to the shop's own project. Left: the owner's first real test order, from a phone, seen on the store page.
-7. ◐ **Accounts**, so a parcel can be tracked from a second phone. Built, set up and switched on, 7 November 2026. Left: the owner's first sign-in with their own email — the first real code — and a second phone.
+7. ◐ **Accounts**, so a parcel can be tracked from a second phone. Built, set up and switched on, 7 November 2026; the owner's first code arrived by email the same day. Left: signing in on a second phone (the Magic Link template), and seeing the orders and addresses there.
 8. ⬜ **The store view, locked**, behind `claim_staff()`. The page and its own link exist since 4 November 2026; what is left is the code check on the server and reading every phone's orders from the database.
 9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.
 10. ⬜ **Real photographs**, whenever the owner can supply them. Stand-ins have been in place since 4 November 2026, and `data.pl` will not let `placeholder` go false while one is still shown.

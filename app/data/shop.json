@@ -10,14 +10,14 @@
   "contact": {
     "addr": "",
     "city": "",
-    "email": "",
+    "email": "orders@example.com",
     "gstin": "",
     "hours": "Monday to Saturday, 10am to 6pm IST",
-    "phone": "",
+    "phone": "+91 12345 67890",
     "pin": "",
     "returnsAddr": "",
     "state": "",
-    "whatsapp": ""
+    "whatsapp": "+91 12345 67890"
   },
   "coupons": {
     "codes": [

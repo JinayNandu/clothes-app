@@ -76,6 +76,12 @@ my @BANNED = (
 
 my $banned_hits = 0;
 for my $rel (@FILES) {
+  # The STORE's files are not read by customers, and on them "Mark payment
+  # received" is the owner's own button for what they checked in the bank --
+  # the one human assertion of payment this project has (rule 2 keeps setPaid
+  # to that screen). Skipped since 7 November 2026, when the owner asked for
+  # that wording; every page a customer can open is still held to all four.
+  next if $rel =~ m{^/(?:owner\.(?:js|html)|pages/admin(?:-catalog)?\.js)$};
   my @lines = split /\n/, $CODE{$rel};
   for my $i (0 .. $#lines) {
     for my $b (@BANNED) {
@@ -355,8 +361,12 @@ my %NOTICE = (
     => [ '/pages/confirm.js', qr/has not received this yet/ ],
   'the not-an-account notice'
     => [ '/pages/account.js', qr/This is not an account/ ],
-  'the gateway-not-configured reason'
-    => [ '/domain.js',        qr/Not set up yet/ ],
+  # 'the gateway-not-configured reason' -- "Not set up yet" on greyed-out card
+  # and net banking options -- was here until 7 November 2026. The options are
+  # gone, on the owner's word: the shop takes UPI and cash on delivery, and a
+  # card needs a gateway and a server it does not have. Nothing claims a card
+  # can be used, so there is no reason left to show. The Razorpay seam's own
+  # check, further down, still holds.
   'the this-browser-only notice on the store orders board'
     => [ '/pages/admin.js',   qr/orders placed in THIS browser only/i ],
   # 'the demo-UPI strip' -- "This QR cannot take money" -- was here until

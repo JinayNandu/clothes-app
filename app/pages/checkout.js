@@ -38,7 +38,6 @@ router.registerScreen('checkout', async (host) => {
 
   const t = await store.cart.totals();
   const products = await Promise.all(lines.map((l) => store.catalog.byId(l.pid)));
-  const gw = D.gatewayState(shop.gateway);
 
   // UPI first — it is the one that actually works today.
   let pay = 'upi';
@@ -157,12 +156,12 @@ router.registerScreen('checkout', async (host) => {
     const box = host.querySelector('[data-paynote]');
     if (pay === 'upi') {
       box.innerHTML = notice('info', 'A QR with the exact amount and your order code '
-        + 'appears on the next screen.');
-    } else if (pay === 'cod') {
-      box.innerHTML = notice('info', 'Pay the courier when the parcel arrives. '
-        + 'We will still need you to send the order through so we can confirm it.');
+        + 'appears on the next screen. After paying, keep the screenshot: show it to '
+        + 'the delivery partner when your parcel arrives.');
     } else {
-      box.innerHTML = notice('warn', esc(gw.why));
+      box.innerHTML = notice('info', 'Pay the courier when the parcel arrives.'
+        + (store.shared() ? ''
+          : ' We will still need you to send the order through so we can confirm it.'));
     }
   }
 

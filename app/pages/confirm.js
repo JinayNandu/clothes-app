@@ -21,6 +21,7 @@ import { signInBox, wireSignIn } from '../signin.js';
 import { OTP_LEN } from '../config.js';
 import { drawQR } from '../pay.js';
 import { seal, ornament } from '../brand.js';
+import { art } from '../art.js';
 import * as D from '../domain.js';
 
 /**
@@ -33,8 +34,8 @@ let generation = 0;
 
 router.registerScreen('confirm', async (host, r) => {
   const mine = (generation += 1);
-  const [first, shop] = await Promise.all([
-    store.orders.byCode(r.params.code), store.catalog.shop(),
+  const [first, shop, all] = await Promise.all([
+    store.orders.byCode(r.params.code), store.catalog.shop(), store.catalog.all(),
   ]);
   if (mine !== generation) return;
 
@@ -64,7 +65,7 @@ router.registerScreen('confirm', async (host, r) => {
   }
 
   let order = first;
-  host.innerHTML = page(order, shop);
+  host.innerHTML = page(order, shop, all);
   drawPay(host, order, shop);
   drawKeep(host);
 
@@ -108,35 +109,44 @@ router.registerScreen('confirm', async (host, r) => {
 // ---------------------------------------------------------------------------
 // THE PAGE
 // ---------------------------------------------------------------------------
-function page(o, shop) {
+// The order a customer reads it in: where it is, what is in it, how to pay,
+// then help. It used to put the handoff, payment and sign-in boxes first and
+// what was bought last -- under three panels most people never scrolled past.
+// A draft is the exception: it has reached nobody yet, so handing it over
+// comes straight after its status.
+function page(o, shop, all) {
+  const handoff = `
+    <section class="panel" style="margin-top:var(--s4)">
+      <div data-handoff-head>${handoffHead(o)}</div>
+      <div data-handoff>${handoffBlock(D.orderSummaryText(o, shop), shop,
+        { subject: 'Order ' + o.code })}</div>
+    </section>`;
   return `
   <div style="max-width:720px;margin:0 auto">
     <div style="text-align:center;margin-bottom:var(--s5)">
       <span style="color:var(--gold)">${seal(56)}</span>
       <h1 class="t-h1" style="margin-top:var(--s3)" data-title>${title(o)}</h1>
       <p class="t-micro dim" style="margin-top:var(--s2)">
-        Saved ${D.fmtStamp(o.createdAt)}</p>
+        ${o.sentVia === 'online' ? 'Placed' : 'Saved'} ${D.fmtStamp(o.createdAt)}</p>
       <p class="arrive" data-arrive>${arriveLine(o, shop)}</p>
     </div>
 
     <div data-status>${statusBlock(o, shop)}</div>
+
+    ${o.status === 'draft' ? handoff : ''}
 
     <section class="panel" style="margin-top:var(--s5)">
       <h2 class="t-h3">Where it is</h2>
       <div data-track>${track(o)}</div>
     </section>
 
-    <section class="panel" style="margin-top:var(--s4)">
-      <div data-handoff-head>${handoffHead(o)}</div>
-      <div data-handoff>${handoffBlock(D.orderSummaryText(o, shop), shop,
-        { subject: 'Order ' + o.code })}</div>
-    </section>
+    ${ordered(o, all)}
 
     <div data-pay></div>
 
-    <div data-keep></div>
+    ${o.status === 'draft' ? '' : handoff}
 
-    ${ordered(o)}
+    <div data-keep></div>
 
     <div style="margin-top:var(--s6)">${ornament()}</div>
 
@@ -260,6 +270,13 @@ function statusBlock(o, shop) {
       return notice('bad', `<b>Cancelled on ${at('cancelled')}.</b> Nothing will be `
         + 'sent. If you had already paid, write to us below so we can return the money.');
     case 'abandoned':
+      // An order placed online WAS sent to us -- it reached the shop the moment
+      // it existed -- so for one of those "abandoned" means the shop closed it
+      // before confirming, and the customer reads it as what it is: cancelled.
+      if (o.sentVia === 'online') {
+        return notice('bad', `<b>Cancelled on ${at('abandoned')}.</b> Nothing will be `
+          + 'sent. If you had already paid, write to us below so we can return the money.');
+      }
       return notice('bad', `<b>Closed on ${at('abandoned')}, never sent to us.</b> `
         + 'Nothing was dispatched and nothing is owed.');
     default:
@@ -271,11 +288,19 @@ function statusBlock(o, shop) {
 // THE TIMELINE. Every date in it was written when that step was taken; see
 // trackSteps() for why none is worked out.
 // ---------------------------------------------------------------------------
+/** The customer's word for a step. Online, "sent to us" is placing the order,
+ *  and a shop closing it before confirming is a cancellation. */
+function stepLabel(o, status) {
+  if (o.sentVia === 'online' && status === 'sent') return 'Order placed';
+  if (o.sentVia === 'online' && status === 'abandoned') return 'Cancelled';
+  return D.TRACK_LABEL[status];
+}
+
 function track(o) {
   const ship = shipText(o);
   return `<ol class="track">${D.trackSteps(o).map((s) => `
     <li class="is-${s.state}">
-      <span class="track-l">${esc(D.TRACK_LABEL[s.status])}${s.state === 'now'
+      <span class="track-l">${esc(stepLabel(o, s.status))}${s.state === 'now'
         ? ' <span class="track-tag">Now</span>' : ''}</span>
       <span class="track-at">${s.at ? esc(D.fmtStamp(s.at))
         : s.status === 'delivered' && o.arrives
@@ -312,8 +337,8 @@ function payPanel(o, shop) {
     return `<section class="panel" style="margin-top:var(--s4)">
       <h2 class="t-h3">Payment</h2>
       <div style="margin-top:var(--s3)">${notice('good',
-        `<b>Paid, ${D.rupees(o.grand)}.</b> ${esc(shop.brand.name)} marked it `
-      + `paid on ${esc(D.fmtStamp(o.paidAt))}, after checking for the money by hand.`)}</div>
+        `<b>Paid, ${D.rupees(o.grand)}.</b> ${esc(shop.brand.name)} confirmed the `
+      + `payment on ${esc(D.fmtStamp(o.paidAt))}.`)}</div>
     </section>`;
   }
   // Nothing to pay on an order that will never be sent.
@@ -338,10 +363,11 @@ function payPanel(o, shop) {
                  payment. In one browser the shop sees only what is sent. -->
             <p class="t-micro" style="margin-top:var(--s3);color:var(--ink-soft)">
               ${store.shared()
-                ? 'Once the money reaches us we mark this order paid, and it shows '
-                  + 'here. Keep the payment screenshot until it does.'
+                ? 'Once the money reaches us, we confirm the payment on this page.'
                 : 'Send us the payment screenshot with the order, and we will check '
                   + 'it against our own bank record.'}</p>
+            <div class="pay-proof">${notice('info', '<b>Keep your payment screenshot.</b> '
+              + 'Please show it to the delivery partner when your parcel arrives.')}</div>
           </div>
         </div>
       </section>`;
@@ -361,18 +387,35 @@ function payPanel(o, shop) {
 // is the order's own, never re-read from the catalogue, so a price changed
 // tomorrow does not rewrite a receipt from today.
 // ---------------------------------------------------------------------------
-function ordered(o) {
+function ordered(o, all) {
   const c = o.customer || {};
+  const byId = (id) => (all || []).find((p) => p.id === id);
   return `
     <section class="panel" style="margin-top:var(--s4)">
       <h2 class="t-h3">What you ordered</h2>
+      <div class="olines">
+        ${o.lines.map((l) => {
+          // The photograph of the colour bought, while the product is still
+          // sold. The words and the money are the order's own either way.
+          const p = byId(l.pid);
+          const col = p && p.variants && (p.variants.colour || [])
+            .find((x) => x.id === (l.variant || {}).colour);
+          const view = col && col.img != null ? col.img : 0;
+          return `<div class="oline">
+            ${p ? `<a class="oline-pic" href="#/p/${esc(p.slug)}"
+                 aria-label="${esc(l.name)}">${art(p, view)}</a>`
+              : '<span class="oline-pic" aria-hidden="true"></span>'}
+            <div class="oline-mid">
+              <div class="oline-name">${esc(l.name)}</div>
+              ${l.variantLabel ? `<div class="oline-meta">${esc(l.variantLabel)}</div>` : ''}
+              <div class="oline-meta">${D.rupees(l.unitPrice)} &times; ${l.qty}</div>
+            </div>
+            <div class="oline-sum">${D.rupees(l.lineTotal)}</div>
+          </div>`;
+        }).join('')}
+      </div>
       <div class="totals" style="margin-top:var(--s4)">
-        ${o.lines.map((l) => `
-          <div class="total-row muted">
-            <span>${l.qty} &times; ${esc(l.name)}${l.variantLabel
-              ? `<br><span class="t-micro dim">${esc(l.variantLabel)}</span>` : ''}</span>
-            <span>${D.rupees(l.lineTotal)}</span></div>`).join('')}
-        <div class="total-row muted" style="border-top:1px solid var(--edge);padding-top:var(--s3)">
+        <div class="total-row muted">
           <span>Items</span><span>${D.rupees(o.itemsTotal)}</span></div>
         ${o.discount ? `<div class="total-row save">
           <span>Coupon ${esc(o.coupon)}</span>

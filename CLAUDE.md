@@ -57,7 +57,7 @@ for the store owner**.
 | What do they make? | **Men's shirts, and womenswear across the board** — tops, kurtis, dresses. The skeleton carries one shirt, one kurti, one dress. |
 | One manufacturer or several? | **One.** Milan's `db/MULTISTORE.md` is there for the day it is more, and that day is cheaper to reach than to start from. |
 | Photographs? | **None of their own yet.** Since 4 November 2026 the site shows Unsplash stand-ins, on the owner's word that the drawn garments looked "too kiddish". `art.js` is now only the fallback. ⚠️ Still the biggest risk to the idea -- see *Open*. |
-| How do they pay? | **UPI and cash on delivery.** Both. The UPI id is a demo one that cannot resolve (`@example`). ⚠️ Since 7 November 2026 the checkout no longer SAYS so — the owner shows the site as the flow it will be, and the amber "this QR cannot take money" strip read as a broken shop. The guard is in the data now: `data.pl` fails unless a demo id is on `@example` (an allow-list; it was a deny-list of real handles, which `@okbizaxis` walked past) and fails if `placeholder` goes false while the id is a demo. The Preview bar still calls every order a test. |
+| How do they pay? | **UPI and cash on delivery.** Both. The UPI id is a demo one that cannot resolve (`@example`). ⚠️ Since 7 November 2026 the checkout no longer SAYS so — the owner shows the site as the flow it will be, and the amber "this QR cannot take money" strip read as a broken shop. The guard is in the data now: `data.pl` fails unless a demo id is on `@example` (an allow-list; it was a deny-list of real handles, which `@okbizaxis` walked past) and fails if `placeholder` goes false while the id is a demo. The Preview bar still calls every order a test. **No card or net banking** since 7 November 2026: both need a gateway (about 2% an order) and a server to verify each payment; they were shown greyed out with "Not set up yet", which read as unfinished. The Razorpay seam stays dormant in `gateway-razorpay.js`. The UPI step asks the customer to keep the payment screenshot and show it to the delivery partner. |
 
 ### Still not answered, and each one blocks something
 
@@ -89,7 +89,7 @@ for the store owner**.
 | Size charts | **Built.** A Size guide panel on the product page, plus a no-tap fit hint under the picker |
 | Delivery range | **Frozen into the order (step 5)** as it reaches the shop, and read back everywhere after. Live only where it should be: the product page and the shipping page. The store flags an order **Late** once its last promised day has passed |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
-| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`. Orders with the address, the phone and the next step; catalogue; stock. ⚠️ Sees only orders placed in the same browser, and is **not locked**; both wait on the server (steps 6 and 8). See *Two pages* |
+| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). ⚠️ **Per-item status and cancelling one item** were asked for and are not built: they need `schema.sql` changes and a decision on what happens to the amount owed. See *Two pages* |
 | Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
 | Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. ⚠️ **Not yet seen working end to end**: no real code has been sent or used. See *Accounts* |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
@@ -621,6 +621,22 @@ Steps 1–5 are the demo. 6–10 make it a shop.
   **To clear it:** fill in `contact` in `app/data/shop.json` — including
   `returnsAddr` and `gstin` — check the prices, set `placeholder` to
   false.
+
+  ⚠️ **The phone, WhatsApp and email are DUMMIES** since 7 November 2026,
+  so the demo shows its Call, WhatsApp and Email buttons: `+91 12345
+  67890` (not an Indian mobile — those start 6 to 9 — so WhatsApp and the
+  dialler refuse it) and `orders@example.com` (a reserved domain that
+  takes no mail). A real-looking number would message a stranger.
+  `data.pl` fails if either survives `placeholder` going false, and fails
+  on a WhatsApp number that is neither a mobile nor the dummy.
+
+- **`honesty.pl` was narrowed twice on 7 November 2026, deliberately**:
+  rule 1's banned phrases ("payment received" and the rest) no longer scan
+  the store's own files, which customers never open and where "Mark
+  payment received" is the owner's button for what they saw in the bank;
+  every shop page is still held to all four. And the "Not set up yet"
+  gateway notice left the load-bearing list, because the card options it
+  explained are gone.
 
 - ⚠️ **The photographs are stand-ins, and that is still the biggest risk
   to the whole idea.** Since 4 November 2026 every product, both category

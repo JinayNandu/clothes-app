@@ -502,6 +502,35 @@ if ($shop->{placeholder}) {
   ok('placeholder is false and every contact field is filled');
 }
 
+# THE DUMMY CONTACT DETAILS (7 November 2026, so the site shows its Call,
+# WhatsApp and Email buttons in a demo). Chosen so a tap reaches NOBODY:
+# 12345 67890 is not an Indian mobile (those start 6 to 9), so WhatsApp and the
+# dialler refuse it, and example.com is reserved and takes no mail. A
+# real-looking number would WhatsApp a stranger. They must never go live.
+{
+  my $c = $shop->{contact} || {};
+  my @dummy;
+  for my $k (qw(phone whatsapp)) {
+    (my $d = $c->{$k} // '') =~ s/\D//g;
+    push @dummy, "contact.$k" if $d =~ /1234567890$/;
+  }
+  push @dummy, 'contact.email' if ($c->{email} // '') =~ /\@example\.(com|org|net)$/i;
+  # WhatsApp only: it has to be a mobile. The phone may be a landline.
+  {
+    (my $d = $c->{whatsapp} // '') =~ s/\D//g;
+    $d =~ s/^91(?=\d{10}$)//;
+    if ($d ne '' && $d !~ /^[6-9]\d{9}$/ && $d !~ /1234567890$/) {
+      fail("contact.whatsapp '$c->{whatsapp}' is neither an Indian mobile nor the dummy");
+    }
+  }
+  if (@dummy && !$shop->{placeholder}) {
+    fail('placeholder is false but ' . join(', ', @dummy) . ' still hold the dummy '
+       . 'contact details -- put the shop\'s real ones in first');
+  } elsif (@dummy) {
+    ok(join(', ', @dummy) . ' are dummies that reach nobody, allowed only while placeholder is true');
+  }
+}
+
 my $upi = $shop->{upi} || {};
 if ($upi->{demo}) {
   my ($handle) = ($upi->{vpa} // '') =~ /\@(.+)$/;

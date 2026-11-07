@@ -529,6 +529,26 @@ export const ORDER_NEXT = {
 
 export const canAdvance = (from, to) => (ORDER_NEXT[from] || []).includes(to);
 
+/**
+ * The steps from `from` to `to` along ORDER_PATH, each one a move canAdvance()
+ * allows -- [] if `to` is not ahead on the road. The store's status list uses
+ * it: tapping "Packed" on an order just placed is Confirm, then Pack, each
+ * written into the order's own history in turn, so the customer's timeline
+ * shows every step done and nothing is skipped on the server's road either.
+ */
+export function roadTo(from, to) {
+  const a = ORDER_PATH.indexOf(from);
+  const b = ORDER_PATH.indexOf(to);
+  if (a < 0 || b <= a) return [];
+  const steps = ORDER_PATH.slice(a + 1, b + 1);
+  let cur = from;
+  for (const s of steps) {
+    if (!canAdvance(cur, s)) return [];
+    cur = s;
+  }
+  return steps;
+}
+
 export const STATUS_LABEL = {
   draft: 'Not sent yet',
   sent: 'Sent',

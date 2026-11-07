@@ -31,15 +31,17 @@ import { esc } from './ui.js';
 import * as D from './domain.js';
 
 // ---------------------------------------------------------------------------
-// PAYMENT OPTIONS
+// PAYMENT OPTIONS -- UPI and cash on delivery, the two this shop takes.
 //
-// ⚠️ A disabled option KEEPS ITS REASON ON IT and is never hidden. A hidden
-// option reads as a shop that does not take cards; a disabled one that says
-// why reads as a shop still setting up. Same instinct as kirana showing a full
-// delivery slot rather than removing it.
+// ⚠️ NO CARD, NO NET BANKING (the owner's call, 7 November 2026). Both need a
+// payment gateway -- Razorpay or similar, about 2% of every order, and a small
+// server to verify each payment -- and a manufacturer selling direct needs
+// neither to start. They were shown greyed out with "Not set up yet", which
+// read as a shop that is not finished. The seam is still there for the day
+// one is wanted: gateway-razorpay.js, refusing until it has credentials AND a
+// server, and data.pl's gateway checks.
 // ---------------------------------------------------------------------------
 export function payOptions(shop, selected) {
-  const gw = D.gatewayState(shop.gateway);
   const cod = shop.shipping.codAvailable;
 
   const opt = (id, name, why, { on = true, badge = '' } = {}) => `
@@ -55,11 +57,6 @@ export function payOptions(shop, selected) {
 
   return [
     opt('upi', 'UPI', 'Scan a QR with GPay, PhonePe, Paytm or your bank app.'),
-
-    opt('card', 'Credit or debit card', gw.why,
-        { on: gw.on, badge: gw.test ? 'Test mode' : '' }),
-
-    opt('netbanking', 'Net banking', gw.why, { on: gw.on }),
 
     cod ? opt('cod', 'Cash on delivery',
       shop.shipping.codFee

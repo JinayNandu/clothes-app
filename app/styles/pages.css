@@ -340,11 +340,34 @@
 .track li:last-child::after{ display:none; }
 .track .is-done::before{ background:var(--good); border-color:var(--good); }
 .track .is-done::after{ background:var(--good); }
-.track .is-now::before{ background:var(--gold-wash); border-color:var(--gold); }
+/* Now is DONE too -- packed means packed -- so it is green like the steps
+   above it, with a halo to say it is the latest. The owner's ask: "all steps
+   till packed are done". */
+.track .is-now::before{
+  background:var(--good); border-color:var(--good);
+  box-shadow:0 0 0 3px var(--good-wash);
+}
 .track .is-end::before{ background:var(--alert); border-color:var(--alert); }
 .track-l{ display:block; font-weight:600; color:var(--ink); }
 .track .is-todo .track-l{ font-weight:500; color:var(--ink-dim); }
 .track-at{ display:block; font-size:12px; color:var(--ink-dim); margin-top:2px; }
+
+/* WHAT YOU ORDERED (confirm.js): a row per line, its photograph first. */
+.olines{ display:flex; flex-direction:column; margin-top:var(--s3); }
+.oline{
+  display:grid; grid-template-columns:56px minmax(0,1fr) auto;
+  gap:var(--s3); align-items:center;
+  padding:var(--s3) 0; border-bottom:1px solid var(--edge);
+}
+.oline-pic{
+  display:block; width:56px; aspect-ratio:4/5; overflow:hidden;
+  background:var(--sunk); border:1px solid var(--edge); border-radius:var(--r1);
+}
+.oline-pic img,.oline-pic svg{ display:block; width:100%; height:100%; object-fit:cover; }
+.oline-name{ font-size:14px; font-weight:600; color:var(--ink); }
+.oline-meta{ margin-top:2px; font-size:12px; color:var(--ink-dim); }
+.oline-sum{ font-weight:600; font-variant-numeric:tabular-nums; }
+.pay-proof{ margin-top:var(--s3); }
 .track-tag{
   margin-left:var(--s2); padding:1px 6px; border-radius:var(--r1);
   font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
@@ -442,9 +465,12 @@
 .adm-tab.is-on{ color:var(--ink); border-bottom-color:var(--gold); }
 
 .adm-stats{
-  display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:var(--s3);
-  margin-top:var(--s5);
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--s3);
+  margin-top:var(--s3);
 }
+/* The overview's two groups (admin.js), each named for what it counts. */
+.adm-sec{ margin-top:var(--s6); }
+.adm-stat-s{ font-size:12px; line-height:1.4; color:var(--ink-dim); }
 .adm-stat{
   display:flex; flex-direction:column; gap:var(--s1);
   padding:var(--s4); background:var(--card); border:1px solid var(--edge);
@@ -547,6 +573,24 @@
 @media (max-width:599px){
   .adm-shipto{ grid-template-columns:minmax(0,1fr); }
 }
+
+/* An order's status and payment blocks (admin.js). The status is the
+   customer's own timeline (.track), with a button on each step still ahead --
+   so the store sees the road exactly as the customer will. */
+.adm-block{ margin-top:var(--s4); padding-top:var(--s4); border-top:1px solid var(--edge); }
+.adm-label{ color:var(--ink-soft); }
+.adm-hint{ font-weight:400; letter-spacing:0; text-transform:none; color:var(--ink-dim); }
+.adm-track{ margin-top:var(--s3); }
+.adm-track li::before{ top:10px; }
+.adm-track li::after{ top:26px; }
+.adm-step{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:var(--s2) var(--s3); flex-wrap:wrap; min-height:32px;
+}
+.adm-step .track-at{ margin-top:0; }
+.adm-track .adm-ship{ margin-top:var(--s2); }
+.adm-ends{ display:flex; flex-wrap:wrap; gap:var(--s3); margin-top:var(--s4); }
+.adm-block .adm-paid-why{ margin:var(--s2) 0 var(--s3); font-size:13px; line-height:1.55; color:var(--ink-soft); }
 
 .adm-cat-head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--s3); flex-wrap:wrap; }
 .adm-cat-grid{

@@ -81,13 +81,22 @@ function renderOverview({ orders, all, shop, cats }) {
       + 'never appears here — it reaches you on WhatsApp. Two tabs side by side '
       + 'make this look like it works, which is exactly why it is worth saying.')}
 
+  <!-- Two groups, each named: the counts of ORDERS, and the counts of the
+       CATALOGUE. As one row of six, "3 Products" beside "1 Open order" read
+       as three products ordered (the owner, 7 November 2026). -->
+  <h2 class="t-h3 adm-sec">Your orders</h2>
   <div class="adm-stats">
-    ${stat('Products', all.length, tabHref('catalogue'))}
-    ${stat('Categories', cats.length, tabHref('categories'))}
-    ${stat('Open orders', open.length, tabHref('orders'))}
-    ${stat('Awaiting payment', unpaid.length, tabHref('orders'))}
-    ${stat('Low or out of stock', lowStock.length, tabHref('inventory'))}
-    ${stat('On offer', all.filter((p) => p.mrp > p.price).length, tabHref('catalogue'))}
+    ${stat('Open orders', open.length, 'Placed and not yet delivered', tabHref('orders'))}
+    ${stat('Payment to check', unpaid.length, 'Not yet marked received', tabHref('orders'))}
+    ${stat('Late', late.length, 'Past the promised date', tabHref('orders'))}
+  </div>
+
+  <h2 class="t-h3 adm-sec">Your catalogue</h2>
+  <div class="adm-stats">
+    ${stat('Products in the shop', all.length, 'Styles customers can buy', tabHref('catalogue'))}
+    ${stat('Categories', cats.length, cats.map((c) => c.name).join(', '), tabHref('categories'))}
+    ${stat('Low or out of stock', lowStock.length, `${shop.lowStockAt} or fewer left`, tabHref('inventory'))}
+    ${stat('On offer', all.filter((p) => p.mrp > p.price).length, 'Priced below MRP', tabHref('catalogue'))}
   </div>
 
   <div class="two-col" style="margin-top:var(--s6)">
@@ -101,11 +110,11 @@ function renderOverview({ orders, all, shop, cats }) {
           <span>${esc(D.STATUS_LABEL[o.status])}</span></div>`).join('')}
         ${unpaid.map((o) => `<div class="total-row muted">
           <span><a href="${tabHref('orders')}">${esc(o.code)}</a> —
-            not marked paid</span>
+            payment not yet received (${esc(D.PAY_LABEL[o.payMethod] || o.payMethod)})</span>
           <span>${D.rupees(o.grand)}</span></div>`).join('')}
         ${lowStock.map((p) => `<div class="total-row muted">
           <span><a href="${tabHref('catalogue', 'p=' + encodeURIComponent(p.id))}">${esc(p.name)}</a></span>
-          <span>${p.stock === 0 ? 'out of stock' : p.stock + ' left'}</span></div>`).join('')}
+          <span>${p.stock === 0 ? 'out of stock' : 'only ' + p.stock + ' left in stock'}</span></div>`).join('')}
       </div>` : `<p class="t-micro dim" style="margin-top:var(--s3)">
         Nothing is late, nothing is low on stock and no order is waiting on a payment check.</p>`}
     </section>
@@ -125,9 +134,11 @@ function renderOverview({ orders, all, shop, cats }) {
   </div>`;
 }
 
-const stat = (label, n, href) => `<a class="adm-stat" href="${href}">
+/** A count, what it counts, and one line saying what is in it. */
+const stat = (label, n, sub, href) => `<a class="adm-stat" href="${href}">
   <span class="adm-stat-n">${n}</span>
-  <span class="adm-stat-l">${esc(label)}</span></a>`;
+  <span class="adm-stat-l">${esc(label)}</span>
+  ${sub ? `<span class="adm-stat-s">${esc(sub)}</span>` : ''}</a>`;
 
 // ---------------------------------------------------------------------------
 // ORDERS
@@ -156,9 +167,112 @@ function renderOrders({ orders, shop, all }) {
   return `<div class="adm-orders">${orders.map((o) => orderPanel(o, shop, all)).join('')}</div>`;
 }
 
-// History records what happened, so a saved order reads "Saved", not the
-// status label "Not sent yet".
-const stepName = (s) => (s === 'draft' ? 'Saved' : D.STATUS_LABEL[s]);
+// A step's name on the board. History records what happened, so a saved
+// order reads "Saved", not the status label "Not sent yet"; online, "sent" is
+// an order placed, and a shop closing one before confirming is cancelling it.
+const stepName = (o, s) => {
+  if (s === 'draft') return 'Saved';
+  if (o.sentVia === 'online' && s === 'sent') return 'Order placed';
+  if (o.sentVia === 'online' && s === 'abandoned') return 'Cancelled';
+  return D.STATUS_LABEL[s];
+};
+
+/** The order's status, as its pill says it: a new online order is NEW, and
+ *  waits for Confirm. */
+const pillName = (o) => (o.sentVia === 'online' && o.status === 'sent'
+  ? 'New order' : stepName(o, o.status));
+
+/**
+ * THE STATUS LIST -- the whole road, top to bottom. Steps done are green, with
+ * when; the one the order is at says Now; every step still ahead is a button.
+ * Tapping one marks it AND every step above it that is not done yet: "Packed"
+ * on a new order is Confirm, then Pack, each written into the order's history
+ * in turn (D.roadTo), so the customer's timeline shows every step green too,
+ * and the server's road -- which allows only the next step -- is never asked
+ * to skip one. More than one step at a time takes a second tap, because
+ * nothing on the road goes back.
+ */
+function statusList(o) {
+  const ended = D.ORDER_ENDS.includes(o.status);
+  const path = D.ORDER_PATH.filter((st) => st !== 'draft' || D.statusAt(o, 'draft')
+    || o.status === 'draft');
+  const cur = path.indexOf(o.status);
+  const s = o.shipment;
+  const ship = s && (s.courier || s.ref)
+    ? `${s.courier || 'courier not named'}${s.ref ? ', tracking number ' + s.ref : ''}` : '';
+  const rows = [];
+  for (let i = 0; i < path.length; i += 1) {
+    const st = path[i];
+    const at = D.statusAt(o, st);
+    // An order that left the road stops where it left it.
+    if (ended && !at) break;
+    let state;
+    let right;
+    if (ended || i <= cur) {
+      state = !ended && i === cur && st !== 'delivered' ? 'now' : 'done';
+      right = at ? `<span class="track-at">${esc(D.fmtStamp(at))}</span>` : '';
+    } else {
+      state = 'todo';
+      const steps = D.roadTo(o.status, st);
+      right = steps.length ? `<button type="button" class="btn btn-sm ${i === cur + 1
+        ? 'btn-primary' : 'btn-secondary'}" data-goto="${esc(st)}">${esc(D.ACTION_LABEL[st])}</button>` : '';
+    }
+    rows.push(`<li class="is-${state}">
+      <div class="adm-step">
+        <span class="track-l">${esc(stepName(o, st))}${state === 'now'
+          ? ' <span class="track-tag">Now</span>' : ''}</span>
+        ${right}
+      </div>
+      ${st === 'shipped' && state === 'todo' ? shipFields(o) : ''}
+      ${st === 'shipped' && state !== 'todo' && ship ? `<span class="track-at">${esc(ship)}</span>` : ''}
+    </li>`);
+  }
+  if (ended) {
+    rows.push(`<li class="is-end"><div class="adm-step">
+      <span class="track-l">${esc(stepName(o, o.status))}</span>
+      <span class="track-at">${esc(D.fmtStamp(D.statusAt(o, o.status)))}</span></div></li>`);
+  }
+  return `<ol class="track adm-track">${rows.join('')}</ol>`;
+}
+
+/** Leaving the road: cancelling before it ships, a return after. Final, so
+ *  two taps. A new online order is closed as `abandoned` -- the only end the
+ *  road allows from `sent` -- and the customer reads that as cancelled. */
+function endActions(o) {
+  const acts = [];
+  if (['sent', 'confirmed', 'packed'].includes(o.status)) {
+    acts.push(`<button type="button" class="btn btn-sm btn-ghost" data-end="${o.status === 'sent'
+      ? 'abandoned' : 'cancelled'}">Cancel order</button>`);
+  }
+  if (o.status === 'draft') {
+    acts.push(`<button type="button" class="btn btn-sm btn-ghost" data-end="abandoned">
+      ${esc(D.ACTION_LABEL.abandoned)}</button>`);
+  }
+  if (['shipped', 'delivered'].includes(o.status)) {
+    acts.push(`<button type="button" class="btn btn-sm btn-ghost" data-end="returned">
+      ${esc(D.ACTION_LABEL.returned)}</button>`);
+  }
+  if (!acts.length) {
+    return '<p class="t-micro dim adm-ends">This order is finished — no further step.</p>';
+  }
+  return `<div class="adm-ends">${acts.join('')}</div>`;
+}
+
+/** What the payment is, and what to check before saying it arrived. */
+function payWhy(o) {
+  if (o.paid) {
+    return `Payment received — marked ${esc(D.fmtStamp(o.paidAt))}${o.paidVia
+      ? ' · ' + esc(o.paidVia) : ''}. Only you can set this, and only you can undo it.`;
+  }
+  if (o.payMethod === 'upi') {
+    return `<b>The customer chose UPI (QR).</b> Check your bank or UPI app for
+      <b>${D.rupees(o.grand)}</b> with the note <b>${esc(o.code)}</b>, and mark it received
+      once you see it. They have been asked to show their payment screenshot to the
+      delivery partner too.`;
+  }
+  return `<b>Cash on delivery.</b> The courier collects <b>${D.rupees(o.grand)}</b>.
+    Mark it received once that money reaches you.`;
+}
 
 /**
  * One order: what is in it, where it goes, who to call, what has happened,
@@ -167,24 +281,19 @@ const stepName = (s) => (s === 'draft' ? 'Saved' : D.STATUS_LABEL[s]);
  * left the address on the customer's own page.
  */
 function orderPanel(o, shop, all) {
-  const next = D.ORDER_NEXT[o.status] || [];
-  const main = next.find((to) => D.ORDER_PATH.includes(to));
   const c = o.customer || {};
   const tel = D.telTo(c.mobile);
-  const s = o.shipment;
-  const ship = s && (s.courier || s.ref)
-    ? `${s.courier || 'courier not named'}${s.ref ? ', tracking number ' + s.ref : ''}` : '';
 
   // The code opens the order IN THE SHOP (./#/order/...), as the customer
   // sees it. The store page has no order screen of its own.
-  return `<section class="panel adm-order" data-oid="${esc(o.id)}">
+  return `<section class="panel adm-order" data-oid="${esc(o.id)}" data-status="${esc(o.status)}">
     <header class="adm-order-head">
       <div>
         <a href="./#/order/${esc(o.code)}" class="ord-code">${esc(o.code)}</a>
-        <span class="pill pill-${D.STATUS_TONE[o.status]}">${esc(D.STATUS_LABEL[o.status])}</span>
+        <span class="pill pill-${D.STATUS_TONE[o.status]}">${esc(pillName(o))}</span>
         ${D.isLate(o) ? '<span class="pill pill-bad">Late</span>' : ''}
-        ${o.paid ? '<span class="pill pill-good">Paid</span>'
-          : '<span class="pill pill-draft">Not marked paid</span>'}
+        ${o.paid ? '<span class="pill pill-good">Payment received</span>'
+          : '<span class="pill pill-draft">Payment pending</span>'}
       </div>
       <div class="ord-meta">${D.fmtStamp(o.createdAt)} ·
         ${o.lines.length} line${o.lines.length === 1 ? '' : 's'} ·
@@ -222,27 +331,20 @@ function orderPanel(o, shop, all) {
       </div>
     </div>
 
-    <p class="t-micro dim adm-history">${(o.history || []).map((h) =>
-      `${esc(stepName(h.to))} ${esc(D.fmtStamp(h.at))}`).join(' · ')}${ship
-      ? `<br>Shipped with ${esc(ship)}.` : ''}</p>
-
-    <div class="adm-order-acts">
-      ${next.includes('shipped') ? shipForm(o) : ''}
-      ${next.filter((to) => to !== 'shipped').map((to) => `<button type="button"
-          class="btn btn-sm ${to === main ? 'btn-primary'
-            : D.ORDER_ENDS.includes(to) ? 'btn-ghost' : 'btn-secondary'}"
-          data-advance="${esc(to)}">${esc(D.ACTION_LABEL[to])}</button>`).join('')}
-      ${next.length ? '' : '<span class="t-micro dim">This order is finished — no further step.</span>'}
-      <button type="button" class="btn btn-sm ${o.paid ? 'btn-ghost' : 'btn-secondary'}"
-        data-paid="${o.paid ? '0' : '1'}" data-method="${esc(o.payMethod)}">
-        ${o.paid ? 'Unmark paid' : 'Mark paid'}</button>
+    <div class="adm-block">
+      <div class="t-eyebrow adm-label">Status
+        <span class="adm-hint">— tap a step to mark it, and every step above it</span></div>
+      ${statusList(o)}
+      ${endActions(o)}
     </div>
-    <p class="t-micro dim adm-paid-why">
-      ${o.paid
-    ? `Marked paid ${D.fmtStamp(o.paidAt)}${o.paidVia ? ' · ' + esc(o.paidVia) : ''}.
-         Only you can set this, and only you can unset it.`
-    : 'Mark this only after you have seen the money arrive. Nothing on this '
-      + 'site can tell you that: UPI sends no message back to a web page.'}</p>
+
+    <div class="adm-block">
+      <div class="t-eyebrow adm-label">Payment</div>
+      <p class="adm-paid-why">${payWhy(o)}</p>
+      <button type="button" class="btn btn-sm ${o.paid ? 'btn-ghost' : 'btn-primary'}"
+        data-paid="${o.paid ? '0' : '1'}" data-method="${esc(o.payMethod)}">
+        ${o.paid ? 'Undo payment received' : 'Mark payment received'}</button>
+    </div>
   </section>`;
 }
 
@@ -262,41 +364,60 @@ function priceNotice(o, shop, all) {
     can be made by hand to name its own price.`);
 }
 
-/** Courier and tracking number travel with "Mark shipped"; both optional. */
-const shipForm = (o) => `<div class="adm-ship">
+/** Courier and tracking number, under the Shipped step while it is ahead;
+ *  both optional, and taken by whichever tap passes through Shipped. */
+const shipFields = (o) => `<div class="adm-ship">
   <div class="field"><label for="sc-${esc(o.id)}">Courier <span class="opt">(optional)</span></label>
     <input id="sc-${esc(o.id)}" data-courier maxlength="60" autocomplete="off"
       placeholder="Delhivery, India Post…"></div>
   <div class="field"><label for="sr-${esc(o.id)}">Tracking number <span class="opt">(optional)</span></label>
     <input id="sr-${esc(o.id)}" data-ref maxlength="60" autocomplete="off"></div>
-  <button type="button" class="btn btn-sm btn-primary" data-advance="shipped">
-    ${esc(D.ACTION_LABEL.shipped)}</button>
 </div>`;
 
 /** Status changes and the one human-asserted field in the project. */
 function wireOrders(host, repaint) {
-  for (const btn of $$('[data-advance]', host)) {
+  // A step on the road, and every step above it not done yet.
+  for (const btn of $$('[data-goto]', host)) {
     btn.addEventListener('click', async () => {
       const box = btn.closest('[data-oid]');
-      const to = btn.dataset.advance;
-      // An end is final -- nothing follows a cancellation -- so it takes two taps.
-      if (D.ORDER_ENDS.includes(to) && !twoTap(btn, 'Sure? Tap again')) return;
+      const id = box.dataset.oid;
+      const code = box.querySelector('.ord-code').textContent;
+      const to = btn.dataset.goto;
+      const steps = D.roadTo(box.dataset.status, to);
+      if (!steps.length) return;
+      if (steps.length > 1 && !twoTap(btn, `Mark ${steps.length} steps? Tap again`)) return;
+      // ⚠️ Read BEFORE the first call: on a database every step repaints the
+      // board, and the inputs typed into would be gone by the shipped step.
+      const courier = (box.querySelector('[data-courier]') || {}).value || '';
+      const ref = (box.querySelector('[data-ref]') || {}).value || '';
       try {
-        if (to === 'shipped') {
-          await store.orders.ship(box.dataset.oid, {
-            courier: box.querySelector('[data-courier]').value,
-            ref: box.querySelector('[data-ref]').value,
-          });
-        } else {
-          await store.orders.advance(box.dataset.oid, to);
+        for (const s of steps) {
+          if (s === 'shipped') await store.orders.ship(id, { courier, ref });
+          else await store.orders.advance(id, s);
         }
-        toast(`Now ${D.STATUS_LABEL[to].toLowerCase()}.`);
-        repaint();
+        toast(`${code} is now ${D.STATUS_LABEL[to].toLowerCase()}.`);
       } catch (e) {
-        // ⚠️ Shown, never swallowed. domain.js refuses an invalid transition
-        // on purpose; a silent no-op is a button that looks like it worked.
+        // ⚠️ Shown, never swallowed. Steps already taken stay taken, and the
+        // board redraws to show exactly where the order got to.
         toast(String(e.message || e));
       }
+      repaint();
+    });
+  }
+
+  // Leaving the road. Final -- nothing follows a cancellation -- so two taps.
+  for (const btn of $$('[data-end]', host)) {
+    btn.addEventListener('click', async () => {
+      const box = btn.closest('[data-oid]');
+      const to = btn.dataset.end;
+      if (!twoTap(btn, 'Sure? Tap again')) return;
+      try {
+        await store.orders.advance(box.dataset.oid, to);
+        toast(to === 'returned' ? 'Marked returned.' : 'Order cancelled.');
+      } catch (e) {
+        toast(String(e.message || e));
+      }
+      repaint();
     });
   }
 
@@ -304,10 +425,10 @@ function wireOrders(host, repaint) {
     btn.addEventListener('click', async () => {
       const id = btn.closest('[data-oid]').dataset.oid;
       const to = btn.dataset.paid === '1';
-      const ask = btn.dataset.method === 'cod' ? 'Cash in hand?' : 'Seen it in the bank?';
+      const ask = btn.dataset.method === 'cod' ? 'Cash in hand? Tap again' : 'Seen it in the bank? Tap again';
       if (to && !twoTap(btn, ask)) return;
       await store.orders.setPaid(id, to, to ? 'checked by hand' : null);
-      toast(to ? 'Marked paid.' : 'No longer marked paid.');
+      toast(to ? 'Payment marked received.' : 'Payment no longer marked received.');
       repaint();
     });
   }

@@ -180,6 +180,13 @@
 .pdp-sizes{ display:flex; flex-wrap:wrap; gap:var(--s2); }
 .pdp-actions{ display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; }
 .pdp-actions .btn-primary{ flex:1; min-width:180px; }
+/* Add to bag and the bar it becomes (8 November 2026): the card's − n + at
+   the height of a full button, so the two pages work the same way. */
+.pdp-cta{ flex:1; min-width:180px; display:flex; }
+.pdp-cta > .btn,.pdp-cta > .bag-step{ flex:1; }
+.bag-step-lg{ height:46px; }
+.bag-step-lg button{ width:56px; }
+.bag-step-lg .bag-step-n{ font-size:13px; }
 
 .spec{ border-top:1px solid var(--edge); }
 .spec-row{
@@ -534,6 +541,7 @@
   .spec-row{ grid-template-columns:1fr; gap:2px; padding:var(--s3) 0; }
   .spec-row dt{ font-size:12px; }
   .pdp-actions .btn-primary{ min-width:0; width:100%; }
+  .pdp-cta{ min-width:0; flex-basis:100%; }
   .panel{ padding:var(--s4); }
   .news{ padding:var(--s6) var(--s4); }
   .news-form{ flex-direction:column; }

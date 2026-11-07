@@ -94,7 +94,7 @@ export async function refreshCounts() {
 // ---------------------------------------------------------------------------
 const FLIGHT_MS = 720;
 
-export function flyToBag(from, qty = 1) {
+export function flyToBag(from, qty = 1, near = null) {
   const bag = $('#bag');
   const to = bag && bag.getBoundingClientRect();
   const pic = from && from.querySelector('img, svg');
@@ -106,26 +106,44 @@ export function flyToBag(from, qty = 1) {
   // must not throw its copy from somewhere nobody can see.
   const r = from.getBoundingClientRect();
   const hdr = $('#site-header');
-  const top = Math.max(r.top, hdr ? hdr.getBoundingClientRect().bottom : 0);
-  const h = Math.min(r.bottom, innerHeight) - top;
-  if (h < 40 || r.width < 40) return;
+  const hdrBottom = hdr ? hdr.getBoundingClientRect().bottom : 0;
+  let left = r.left;
+  let width = r.width;
+  let top = Math.max(r.top, hdrBottom);
+  let h = Math.min(r.bottom, innerHeight) - top;
+  // The copy: the whole picture, offset so the visible part sits exactly
+  // where it was.
+  let copyCss = `top:${r.top - top}px;width:${r.width}px;height:${r.height}px`;
+  if (h < 40 || r.width < 40) {
+    // ⚠️ THE PICTURE IS OFF SCREEN. On a phone the product page's Add to bag
+    // sits well below its photo, and the flight used to be skipped there
+    // without a word -- the owner, 8 November 2026: no animation on the
+    // product page. So a small copy of the photo lifts off from the button
+    // that was pressed (`near`), and flies from where the finger is.
+    const n = near && near.getBoundingClientRect();
+    if (!n || !n.width || n.bottom < hdrBottom || n.top > innerHeight) return;
+    width = 64;
+    h = 80;                                   // the photographs' 4:5
+    left = n.left + n.width / 2 - width / 2;
+    top = Math.max(hdrBottom, n.top + n.height / 2 - h / 2);
+    copyCss = `top:0;width:${width}px;height:${h}px;object-fit:cover`;
+  }
 
   const ghost = document.createElement('div');
   ghost.className = 'fly';
   ghost.setAttribute('aria-hidden', 'true');
-  ghost.style.cssText = `left:${r.left}px;top:${top}px;width:${r.width}px;height:${h}px`;
+  ghost.style.cssText = `left:${left}px;top:${top}px;width:${width}px;height:${h}px`;
   ghost.innerHTML = '<div class="fly-y"><div class="fly-pic"></div></div>';
   const copy = pic.cloneNode(true);
   copy.removeAttribute('loading');
-  // The whole picture, offset so the visible part sits exactly where it was.
-  copy.style.cssText = `top:${r.top - top}px;width:${r.width}px;height:${r.height}px`;
+  copy.style.cssText = copyCss;
   const box = ghost.querySelector('.fly-pic');
   box.appendChild(copy);
   document.body.appendChild(ghost);
 
-  const dx = to.left + to.width / 2 - (r.left + r.width / 2);
+  const dx = to.left + to.width / 2 - (left + width / 2);
   const dy = to.top + to.height / 2 - (top + h / 2);
-  const big = Math.max(r.width, h);
+  const big = Math.max(width, h);
   const end = 26 / big;                          // about the size of the icon
   const mid = Math.max(end, Math.min(1, 150 / big));
   const opt = (easing) => ({ duration: FLIGHT_MS, easing, fill: 'forwards' });

@@ -10,7 +10,7 @@
 import * as store from '../store.js';
 import * as router from '../router.js';
 import { esc, crumbs, toast, emptyState, notice, openSheet, flyToBag } from '../ui.js';
-import { priceBlock, swatchRow, qtyStepper, productCard,
+import { priceBlock, swatchRow, productCard,
          sizeChart, fitHint, chartFor } from '../components.js';
 import { art, viewCount } from '../art.js';
 import { seal } from '../brand.js';
@@ -42,19 +42,35 @@ router.registerScreen('product', async (host, r) => {
   // come preselected, so Add to bag put an S in the bag for anyone who never
   // looked at the sizes -- the same return the cards used to cause. A product
   // with a single size has nothing to choose, and gets it.
+  //
+  // ⚠️ WHAT IS IN THE BAG ALREADY decides where the page opens (8 November
+  // 2026, the owner: "if I had added 2-3 initially, it should show that").
+  // The newest line of this product in the bag -- its colour and its size --
+  // is the one selected, so the bar under the sizes reads "M · 3 in bag",
+  // as the card did. Nothing in the bag, and the rule above holds: no size.
   const sizes = (p.variants && p.variants.size) || [];
+  const colours = (p.variants && p.variants.colour) || [];
+  const last = [...(await store.cart.lines())].reverse().find((l) => l.pid === p.id);
+  const lastV = (last && last.variant) || {};
   const sel = {
-    colour: p.variants && p.variants.colour && p.variants.colour.length
-      ? p.variants.colour[0].id : null,
-    size: sizes.length === 1 ? sizes[0].id : null,
+    colour: colours.some((c) => c.id === lastV.colour) ? lastV.colour
+      : (colours.length ? colours[0].id : null),
+    size: sizes.some((s) => s.id === lastV.size) ? lastV.size
+      : (sizes.length === 1 ? sizes[0].id : null),
   };
-  let qty = 1;
-  let view = 0;
 
   const badges = D.derivedBadges(p, shop);
   const out = badges.includes('sold-out');
   const low = badges.includes('low-stock');
   const views = viewCount(p);
+  // The photograph of the colour selected: a colour opened from the bag
+  // shows itself, not the first colour.
+  const colourView = (id) => {
+    const c = colours.find((x) => x.id === id);
+    return c && c.img != null && c.img < views ? c.img : 0;
+  };
+  let view = colourView(sel.colour);
+  const max = p.kind === 'voucher' ? 99 : p.stock;
 
   // ⚠️ An ESTIMATE, computed live, and that is correct HERE and nowhere else.
   // This screen answers "if I order today, when does it arrive" — a question
@@ -84,10 +100,10 @@ router.registerScreen('product', async (host, r) => {
 
   <div class="pdp">
     <div class="pdp-gallery">
-      <div class="pdp-main" data-main>${art(p, 0)}</div>
+      <div class="pdp-main" data-main>${art(p, view)}</div>
       <div class="pdp-thumbs">
         ${Array.from({ length: views }, (_, i) => `
-          <button type="button" class="pdp-thumb${i === 0 ? ' on' : ''}"
+          <button type="button" class="pdp-thumb${i === view ? ' on' : ''}"
             data-view="${i}" aria-label="View ${i + 1}">${art(p, i)}</button>`).join('')}
       </div>
     </div>
@@ -137,9 +153,10 @@ router.registerScreen('product', async (host, r) => {
       + 'usually the same day.') : ''}
 
       <div class="pdp-actions">
-        ${out ? '' : qtyStepper('pdp', 1, p.kind === 'voucher' ? null : p.stock)}
-        <button class="btn btn-primary" data-buy ${out ? 'disabled' : ''}>
-          ${out ? 'Sold out' : 'Add to bag'}</button>
+        <!-- Add to bag, and the − n + it becomes: the card's bar at full
+             size (8 November 2026). It replaced a quantity box beside the
+             button, which knew nothing of what was already in the bag. -->
+        <div class="pdp-cta" data-pdp-cta></div>
         <button class="btn btn-secondary" data-wish="${esc(p.id)}"
           aria-pressed="${wished}">${icon('heart', 16)} ${wished ? 'Saved' : 'Save'}</button>
       </div>
@@ -206,9 +223,9 @@ router.registerScreen('product', async (host, r) => {
         sel.colour = b.dataset.sw;
         // A colour with its own view index shows that view; otherwise the
         // alternate colourway render.
-        const cc = p.variants.colour.find((x) => x.id === sel.colour);
-        setView(cc && cc.img != null && cc.img < views ? cc.img : 0);
+        setView(colourView(sel.colour));
         paintColour();
+        paintCta();
       });
     }
   }
@@ -241,6 +258,8 @@ router.registerScreen('product', async (host, r) => {
         fh.innerHTML = hintFor(sel.size);
         fh.classList.remove('sc-need');
       }
+      // This size may be in the bag already, or not: the bar or the button.
+      paintCta();
     });
   }
 
@@ -255,22 +274,81 @@ router.registerScreen('product', async (host, r) => {
     });
   }
 
-  const stepper = $('[data-qty]');
-  if (stepper) {
-    stepper.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-step]');
-      if (!b) return;
-      const max = p.kind === 'voucher' ? 99 : p.stock;
-      qty = Math.max(1, Math.min(max, qty + Number(b.dataset.step)));
-      stepper.querySelector('.qty-val').textContent = qty;
-      stepper.querySelector('[data-step="-1"]').disabled = qty <= 1;
-      stepper.querySelector('[data-step="1"]').disabled = qty >= max;
-    });
+  // -------------------------------------------------------------------------
+  // ADD TO BAG, AND THE BAR IT BECOMES -- the card's process at full size (8
+  // November 2026, the owner: "the same process as the main screen"). Add to
+  // bag puts ONE of the colour and size selected in the bag, and turns into
+  // − M · 1 in bag +; + is one more, − one fewer, and at none the button is
+  // back. Each one in flies to the bag. The bar shows the line for what is
+  // selected NOW, read from the bag on every change -- a size picked that is
+  // already in the bag shows its count at once.
+  // -------------------------------------------------------------------------
+  const variant = () => {
+    const v = {};
+    if (sel.colour) v.colour = sel.colour;
+    if (sel.size) v.size = sel.size;
+    return v;
+  };
+  const keyNow = () => D.lineKey({ pid: p.id, variant: variant() });
+  const fullTitle = (n) => (n >= max ? `Only ${max} in stock` : '');
+
+  function ctaHtml(line) {
+    if (out) return '<button class="btn btn-primary btn-block" disabled>Sold out</button>';
+    if (!line) return '<button type="button" class="btn btn-primary btn-block" data-buy>Add to bag</button>';
+    const s = sizes.length > 1 ? sizes.find((x) => x.id === sel.size) : null;
+    return `<div class="bag-step bag-step-lg" role="group" data-pdp-line="${esc(keyNow())}"
+        aria-label="In your bag${s ? `, size ${esc(s.label)}` : ''}">
+      <button type="button" data-pdp-less aria-label="One fewer">${icon('minus', 18)}</button>
+      <span class="bag-step-n" aria-live="polite">${s ? `<b>${esc(s.label)}</b> · ` : ''}<span
+        data-n>${line.qty}</span> in bag</span>
+      <button type="button" data-pdp-more aria-label="One more" title="${fullTitle(line.qty)}"
+        ${line.qty >= max ? 'disabled' : ''}>${icon('plus', 18)}</button>
+    </div>`;
   }
 
-  const buy = $('[data-buy]');
-  if (buy && !out) {
-    buy.addEventListener('click', async () => {
+  /** Repaint the button or the bar from the bag. The same line keeps its bar
+   *  and changes only the number, so the button just pressed keeps focus and
+   *  a second quick tap still lands on it (as paintCtas does for a card). */
+  async function paintCta() {
+    const box = $('[data-pdp-cta]');
+    if (!box || !box.isConnected) return;
+    const key = keyNow();
+    const line = (await store.cart.lines()).find((l) => D.lineKey(l) === key);
+    if (key !== keyNow()) return;          // the selection moved while reading
+    const step = box.querySelector('.bag-step');
+    if (line && step && step.dataset.pdpLine === key) {
+      step.querySelector('[data-n]').textContent = line.qty;
+      const more = step.querySelector('[data-pdp-more]');
+      more.disabled = line.qty >= max;
+      more.title = fullTitle(line.qty);
+      return;
+    }
+    if (!line && !step && box.firstElementChild) return;
+    const had = box.contains(document.activeElement);
+    box.innerHTML = ctaHtml(line);
+    const next = box.querySelector('[data-pdp-more]:not(:disabled), [data-buy]')
+      || box.querySelector('[data-pdp-less]');
+    if (had && next) next.focus();
+  }
+  await paintCta();
+  router.onLeave(store.live.subscribe('cart', paintCta));
+
+  /** One in: the flight first -- it holds the bag's count until the photo
+   *  lands -- then the add, then the message naming the colour and size. */
+  async function addOne(btn) {
+    const v = variant();
+    flyToBag($('[data-main]'), 1, btn);
+    await store.cart.add(p.id, 1, v);
+    const label = D.variantLabel(p, v);
+    toast(`${p.name}${label ? ' · ' + label : ''} added to your bag`);
+  }
+
+  $('[data-pdp-cta]').addEventListener('click', async (e) => {
+    if (out) return;
+    const buy = e.target.closest('[data-buy]');
+    const more = e.target.closest('[data-pdp-more]');
+    const less = e.target.closest('[data-pdp-less]');
+    if (buy) {
       if (!sel.size && sizes.length > 1) {
         // Nothing goes in the bag. The request sits under the sizes, and the
         // focus goes to the first of them, so a keyboard can answer it at once.
@@ -283,10 +361,20 @@ router.registerScreen('product', async (host, r) => {
         if (first) first.focus();
         return;
       }
-      flyToBag($('[data-main]'), qty);     // before the add: see ui.js
-      await store.cart.add(p.id, qty, { ...sel });
-      const label = D.variantLabel(p, sel);
-      toast(`${p.name}${label ? ' · ' + label : ''} added to your bag`);
-    });
-  }
+      await addOne(buy);
+      return;
+    }
+    // + and − read the bag itself, not the number on the bar, which a second
+    // tab or a second quick tap may have moved.
+    if (more || less) {
+      const key = keyNow();
+      const line = (await store.cart.lines()).find((l) => D.lineKey(l) === key);
+      if (more) {
+        if (!line || line.qty < max) await addOne(more);
+      } else if (line) {
+        await store.cart.setQty(key, line.qty - 1);
+        if (line.qty === 1) toast('Removed from your bag');
+      }
+    }
+  });
 });

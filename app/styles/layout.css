@@ -127,7 +127,11 @@
   height:1px; background:var(--gold);
 }
 
-.hdr-right{ display:flex; align-items:center; gap:var(--s2); }
+/* ⚠️ Pinned to the LAST column. Below 1024 the nav is display:none, which
+   takes it out of the grid, and the icons used to flow into the middle 1fr
+   column instead: on a phone the bag sat right after the logo with half the
+   header empty beside it, never where a thumb looks for it. */
+.hdr-right{ grid-column:3; display:flex; align-items:center; gap:var(--s2); }
 
 .icon-btn{
   position:relative;
@@ -148,6 +152,52 @@
   font-variant-numeric:tabular-nums;
   border-radius:9px;
   border:1.5px solid var(--paper);
+}
+
+/* THE BAG -- the one header control that has to be found at a glance. It was
+   a thin outline among three others like it. Now it fills with ink once
+   something is in it (ui.js paintBag), so "is it in there?" is answered
+   without reading the number, and from 1024 up it says "Bag" in words. The
+   picture that flies from a card lands here (ui.js flyToBag). */
+.bag-btn{
+  transition:color var(--t-micro) var(--e-enter),
+             background var(--t-micro) var(--e-enter),
+             border-color var(--t-micro) var(--e-enter);
+}
+.bag-btn.full{ background:var(--ink); color:var(--on-ink); }
+.bag-btn.full:hover{ background:var(--gold); color:var(--on-gold); }
+.bag-btn.full .badge-count{
+  top:-6px; right:-6px;
+  background:var(--gold); color:var(--on-gold);
+}
+.bag-btn.full:hover .badge-count{ background:var(--ink); color:var(--on-ink); }
+.bag-word{ display:none; }
+
+@media (min-width:1024px){
+  /* The search field itself is on screen from here up. The icon beside it
+     opened a second search field under the header, and stood one more
+     look-alike outline between the field and the bag. */
+  #search-toggle{ display:none; }
+
+  .bag-btn{
+    width:auto; gap:var(--s2);
+    padding:0 var(--s3);
+    border:1px solid var(--edge-2);
+  }
+  .bag-btn:hover{ border-color:var(--ink); }
+  .bag-btn.full{ border-color:var(--ink); }
+  .bag-btn.full:hover{ border-color:var(--gold); }
+  .bag-word{
+    display:inline;
+    font-size:12px; font-weight:600;
+    letter-spacing:.08em; text-transform:uppercase;
+  }
+  .bag-btn .badge-count{
+    position:static;
+    min-width:20px; height:20px; padding:0 6px;
+    font-size:11px;
+    border:0; border-radius:10px;
+  }
 }
 
 /* Desktop search -- an inline field. Below 1024 it becomes an icon that opens

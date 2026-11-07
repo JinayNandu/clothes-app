@@ -64,8 +64,11 @@
       <span id="i-wish"></span>
       <span class="badge-count" data-wish-count hidden>0</span>
     </a>
-    <a class="icon-btn" href="#/cart" aria-label="Shopping bag">
+    <!-- #bag is where a picture flies to from a card (ui.js flyToBag), and
+         it fills once something is in it. The word shows from 1024 up. -->
+    <a class="icon-btn bag-btn" id="bag" href="#/cart" aria-label="Shopping bag">
       <span id="i-bag"></span>
+      <span class="bag-word" aria-hidden="true">Bag</span>
       <span class="badge-count" data-cart-count hidden>0</span>
     </a>
   </div>

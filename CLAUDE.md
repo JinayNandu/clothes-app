@@ -78,6 +78,7 @@ for the store owner**.
 |---|---|
 | Browse — home, category listing, product page, gallery, variant picker | **Built.** Started from a copy of DEVI's code and re-pointed at garments; nothing is shared with DEVI now |
 | Cart, coupon, totals | **Built.** `money.pl` green, including the size delta |
+| Add to bag, as it feels | **Built, 7 November 2026, on the owner's ask.** A card's button turns into **− n in bag +** for the card's own line (`D.defaultVariant()`: first colour, first size); − at one takes it off. A see-through copy of the photo flies into the bag (`ui.js` `flyToBag`) and the bag's count goes up **as it lands**, one per flight, so quick taps read 1, 2, 3. The bag fills with ink once something is in it and says "Bag" from 1024 up. ⚠️ See *Open*: the card chooses the size |
 | Checkout, address, pay options | **Built**: it saves to this browser and hands off on WhatsApp |
 | An order, end to end | **Built (step 4).** Saved → sent by the customer → confirmed, packed, shipped (courier and tracking number optional) and delivered by the store. The customer's order page draws the journey as a timeline and follows it live; `deliveredAt` is stamped on delivery. ⚠️ Shop and store meet only in the same browser until step 6. **Stock is not taken off on ordering** — that belongs on the server, where two phones cannot both buy the last one |
 | Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED. Photographs are Unsplash stand-ins, credited in `shop.json` `photos` and on the About page |
@@ -433,6 +434,12 @@ decision is the one already on screen beside the size they just tapped.
   server above.
 - **There IS a browser here.** Use it. Everything in the second commit
   was found by tapping and none of it was visible to a check script.
+- ⚠️ **The preview pane draws no animation frames** (found 7 November
+  2026: `document.timeline` did not move in 600 ms, one rAF frame). A Web
+  Animation never finishes there by itself, so test one by pausing it from
+  `document.getAnimations()` and stepping `currentTime` or calling
+  `finish()`. `flyToBag`'s fallback timer is why the bag's count still
+  lands there; on a real screen the animation runs on its own.
 
 ### The rules both parents learned the hard way
 
@@ -558,6 +565,13 @@ Steps 1–5 are the demo. 6–10 make it a shop.
   - **Credits are owed even where the licence does not demand them.**
     The About page lists them from the same `photos` list the check
     reads, so a photograph cannot be added without its credit.
+
+- ⚠️ **A card adds the first size, S, without asking.** Inherited from
+  DEVI, where a default size did little harm; on a garment it is a return
+  waiting to happen, and the − n + since 7 November 2026 makes three of
+  them three taps. The toast and the bag both name the size, but nobody is
+  made to choose one. The fix is a size row on the card (one more tap per
+  garment) — the owner's call, not yet asked.
 
 - **The palette is still DEVI's** — warm ivory, antique gold,
   terracotta, light-only, 67 tokens. It survives the move to apparel

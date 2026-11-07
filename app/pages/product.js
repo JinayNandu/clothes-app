@@ -9,7 +9,7 @@
 
 import * as store from '../store.js';
 import * as router from '../router.js';
-import { esc, crumbs, toast, emptyState, notice, openSheet } from '../ui.js';
+import { esc, crumbs, toast, emptyState, notice, openSheet, flyToBag } from '../ui.js';
 import { priceBlock, swatchRow, qtyStepper, productCard,
          sizeChart, fitHint, chartFor } from '../components.js';
 import { art, viewCount } from '../art.js';
@@ -257,6 +257,7 @@ router.registerScreen('product', async (host, r) => {
   const buy = $('[data-buy]');
   if (buy && !out) {
     buy.addEventListener('click', async () => {
+      flyToBag($('[data-main]'), qty);     // before the add: see ui.js
       await store.cart.add(p.id, qty, { ...sel });
       const label = D.variantLabel(p, sel);
       toast(`${p.name}${label ? ' · ' + label : ''} added to your bag`);

@@ -8,7 +8,9 @@
 
 import * as store from './store.js';
 import * as router from './router.js';
-import { $, $$, drawChrome, refreshCounts, openDrawer, closeDrawer, toast, favicon } from './ui.js';
+import { $, $$, drawChrome, refreshCounts, openDrawer, closeDrawer, toast, favicon,
+         flyToBag } from './ui.js';
+import { setBag, paintCtas } from './components.js';
 import { initSidebar } from './sidebar.js';
 import { logo } from './brand.js';
 import { esc } from "./ui.js";
@@ -58,17 +60,26 @@ async function boot() {
     [c.phone, c.email].filter(Boolean).join(' · ') || 'Contact details coming soon';
 
   await initSidebar();
-  await refreshCounts();
+  await syncBag();
 
   // One subscription each, at boot, never torn down. A screen must not own
   // the header's counts — it would resubscribe on every visit.
-  store.live.subscribe('cart', refreshCounts);
+  store.live.subscribe('cart', syncBag);
   store.live.subscribe('wishlist', refreshCounts);
   store.live.subscribe('quota', () =>
     toast('This browser is out of storage space. Some changes were not saved.'));
 
   wireChrome();
   await router.start();
+}
+
+/** The bag, read once per change. Every card's − n + (components.js) and the
+ *  header's count (ui.js) follow it; the cards first, because the finger is
+ *  on one of them, and the header may be holding its number for a flight. */
+async function syncBag() {
+  setBag(await store.cart.lines());
+  paintCtas();
+  await refreshCounts();
 }
 
 function wireChrome() {
@@ -141,6 +152,7 @@ function wireChrome() {
       return;
     }
 
+    // A card's Add to bag, and the + of its − n + (components.js).
     const add = e.target.closest('[data-add]');
     if (add) {
       e.preventDefault();
@@ -148,15 +160,31 @@ function wireChrome() {
       if (!p) return;
       // A card has no variant picker, so the first of each axis is implied.
       // The detail page is where a real choice is made.
-      const variant = {};
-      if (p.variants && p.variants.colour && p.variants.colour.length) {
-        variant.colour = p.variants.colour[0].id;
-      }
-      if (p.variants && p.variants.size && p.variants.size.length) {
-        variant.size = p.variants.size[0].id;
-      }
+      const variant = D.defaultVariant(p);
+      // ⚠️ The flight BEFORE the add: it tells the header to hold the count
+      // until the picture lands, and the add is what changes the count.
+      const card = add.closest('.card');
+      flyToBag(card && card.querySelector('.card-art'));
       await store.cart.add(p.id, 1, variant);
-      toast(`${p.name} added to your bag`);
+      // The size goes in the message: a card adds the first size without
+      // asking, and the customer should not find that out at the door.
+      const label = D.variantLabel(p, variant);
+      toast(`${p.name}${label ? ' · ' + label : ''} added to your bag`);
+      return;
+    }
+
+    // The − of a card's − n +. At one it takes the line off, and the card
+    // goes back to Add to bag.
+    const less = e.target.closest('[data-less]');
+    if (less) {
+      e.preventDefault();
+      const key = less.closest('[data-cta]').dataset.key;
+      // The bag itself, not the number on the card, which a second tab or a
+      // second quick tap may already have moved.
+      const line = (await store.cart.lines()).find((l) => D.lineKey(l) === key);
+      if (!line) return;
+      await store.cart.setQty(key, line.qty - 1);
+      if (line.qty === 1) toast('Removed from your bag');
       return;
     }
   });

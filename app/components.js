@@ -72,6 +72,60 @@ function tileBadge(p, shop) {
 }
 
 // ---------------------------------------------------------------------------
+// THE CARD'S BUTTON: Add to bag, then − n + once its line is in the bag.
+//
+// A card has no picker, so it stands for ONE line -- D.defaultVariant(), the
+// first colour and the first size -- and its count is that line's, not every
+// size of the product added up: − on a card must take off something the card
+// put on, never a size chosen on the product page.
+//
+// `bag` is the bag as last read. app.js sets it at boot and on every change,
+// so a card drawn by ANY screen comes out in the right state without each
+// page reading the bag, and paintCtas() moves the cards already on screen
+// without redrawing them. + is a data-add like the first button, so both go
+// through the one handler in app.js, flight to the bag included.
+// ---------------------------------------------------------------------------
+let bag = new Map();
+export function setBag(lines) {
+  bag = new Map(lines.map((l) => [D.lineKey(l), l.qty]));
+}
+
+const fullTitle = (qty, max) => (qty >= max ? `Only ${max} in stock` : '');
+
+const ctaBody = (pid, qty, max) => (qty
+  ? `<div class="bag-step" role="group" aria-label="In your bag">
+      <button type="button" data-less aria-label="One fewer">${icon('minus', 16)}</button>
+      <span class="bag-step-n" aria-live="polite">${qty} in bag</span>
+      <button type="button" data-add="${esc(pid)}" aria-label="One more"
+        title="${fullTitle(qty, max)}" ${qty >= max ? 'disabled' : ''}>${icon('plus', 16)}</button>
+    </div>`
+  : `<button class="btn btn-secondary btn-sm btn-block" data-add="${esc(pid)}">Add to bag</button>`);
+
+export function paintCtas(root = document) {
+  for (const box of root.querySelectorAll('[data-cta]')) {
+    const qty = bag.get(box.dataset.key) || 0;
+    const max = Number(box.dataset.max);
+    const n = box.querySelector('.bag-step-n');
+    if (qty && n) {
+      // Already a stepper: change the number and nothing else, so the button
+      // just pressed keeps focus and a second quick tap still lands on it.
+      const plus = box.querySelector('[data-add]');
+      n.textContent = `${qty} in bag`;
+      plus.disabled = qty >= max;
+      plus.title = fullTitle(qty, max);
+      continue;
+    }
+    if (!qty && !n) continue;
+    // Button <-> stepper. Focus follows, or a keyboard user who pressed Add
+    // to bag is left on a button that no longer exists.
+    const had = box.contains(document.activeElement);
+    box.innerHTML = ctaBody(box.dataset.cta, qty, max);
+    const next = box.querySelector('[data-add]:not(:disabled)') || box.querySelector('[data-less]');
+    if (had && next) next.focus();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // PRODUCT CARD
 // ---------------------------------------------------------------------------
 export function productCard(p, shop, wished) {
@@ -79,9 +133,12 @@ export function productCard(p, shop, wished) {
   const out = d.includes('sold-out');
   const href = `#/p/${p.slug}`;
   const wishLabel = wished ? 'Saved to wishlist' : 'Save to wishlist';
+  const key = D.lineKey({ pid: p.id, variant: D.defaultVariant(p) });
+  const max = p.kind === 'voucher' ? 99 : p.stock;
   const cta = out
-    ? '<button class="btn btn-secondary btn-sm btn-block" disabled>Sold out</button>'
-    : `<button class="btn btn-secondary btn-sm btn-block" data-add="${esc(p.id)}">Add to bag</button>`;
+    ? '<div><button class="btn btn-secondary btn-sm btn-block" disabled>Sold out</button></div>'
+    : `<div data-cta="${esc(p.id)}" data-key="${esc(key)}" data-max="${max}">${
+      ctaBody(p.id, bag.get(key) || 0, max)}</div>`;
 
   return `<article class="card" data-pid="${esc(p.id)}">
   <a class="card-tile" href="${href}" aria-label="${esc(p.name)}">
@@ -98,7 +155,7 @@ export function productCard(p, shop, wished) {
     <p class="card-desc">${esc(p.shortDesc)}</p>
     ${priceBlock(p, null)}
     ${swatchRow(p, null)}
-    <div>${cta}</div>
+    ${cta}
   </div>
 </article>`;
 }

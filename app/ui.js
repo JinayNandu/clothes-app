@@ -45,17 +45,126 @@ export function toast(msg) {
 
 // ---------------------------------------------------------------------------
 // HEADER COUNTS — subscribed once, at boot, and never torn down.
+//
+// ⚠️ While a picture is flying to the bag (flyToBag, below) the bag's count
+// is NOT painted here. The landing paints it, so the number goes up the
+// moment the picture arrives and not half a second before it.
 // ---------------------------------------------------------------------------
-export async function refreshCounts() {
-  const n = await store.cart.count();
-  const w = (await store.wishlist.ids()).length;
+let flights = 0;
+
+function paintBag(n) {
   for (const el of $$('[data-cart-count]')) {
     el.textContent = n;
     el.hidden = n === 0;
   }
+  // Filled once something is in it (layout.css), so the bag reads as
+  // "has things in it" from across the room, not only from its number.
+  const bag = $('#bag');
+  if (bag) bag.classList.toggle('full', n > 0);
+}
+
+export async function refreshCounts() {
+  const n = await store.cart.count();
+  const w = (await store.wishlist.ids()).length;
+  if (!flights) paintBag(n);
   for (const el of $$('[data-wish-count]')) {
     el.textContent = w;
     el.hidden = w === 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// THE FLIGHT TO THE BAG
+//
+// A see-through copy of the product's picture lifts off where it was tapped,
+// shrinks, and arcs into the bag in the header; the bag gives a small bump
+// and its count goes up as it lands -- by this flight's share only, so three
+// quick taps read 1, 2, 3 and not 3, 3, 3. The last landing paints the true
+// count, whatever happened in between.
+//
+// Three nested boxes because one box takes one easing: the outer drifts
+// sideways and speeds up, the middle rises fast and settles, the inner shrinks
+// and fades. Together that is an arc rather than a straight line.
+//
+// ⚠️ Call it BEFORE the add that it shows: `flights` is what stops
+// refreshCounts painting the new number early.
+// ⚠️ Web Animations, not CSS, so base.css's reduced-motion rule (animation:
+// none) would NOT stop it. The media query is asked here instead, and with
+// reduced motion nothing flies and the count changes at once.
+// ---------------------------------------------------------------------------
+const FLIGHT_MS = 720;
+
+export function flyToBag(from, qty = 1) {
+  const bag = $('#bag');
+  const to = bag && bag.getBoundingClientRect();
+  const pic = from && from.querySelector('img, svg');
+  if (!to || !to.width || !pic || !document.body.animate
+      || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  // Lift off from the part of the picture that is on screen: below the sticky
+  // header and above the bottom edge. A card scrolled half under the header
+  // must not throw its copy from somewhere nobody can see.
+  const r = from.getBoundingClientRect();
+  const hdr = $('#site-header');
+  const top = Math.max(r.top, hdr ? hdr.getBoundingClientRect().bottom : 0);
+  const h = Math.min(r.bottom, innerHeight) - top;
+  if (h < 40 || r.width < 40) return;
+
+  const ghost = document.createElement('div');
+  ghost.className = 'fly';
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.style.cssText = `left:${r.left}px;top:${top}px;width:${r.width}px;height:${h}px`;
+  ghost.innerHTML = '<div class="fly-y"><div class="fly-pic"></div></div>';
+  const copy = pic.cloneNode(true);
+  copy.removeAttribute('loading');
+  // The whole picture, offset so the visible part sits exactly where it was.
+  copy.style.cssText = `top:${r.top - top}px;width:${r.width}px;height:${r.height}px`;
+  const box = ghost.querySelector('.fly-pic');
+  box.appendChild(copy);
+  document.body.appendChild(ghost);
+
+  const dx = to.left + to.width / 2 - (r.left + r.width / 2);
+  const dy = to.top + to.height / 2 - (top + h / 2);
+  const big = Math.max(r.width, h);
+  const end = 26 / big;                          // about the size of the icon
+  const mid = Math.max(end, Math.min(1, 150 / big));
+  const opt = (easing) => ({ duration: FLIGHT_MS, easing, fill: 'forwards' });
+
+  flights++;
+  ghost.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${dx}px)` }],
+                opt('cubic-bezier(.4,0,.6,1)'));
+  ghost.firstChild.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${dy}px)` }],
+                           opt('cubic-bezier(.3,.55,.55,1)'));
+  const shrink = box.animate([
+    { transform: 'scale(1)', opacity: 0.9 },
+    { transform: `scale(${mid})`, opacity: 0.75, offset: 0.35 },
+    { transform: `scale(${end})`, opacity: 0.35 },
+  ], opt('cubic-bezier(.3,0,.4,1)'));
+
+  // Once, whichever comes first: the animation ending, or a timer in case it
+  // never reports (a tab put away mid-flight). A count that waits forever
+  // for a landing is worse than a flight cut short.
+  let landed = false;
+  const land = () => {
+    if (landed) return;
+    landed = true;
+    ghost.remove();
+    flights--;
+    landBag(qty);
+  };
+  shrink.finished.then(land, land);
+  setTimeout(land, FLIGHT_MS + 400);
+}
+
+async function landBag(qty) {
+  const n = await store.cart.count();
+  const el = $('[data-cart-count]');
+  const shown = el && !el.hidden ? Number(el.textContent) || 0 : 0;
+  paintBag(flights ? Math.min(n, shown + qty) : n);
+  const bag = $('#bag');
+  if (bag) {
+    bag.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }, { transform: 'scale(1)' }],
+                { duration: 340, easing: 'cubic-bezier(.3,1.4,.6,1)' });
   }
 }
 

@@ -17,7 +17,7 @@ import * as router from '../router.js';
 import { esc, h1, emptyState, notice, toast } from '../ui.js';
 import { field, setFieldError } from '../components.js';
 import { signInBox, wireSignIn } from '../signin.js';
-import { payOptions, demoStrip } from '../pay.js';
+import { payOptions } from '../pay.js';
 import { seal } from '../brand.js';
 import { icon } from '../icons.js';
 import * as D from '../domain.js';
@@ -156,9 +156,8 @@ router.registerScreen('checkout', async (host) => {
   function paintPayNote() {
     const box = host.querySelector('[data-paynote]');
     if (pay === 'upi') {
-      box.innerHTML = demoStrip(shop.upi)
-        || notice('info', 'A QR with the exact amount and your order code '
-          + 'appears on the next screen.');
+      box.innerHTML = notice('info', 'A QR with the exact amount and your order code '
+        + 'appears on the next screen.');
     } else if (pay === 'cod') {
       box.innerHTML = notice('info', 'Pay the courier when the parcel arrives. '
         + 'We will still need you to send the order through so we can confirm it.');

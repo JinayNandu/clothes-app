@@ -15,11 +15,19 @@
 // all on a desktop, and on a phone it hands off to an app that may not be
 // installed — so it looks broken more often than it works. A QR works from any
 // device with a camera and needs no handoff.
+//
+// ⚠️ THE DEMO STRIP IS GONE, on the owner's word (7 November 2026): the site
+// is shown to people as the flow it will be, and an amber "this QR cannot
+// take money" box on the payment step reads as a broken shop. What still
+// keeps a scan from moving anybody's money is the DATA, not the words:
+// while upi.demo is true the id must sit on `@example`, which no UPI app can
+// resolve to a payee (data.pl fails on any other handle), the shop cannot
+// stop being a preview with a demo id in it (data.pl again), and the Preview
+// bar still calls every order placed here a test.
 // ============================================================================
 
 import { CDN, loadScript } from './config.js';
 import { esc } from './ui.js';
-import { icon } from './icons.js';
 import * as D from './domain.js';
 
 // ---------------------------------------------------------------------------
@@ -46,9 +54,7 @@ export function payOptions(shop, selected) {
     </label>`;
 
   return [
-    opt('upi', 'UPI', shop.upi.demo
-      ? 'Scan a QR with any UPI app. This site shows a DEMO id — see the note below.'
-      : 'Scan a QR with GPay, PhonePe, Paytm or your bank app.'),
+    opt('upi', 'UPI', 'Scan a QR with GPay, PhonePe, Paytm or your bank app.'),
 
     opt('card', 'Credit or debit card', gw.why,
         { on: gw.on, badge: gw.test ? 'Test mode' : '' }),
@@ -61,23 +67,6 @@ export function payOptions(shop, selected) {
         : 'Pay the courier when the parcel arrives.')
       : '',
   ].join('');
-}
-
-// ---------------------------------------------------------------------------
-// THE DEMO STRIP
-//
-// Somebody looking at a QR should not have to understand UPI handles to feel
-// safe about it, so this says it in words.
-// ---------------------------------------------------------------------------
-export function demoStrip(upi) {
-  if (!upi.demo) return '';
-  return `<div class="notice notice-warn">
-    ${icon('warn', 18)}
-    <div><b>This QR cannot take money.</b> The id
-      <code>${esc(upi.vpa)}</code> ends in <code>@example</code>, which is not a
-      real UPI handle — no payment app can resolve a payee, so money physically
-      cannot move. The flow is real; only the payee is not.</div>
-  </div>`;
 }
 
 // ---------------------------------------------------------------------------

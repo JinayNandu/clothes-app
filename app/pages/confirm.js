@@ -19,7 +19,7 @@ import { esc, emptyState, notice, toast } from '../ui.js';
 import { handoffBlock, wireHandoff } from '../handoff.js';
 import { signInBox, wireSignIn } from '../signin.js';
 import { OTP_LEN } from '../config.js';
-import { drawQR, demoStrip } from '../pay.js';
+import { drawQR } from '../pay.js';
 import { seal, ornament } from '../brand.js';
 import * as D from '../domain.js';
 
@@ -323,7 +323,6 @@ function payPanel(o, shop) {
     return `
       <section class="panel" style="margin-top:var(--s4)">
         <h2 class="t-h3">Paying by UPI</h2>
-        ${demoStrip(shop.upi)}
         <div style="display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap;
                     margin-top:var(--s4)">
           <div class="qr-tile" data-qr></div>
@@ -333,10 +332,16 @@ function payPanel(o, shop) {
             <p class="t-micro dim" style="margin-top:var(--s3)">
               Scan with GPay, PhonePe, Paytm or your bank app. The amount and
               your order code travel in the QR, so there is nothing to type.</p>
+            <!-- ⚠️ Still true to the letter: a person at the shop marks an
+                 order paid after seeing the money arrive (set_paid), and on a
+                 database this page shows it. Nothing here claims to watch the
+                 payment. In one browser the shop sees only what is sent. -->
             <p class="t-micro" style="margin-top:var(--s3);color:var(--ink-soft)">
-              <b>Nothing here can see whether you paid.</b> UPI sends no message
-              back to a web page. Please send us the payment screenshot along
-              with the order, and we will check it against our own bank record.</p>
+              ${store.shared()
+                ? 'Once the money reaches us we mark this order paid, and it shows '
+                  + 'here. Keep the payment screenshot until it does.'
+                : 'Send us the payment screenshot with the order, and we will check '
+                  + 'it against our own bank record.'}</p>
           </div>
         </div>
       </section>`;

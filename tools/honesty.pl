@@ -359,8 +359,12 @@ my %NOTICE = (
     => [ '/domain.js',        qr/Not set up yet/ ],
   'the this-browser-only notice on the store orders board'
     => [ '/pages/admin.js',   qr/orders placed in THIS browser only/i ],
-  'the demo-UPI strip'
-    => [ '/pay.js',           qr/cannot take money/i ],
+  # 'the demo-UPI strip' -- "This QR cannot take money" -- was here until
+  # 7 November 2026. Taken out DELIBERATELY, on the owner's word: the site is
+  # shown to people as the flow it will be. The guard moved into the data:
+  # data.pl fails unless a demo id sits on @example, which resolves to nobody,
+  # and fails if placeholder goes false while the id is a demo. The preview
+  # bar below still calls every order placed here a test.
   'the preview bar, while shop.json says placeholder'
     => [ '/ui.js',            qr/an order placed here is a test, not a purchase/ ],
   'the not-locked-yet bar on the store page, until a server checks the code'

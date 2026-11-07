@@ -401,8 +401,8 @@
   },
   "upi": {
     "demo": true,
-    "note": "A DELIBERATELY UNRESOLVABLE id. `example` is not a real UPI handle, so no payment app can find a payee and money physically cannot move. While demo is true the pay block wears a visible amber strip saying so. data.pl FAILS if demo is true and the handle after the @ is a real one (ybl, okaxis, paytm, ...), because a demo id on a live handle could send a customer's money to whoever owns it. To go live: put the real id in and set demo to false -- the strip disappears by itself.",
-    "payeeName": "Vastra Apparel (demo)",
+    "note": "A DELIBERATELY UNRESOLVABLE id. `example` is not a real UPI handle, so no payment app can find a payee and money physically cannot move. Since 7 November 2026, at the owner's word, the pay block no longer SAYS so -- the site is shown as the flow it will be -- so the data carries the whole guard: data.pl FAILS if demo is true and the handle is anything but @example, and FAILS if placeholder goes false while demo is true. The Preview bar still calls every order a test. To go live: put the real id in, set demo to false, and only then placeholder.",
+    "payeeName": "Vastra Apparel",
     "vpa": "demo.not.real@example"
   }
 }

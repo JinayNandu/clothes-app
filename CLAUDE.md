@@ -57,7 +57,7 @@ for the store owner**.
 | What do they make? | **Men's shirts, and womenswear across the board** — tops, kurtis, dresses. The skeleton carries one shirt, one kurti, one dress. |
 | One manufacturer or several? | **One.** Milan's `db/MULTISTORE.md` is there for the day it is more, and that day is cheaper to reach than to start from. |
 | Photographs? | **None of their own yet.** Since 4 November 2026 the site shows Unsplash stand-ins, on the owner's word that the drawn garments looked "too kiddish". `art.js` is now only the fallback. ⚠️ Still the biggest risk to the idea -- see *Open*. |
-| How do they pay? | **UPI and cash on delivery.** Both. The UPI id is a demo one that cannot resolve, and the checkout says so. |
+| How do they pay? | **UPI and cash on delivery.** Both. The UPI id is a demo one that cannot resolve (`@example`). ⚠️ Since 7 November 2026 the checkout no longer SAYS so — the owner shows the site as the flow it will be, and the amber "this QR cannot take money" strip read as a broken shop. The guard is in the data now: `data.pl` fails unless a demo id is on `@example` (an allow-list; it was a deny-list of real handles, which `@okbizaxis` walked past) and fails if `placeholder` goes false while the id is a demo. The Preview bar still calls every order a test. |
 
 ### Still not answered, and each one blocks something
 

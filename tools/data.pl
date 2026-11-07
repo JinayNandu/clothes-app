@@ -507,13 +507,21 @@ if ($upi->{demo}) {
   my ($handle) = ($upi->{vpa} // '') =~ /\@(.+)$/;
   $handle = lc($handle // '');
   # A demo id on a REAL handle could send a customer's money to whoever owns it.
-  my @real = qw(ybl okaxis okhdfcbank okicici oksbi paytm apl ibl axl upi
-                airtel freecharge jio fbl yapl);
-  if (grep { $_ eq $handle } @real) {
-    fail("upi.demo is true but '$handle' is a REAL UPI handle -- money could "
-       . "actually move to whoever owns that id");
+  # ⚠️ An ALLOW-list since 7 November 2026, not the deny-list it was: the page
+  # no longer tells anyone the QR is a demo (the owner's call, to show the flow
+  # as it will be), so this is the whole guard, and a list of real handles is
+  # never complete -- a new bank's handle would have walked straight past it.
+  # `example` is reserved and resolves to nobody.
+  if ($handle eq 'example') {
+    ok("upi is a demo id on the unresolvable handle '\@example'");
   } else {
-    ok("upi is a demo id on the unresolvable handle '\@$handle'");
+    fail("upi.demo is true but the handle is '\@$handle', not '\@example' -- "
+       . "a demo id on any other handle could send a customer's money to whoever owns it, "
+       . "and nothing on the page says the QR is a demo any more");
+  }
+  # And the shop cannot stop being a preview while its QR is a demo.
+  if (!$shop->{placeholder}) {
+    fail('placeholder is false but upi.demo is still true -- put the real UPI id in first');
   }
 } else {
   fail('upi.demo is false but upi.vpa is empty') unless ($upi->{vpa} // '') ne '';

@@ -98,14 +98,19 @@ export function setBag(lines) { bag = lines; }
 // on screen is the one that knows which product it is.
 const known = new Map();
 
-/** How many more of this line there can be: its colour in its size. */
+/** How many of this line there can be: its colour in its size, and never
+ *  more than an order takes (D.lineMax). */
 const lineMax = (pid, line) => {
   const p = known.get(pid);
-  return p && line ? D.skuStock(p, line.variant) : 0;
+  return p && line ? D.lineMax(p, line.variant) : 0;
+};
+/** Why the + stopped: the stock, or the order's limit (D.fullTitle). */
+const fullTitle = (pid, line) => {
+  const p = known.get(pid);
+  return p && line ? D.fullTitle(line.qty, p, line.variant) : '';
 };
 
 const sizesOf = (p) => (p && p.variants && p.variants.size) || [];
-const fullTitle = (qty, max) => (qty >= max ? `Only ${max} in stock` : '');
 
 /** The line a card counts: the newest one of this product in this colour. */
 function cardLine(pid, colour) {
@@ -130,7 +135,7 @@ function ctaInner(pid, line, max, labels) {
     <button type="button" data-less aria-label="One fewer">${icon('minus', 16)}</button>
     <span class="bag-step-n" aria-live="polite">${size ? `<b>${esc(size)}</b> · ` : ''}<span
       data-n>${line.qty}</span><span class="bag-step-word"> in bag</span></span>
-    <button type="button" data-more aria-label="One more" title="${fullTitle(line.qty, max)}"
+    <button type="button" data-more aria-label="One more" title="${fullTitle(pid, line)}"
       ${line.qty >= max ? 'disabled' : ''}>${icon('plus', 16)}</button>
   </div>`;
 }
@@ -148,7 +153,7 @@ export function paintCtas(root = document) {
       const more = step.querySelector('[data-more]');
       step.querySelector('[data-n]').textContent = line.qty;
       more.disabled = line.qty >= max;
-      more.title = fullTitle(line.qty, max);
+      more.title = fullTitle(box.dataset.cta, line);
       continue;
     }
     if (!line && !step) continue;
@@ -231,7 +236,10 @@ export function productCard(p, shop, wished) {
   known.set(p.id, p);
   const line = cardLine(p.id, colour);
   const cta = out
-    ? '<div><button class="btn btn-secondary btn-sm btn-block" disabled>Sold out</button></div>'
+    // Sold out -- disabled, marked out of stock, or none of any size left: a
+    // customer may ask to be told when it is back (notify.js; 9 November 2026).
+    ? `<div><button type="button" class="btn btn-secondary btn-sm btn-block" data-notify="${esc(p.id)}"
+        aria-label="Notify me when ${esc(p.name)} is back">${icon('mail', 14)} Notify me</button></div>`
     : `<div data-cta="${esc(p.id)}" data-colour="${esc(colour)}"
         ${sizes.length > 1 ? `data-sizes="${esc(JSON.stringify(labels))}"` : ''}>${
       ctaInner(p.id, line, lineMax(p.id, line), labels)}</div>`;

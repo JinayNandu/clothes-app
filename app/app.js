@@ -13,6 +13,7 @@ import { $, $$, drawChrome, refreshCounts, openDrawer, closeDrawer, toast, favic
 import { setBag, paintCtas, sizePanel, setCardColour, sizeChart, chartFor,
          setRatings, paintRatings } from './components.js';
 import { initSidebar } from './sidebar.js';
+import { askToBeTold } from './notify.js';
 import { logo } from './brand.js';
 import { esc } from "./ui.js";
 import * as D from "./domain.js";
@@ -177,6 +178,16 @@ function wireChrome() {
       return;
     }
 
+    // A sold-out card's Notify me (9 November 2026): asked to be told when it
+    // is back -- signed in, so the email goes to an address a code proved.
+    const nb = e.target.closest('[data-notify]');
+    if (nb) {
+      e.preventDefault();
+      const p = await store.catalog.byId(nb.dataset.notify);
+      if (p) askToBeTold(p, null);
+      return;
+    }
+
     // A card's Add to bag (components.js ctaInner).
     const add = e.target.closest('[data-add]');
     if (add) {
@@ -240,7 +251,7 @@ function wireChrome() {
       if (more) {
         const p = await store.catalog.byId(line.pid);
         // No more than there is of that colour in that size.
-        if (p && line.qty < D.skuStock(p, line.variant)) await addOne(more.closest('.card'), p, line.variant);
+        if (p && line.qty < D.lineMax(p, line.variant)) await addOne(more.closest('.card'), p, line.variant);
       } else {
         await store.cart.setQty(key, line.qty - 1);
         if (line.qty === 1) toast('Removed from your bag');

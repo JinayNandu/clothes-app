@@ -68,16 +68,21 @@ function overlayStrip(state, edits) {
 // ---------------------------------------------------------------------------
 // OVERVIEW
 // ---------------------------------------------------------------------------
-function renderOverview({ orders, all, shop, products }) {
-  // The store's own list where it could be read -- hidden products, and
-  // every piece of stock -- and the shop's otherwise.
+function renderOverview({ orders, all, shop, products, mail, log }) {
+  // The store's own list where it could be read -- drafts, disabled and
+  // deleted products, and every piece of stock -- and the shop's otherwise.
   const list = products || all;
-  const onShow = list.filter((p) => !p.hidden);
-  // Stock is by colour and size (8 November 2026): a size sold out is worth
-  // knowing about even while the product has plenty of others.
+  const onShow = list.filter((p) => (p.status || 'active') === 'active');
+  const disabled = list.filter((p) => p.status === 'disabled').length;
+  const waiting = list.reduce((n, p) => n + (Number(p.waiting) || 0), 0);
+  // Stock is by colour and size (8 November 2026) when it is counted: a
+  // size sold out is worth knowing about even while the product has plenty
+  // of others. One marked out of stock (9 November 2026) is a line of its
+  // own; one always in stock never runs low.
   const sizesLow = [];
   for (const p of onShow) {
-    if (p.kind === 'voucher') continue;
+    if (p.kind === 'voucher' || p.stockMode === 'always') continue;
+    if (p.stockMode === 'out') { sizesLow.push({ p, n: 0, what: 'marked out of stock' }); continue; }
     const cols = (p.variants && p.variants.colour) || [];
     const sizes = (p.variants && p.variants.size) || [];
     for (const k of D.skuKeys(p.variants)) {
@@ -121,11 +126,15 @@ function renderOverview({ orders, all, shop, products }) {
 
   <h2 class="t-h3 adm-sec">Your catalogue</h2>
   <div class="adm-stats">
-    ${stat('Products in the shop', onShow.length, list.length > onShow.length
-      ? `${list.length - onShow.length} more hidden` : 'Styles customers can buy', tabHref('catalogue'))}
-    ${stat('Sizes low or sold out', sizesLow.length, `${shop.lowStockAt} or fewer left, in ${lowStock.length} ${lowStock.length === 1 ? 'product' : 'products'}`, tabHref('inventory'))}
-    ${stat('On offer', onShow.filter((p) => p.mrp > p.price).length, 'Priced below MRP', tabHref('catalogue'))}
+    ${stat('Products on sale', onShow.length, disabled
+      ? `${disabled} more disabled, shown as out of stock` : 'Styles customers can buy', tabHref('catalogue'))}
+    ${stat('Low or sold out', sizesLow.length, `${shop.lowStockAt} or fewer left of a counted size, or marked out of stock`, tabHref('inventory'))}
+    ${stat('Customers waiting', waiting, waiting
+      ? 'To be told a product is back; each emailed once it can be bought'
+      : 'Nobody is waiting to be told a product is back', tabHref('catalogue'))}
   </div>
+
+  ${store.shared() ? emailsPanel(mail, log) : ''}
 
   <!-- One panel across the page. "Where the data lives" sat beside it, a
        note about catalog.json and patch sets for whoever builds the site;
@@ -151,6 +160,57 @@ function renderOverview({ orders, all, shop, products }) {
           sizesLow.length - 8} more sizes low or sold out</a></span><span></span></div>` : ''}
       </div>` : `<p class="t-micro dim" style="margin-top:var(--s3)">
         Nothing is late, nothing is low on stock and no order is waiting on a payment check.</p>`}
+  </section>`;
+}
+
+/**
+ * EMAILS TO CUSTOMERS (9 November 2026, the owner: "whenever any status
+ * changed, give that notification to the person who ordered", and to whoever
+ * asked to be told a product is back). The database sends them through
+ * Brevo, every minute (db/schema.sql send_notices); this says whether it
+ * can, what is waiting, and what went -- with Brevo's answer, so a failure
+ * is seen here and not guessed at.
+ */
+function emailsPanel(mail, log) {
+  if (!mail || mail.error) {
+    return `<section class="panel" style="margin-top:var(--s6)">
+      <h2 class="t-h3">Emails to customers</h2>
+      ${notice('warn', `<b>Not set up yet.</b> Run <code>db/SETUP.md</code> step 12
+        (<code>schema.sql</code>, then <code>selftest.sql</code>), then step 13.`)}
+    </section>`;
+  }
+  const ready = mail.key && mail.net;
+  const owed = (Number(mail.ordersWaiting) || 0) + (Number(mail.interestReady) || 0);
+  const said = (n) => {
+    if (n.code == null) return n.kind === 'test' ? 'test' : 'sent';
+    if (n.code >= 200 && n.code < 300) return 'sent';
+    return 'failed';
+  };
+  return `<section class="panel" style="margin-top:var(--s6)">
+    <h2 class="t-h3">Emails to customers</h2>
+    ${!mail.key ? notice('warn', `<b>Not sending yet.</b> Customers are emailed when their order
+        moves, and when something they asked about is back — once the shop's Brevo key is in:
+        <code>db/SETUP.md</code> step 13. Until then each email waits, and goes then.`)
+      : !mail.net ? notice('bad', `<b>The key is in, but the database cannot make the call.</b>
+        Supabase: Database → Extensions → <b>pg_net</b> → enable.`)
+        : notice('info', `<b>Sending.</b> Each customer hears when their order moves — a couple of
+        minutes after, so quick taps make one email — and whoever asked is told when a product is
+        back.${mail.cron ? '' : ' The every-minute job is not set up, so they go while this page is open.'}`)}
+    <p class="t-micro dim" style="margin-top:var(--s3)">${owed} ${owed === 1 ? 'email' : 'emails'} due ·
+      ${Number(mail.interestWaiting) || 0} ${Number(mail.interestWaiting) === 1 ? 'customer' : 'customers'} waiting for a product</p>
+    ${ready && owed ? `<button type="button" class="btn btn-sm btn-secondary" data-send-now
+      style="margin-top:var(--s3)">Send what is due now</button>` : ''}
+    ${(log || []).length ? `<div class="adm-table-wrap" style="margin-top:var(--s4)">
+      <table class="adm-table">
+        <thead><tr><th>When</th><th>To</th><th>About</th><th>Brevo</th></tr></thead>
+        <tbody>${log.slice(0, 12).map((n) => `<tr>
+          <td class="t-micro">${esc(D.fmtDate(n.at))}</td>
+          <td class="t-micro">${esc(n.email)}</td>
+          <td>${esc(n.subject)}</td>
+          <td>${said(n) === 'failed'
+            ? `<span class="pill pill-bad" title="${esc(n.error || '')}">failed ${esc(String(n.code))}</span>`
+            : `<span class="pill pill-good">${esc(said(n))}</span>`}</td></tr>`).join('')}
+        </tbody></table></div>` : ''}
   </section>`;
 }
 
@@ -914,6 +974,15 @@ router.registerScreen('admin', async (host, r) => {
       try { ctx.products = await store.catalogAdmin.all(); } catch (e) { ctx.productsError = e; }
       if (mine !== generation) return;
     }
+    // Emails to customers (9 November 2026), on the overview: whether they
+    // can go, what waits, and what went.
+    if (tab === 'overview' && store.shared() && store.catalogAdmin.mailStatus) {
+      try {
+        [ctx.mail, ctx.log] = await Promise.all([
+          store.catalogAdmin.mailStatus(), store.catalogAdmin.noticesLog()]);
+      } catch (e) { ctx.mail = { error: e }; }
+      if (mine !== generation) return;
+    }
 
     let body;
     if (tab === 'orders') body = renderOrders(ctx);
@@ -929,6 +998,22 @@ router.registerScreen('admin', async (host, r) => {
       <div class="adm-body">${body}</div>
       <div style="margin-top:var(--s7)">${ornament()}</div>`;
 
+    if (tab === 'overview') {
+      const now = host.querySelector('[data-send-now]');
+      if (now) {
+        now.addEventListener('click', async () => {
+          now.disabled = true;
+          try {
+            const n = await store.catalogAdmin.sendNow();
+            toast(n ? `${n} ${n === 1 ? 'email' : 'emails'} on the way.` : 'Nothing was due.');
+            draw();
+          } catch (e) {
+            now.disabled = false;
+            toast(`The emails could not be sent: ${String((e && e.message) || e)}`);
+          }
+        });
+      }
+    }
     if (tab === 'orders') wireOrders(host, draw, ctx.orders);
     else if (tab === 'reviews') wireReviews(host);
     else wireCatalogTab(tab, host, ctx, draw);

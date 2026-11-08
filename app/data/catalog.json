@@ -1,5 +1,5 @@
 {
-  "note": "Integer rupees everywhere -- no floats, no toFixed. price <= mrp. The discount percentage is DERIVED, never stored. `new`, `sale`, `low-stock` and `sold-out` are DERIVED too: `badges` holds only what a human chose. Variants carry `delta`, never a price, and ONLY THE SIZE AXIS may carry a non-zero one -- for a garment that is real: XL and XXL take more cloth. `swatch` is a literal hex and is the one permitted literal colour in this project -- it is product data, not theme, taken from a plain patch of cloth in that colour's own photograph, and tokens.pl never sees it because tokens.pl reads only styles/*.css. `sizeChart` names a chart in shop.json; data.pl fails if the chart is missing or does not cover every size this product sells. `skus` is the STOCK OF EACH COLOUR IN EACH SIZE, keyed colour/size (a product with only one axis keys by that axis alone, and one with neither by `one`); a product's `stock` is their sum, worked out when the catalogue loads (domain.js withStock) and never stored, so the two cannot disagree. THE PHOTOGRAPHS ARE THE OWNER'S OWN (8 November 2026), under img/products/. THE PRICES AND THE STOCK ARE NOT REAL YET -- the owner: \"right now you can keep random prices\". SINCE 8 NOVEMBER 2026 THE DATABASE IS WHERE PRODUCTS LIVE: tools/seed.pl writes this file into db/schema.sql, which puts it into an EMPTY products table once; after that the store page adds products and changes prices and stock, and this file is what a page shows only when the database cannot be reached, and in the single-file build.",
+  "note": "Integer rupees everywhere -- no floats, no toFixed. price <= mrp. The discount percentage is DERIVED, never stored. `new`, `sale`, `low-stock` and `sold-out` are DERIVED too: `badges` holds only what a human chose. Variants carry `delta`, never a price, and ONLY THE SIZE AXIS may carry a non-zero one -- for a garment that is real: XL and XXL take more cloth. `swatch` is a literal hex and is the one permitted literal colour in this project -- it is product data, not theme, taken from a plain patch of cloth in that colour's own photograph, and tokens.pl never sees it because tokens.pl reads only styles/*.css. `sizeChart` names a chart in shop.json; data.pl fails if the chart is missing or does not cover every size this product sells. `skus` is the STOCK OF EACH COLOUR IN EACH SIZE, keyed colour/size (a product with only one axis keys by that axis alone, and one with neither by `one`); a product's `stock` is their sum, worked out when the catalogue loads (domain.js withStock) and never stored, so the two cannot disagree. `stockMode` says how stock is kept (9 November 2026): `always` in stock -- every product, to begin with, the owner's word -- `out` of stock, or `counted`, when `skus` is the stock of each colour in each size and an order takes its pieces off. `status`, when present, is `active` or `disabled`: a disabled product is still found by search and by its link, shown as out of stock. THE PHOTOGRAPHS ARE THE OWNER'S OWN (8 November 2026), under img/products/. THE PRICES AND THE STOCK ARE NOT REAL YET -- the owner: \"right now you can keep random prices\". SINCE 8 NOVEMBER 2026 THE DATABASE IS WHERE PRODUCTS LIVE: tools/seed.pl writes this file into db/schema.sql, which puts it into an EMPTY products table once; after that the store page adds products and changes prices and stock, and this file is what a page shows only when the database cannot be reached, and in the single-file build.",
   "products": [
     {
       "addedOn": "2026-11-08",
@@ -56,6 +56,7 @@
           "v": "Two, in the side seams"
         }
       ],
+      "stockMode": "always",
       "sub": "women-dresses",
       "tags": [
         "dress",
@@ -171,6 +172,7 @@
           "v": "Two, in the side seams"
         }
       ],
+      "stockMode": "always",
       "sub": "women-dresses",
       "tags": [
         "dress",
@@ -289,6 +291,7 @@
           "v": "Above the knee"
         }
       ],
+      "stockMode": "always",
       "sub": "women-dresses",
       "tags": [
         "dress",
@@ -411,6 +414,7 @@
           "v": "Curved"
         }
       ],
+      "stockMode": "always",
       "sub": "women-tops",
       "tags": [
         "shirt",
@@ -535,6 +539,7 @@
           "v": "Curved"
         }
       ],
+      "stockMode": "always",
       "sub": "women-tops",
       "tags": [
         "shirt",
@@ -645,6 +650,7 @@
           "v": "Pulls on"
         }
       ],
+      "stockMode": "always",
       "sub": "women-bottoms",
       "tags": [
         "shorts",
@@ -756,6 +762,7 @@
           "v": "Relaxed"
         }
       ],
+      "stockMode": "always",
       "sub": "women-sets",
       "tags": [
         "set",
@@ -861,6 +868,7 @@
           "v": "Pulls on"
         }
       ],
+      "stockMode": "always",
       "sub": "women-bottoms",
       "tags": [
         "trousers",
@@ -975,6 +983,7 @@
           "v": "Pulls on"
         }
       ],
+      "stockMode": "always",
       "sub": "women-bottoms",
       "tags": [
         "trousers",
@@ -1090,6 +1099,7 @@
           "v": "Easy through the body"
         }
       ],
+      "stockMode": "always",
       "sub": "women-sets",
       "tags": [
         "jumpsuit",
@@ -1206,6 +1216,7 @@
           "v": "Relaxed"
         }
       ],
+      "stockMode": "always",
       "sub": "men-shirts",
       "tags": [
         "shirt",

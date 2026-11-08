@@ -25,10 +25,17 @@ garments — replaced the stand-ins and the three invented products, at
 random prices for now; and **the store can add products, change their
 prices and photographs, and keep the stock of every colour in every size**
 (Products and Inventory tabs), on the database, where every order is now
-checked against today's prices and stock. ⚠️ That needs db/SETUP.md
-**step 11**, which the owner has not run yet: until then the shop shows the
-11 products from `catalog.json` and those two tabs say so (*The catalogue in
-the database*).
+checked against today's prices and stock — db/SETUP.md **step 11, run and
+proved on the real project** that night ("ALL GOOD", and probed from outside;
+*The catalogue in the database*). **9 November 2026, on the owner's word:**
+a product can be **disabled** (found by search, shown as out of stock),
+a **draft**, or **deleted** (kept, and brought back); its stock is **always
+in stock** (every product, to begin with), **out of stock**, or **counted**;
+a signed-in customer can ask to be **told when something is back**; and
+customers are **emailed when their order moves** — by the database itself,
+through Brevo. ⚠️ Needs db/SETUP.md **step 12** (schema and self-test) and,
+for the emails, **step 13** (a Brevo API key) — neither run yet (*Disable,
+delete, stock modes and emails*).
 See *Where this is*, *Accounts* and *The order of work*.
 
 ---
@@ -336,12 +343,20 @@ existing products / update inventory etc too". Until then the catalogue was
 JSON in git, and the store's catalogue tabs (DEVI's) edited a copy in one
 browser to be exported into a file -- nothing the owner could use.
 
-⚠️ **Built and tested against the stand-in; NOT YET ON THE REAL DATABASE.**
-db/SETUP.md step 11 (`schema.sql`, then `selftest.sql`) puts it there. Until
-then `catalogue()` answers 404 on the real project, the shop shows
-`catalog.json` (the same 11 products), and Products and Inventory say what
-to run. Nothing breaks in between: the old `place_order` takes the new
-products' orders as it took the old ones.
+**On the real database since the night of 8 November 2026**: the owner ran
+step 11 and `selftest.sql` answered *ALL GOOD* — section 15 and all, so the
+products table, every catalogue function, the price and stock checks, the
+restock and the photo bucket and its rule are proved on Postgres, not only
+read. **Probed from outside the same night** with the publishable key and no
+session: `catalogue()` gives the 11 products with stock shown up to 10 and
+nothing internal; `store_products`, `save_product`, `set_price`,
+`set_stock`, `set_hidden`, `take_lines` and `restock_line` all answer 401
+*permission denied*; the products table cannot be read; the bucket exists
+("Object not found", not "Bucket not found"); an upload without the store's
+session is refused by its row rule. And the Flutter-Sleeve Midi Dress read
+**₹1,999** — the owner had changed its price from the store, as step 11
+asked: the store's writes reach the real shop. Not yet seen: a photograph
+uploaded to the real bucket.
 
 **The photographs** — 58, all 1024 × 1280 JPEGs with no camera or location
 data, grouped by eye into 11 garments and copied to `app/img/products/` as
@@ -365,7 +380,9 @@ policy, revoked from everybody; nobody reads or writes it directly.
   size's stock **up to 10** -- enough for "Only 2 left" and for the bag's
   limit (an order takes at most 10 of a line) -- not the warehouse.
 - `store_products()` -- the store's view: hidden products too, every piece.
-- `save_product(p)`, `set_price`, `set_stock`, `set_hidden` -- the store's
+- `save_product(p)`, `set_price`, `set_stock`, `set_hidden` (since 9 November
+  2026 `set_status` and `set_stock_mode`; see *Disable, delete, stock modes
+  and emails*) -- the store's
   writes, each `is_staff()` first and every field checked again: whole
   rupees, price at or under MRP, no size coming to nothing, slugs unique,
   swatches six-digit hex, a colour never moving the price, photographs only
@@ -462,6 +479,110 @@ a stock change sent as [3, 9]; hidden and shown; phone and desktop widths;
 the step-11-not-run notices. **Not tested anywhere yet: the SQL itself on
 Postgres** -- `selftest.sql` section 15 is what proves it, when the owner
 runs step 11 -- and a real upload to the real bucket.
+
+## Disable, delete, stock modes and emails (9 November 2026)
+
+The owner, after step 11: a product should have a **disable** option -- "no
+longer available", but "if someone searches for it, it shows out of stock
+and the user then has the option to express interest" -- and when it is
+active again "the other user gets a notification"; "whenever any status
+changed, give that notification to the person who ordered"; "infinite stock
+... initially mark all products as infinite stock"; and "keep 'infinite
+stock' 'out of stock' 'disable' 'delete' etc etc options for the back end".
+
+⚠️ **Built and tested against the stand-in; on the real database only once
+db/SETUP.md step 12 runs, and emails only after step 13.**
+
+**A product's status** -- columns `disabled`, `deleted_at` and the old
+`hidden`, read as one word by `product_json()` (`status`):
+- **On sale** (`active`).
+- **Disabled** -- not in listings, rails, related products or counts, but
+  found by **search** and by its link, shown as **out of stock**, with
+  "Notify me". `catalogue()` includes it, marked; `take_lines()` refuses it
+  as `OUT_OF_STOCK <pid> <key> 0`, so a bag holding one says so.
+- **Draft** (`hidden`) -- not in the shop at all, while it is finished.
+- **Deleted** -- out of the shop **and** the store's list (its own
+  **Deleted** filter), kept so past orders and bags find it; **Bring it
+  back** restores it as a draft. Only `set_status()` deletes or restores;
+  `save_product()` refuses the word. `set_hidden()` is dropped.
+
+**How stock is kept** -- `stock_mode`: **always in stock** (the default, and
+every existing product on the first run of step 12, as the owner asked),
+**out of stock**, or **counted** in `skus`. Only counted stock is taken off
+by an order (`stock_taken`) and put back on a cancellation; the counts stay
+whichever mode is chosen, so counting again finds them. On the shop,
+always-in-stock reads as `D.ALWAYS` (9999) and the bag stops at
+`D.MAX_LINE` (10, what `place_order` takes of a line), its + saying "At
+most 10 of one style in an order" rather than "Only 10 in stock". A product
+with no `stockMode` -- a database before step 12 -- counts, as before.
+
+**"Notify me when it's back"** (`notify.js`): on a sold-out card, on an
+out-of-stock product page, and -- since a sold-out size on the product page
+can now be **tapped** (struck through) -- for one colour in one size
+("Notify me when Sage · M is back"). **Signed in only**: the email goes to
+the account's own address, proved by a code, so nobody can make the shop
+email a stranger; signed out, the sign-in box opens in the sheet and the
+request goes through once it is done. Then the page says "We will email you
+when it is back · Don't". `register_interest()` (thirty an hour),
+`drop_interest()`; `wake_interest()` runs after every change to a product
+-- a save, a stock change, a status or mode change, a cancelled item's
+restock -- and marks whoever can now buy what they asked for. Tested: Sage M
+at 0 and a disabled shirt waited for; Sage M restocked and the shirt put
+back on sale; both owed an email; sent; both marked told.
+
+**Emails, by the database itself** -- the one way a message can go out by
+itself for nothing (WhatsApp and SMS need paid business accounts):
+- **The order's news.** Every change to an order -- placed, moved, an item
+  moved, a step back -- sets `notify_after` two minutes on (`touch_order`).
+  `send_notices()` then compares the order now (`order_state`: its status
+  and each item's) with what the customer was last told: different, ONE
+  email says where it is ("Your order is packed (VA-0007)", every item
+  with its own step, the courier when shipped, a link to the order). So a
+  run of taps is one email, and a slip put right within the two minutes is
+  none. The first is "We have your order".
+- **Interest.** Each customer owed one is sent "Cargo Trousers in Sage · M
+  is back" with a link, once -- unless it went out of stock again first.
+- **How it is sent.** `send_notices()` posts to Brevo's API with **pg_net**,
+  the key read from Supabase's **Vault** (`vastra_brevo_key`,
+  `vastra_mail_from`, `vastra_mail_name` -- put there by `db/email.sql`,
+  typed into the SQL editor; `db.pl` 6b fails if a key or the sender's
+  address is in the file, or a Brevo key anywhere in the repository).
+  **pg_cron** runs it every minute (`vastra-notices`); where that job
+  could not be set up, an open store page sends what is due each minute
+  instead. Rows are taken `for update skip locked`, so two runs never send
+  one email twice. With no key, nothing is sent and nothing is lost: it all
+  waits. Names a customer typed are escaped into the email (`html_escape`;
+  the self-test sends `<b>Self</b> & Test` and checks it arrives as text).
+- **What the store sees.** The Overview's **Emails to customers**: whether
+  they can go, how many are due, how many customers wait, the last forty
+  sent with Brevo's answer (pg_net keeps answers a few hours), and **Send
+  what is due now**. `mail_status()`, `notices_log()`, `send_notices_now()`
+  are the store's alone.
+- ⚠️ The extensions are switched on from the SQL editor in a block that
+  only **warns** if refused -- the rest of `schema.sql` must not go down
+  with them -- and `selftest.sql` ends by saying which is ready.
+
+**Store screens.** Products: filters (All, On sale, Disabled, Drafts,
+Deleted, each with its count), "N waiting" on a row, **Status and stock** (one
+pop-up, two menus), **Bring it back** on a deleted row. The editor: Status
+(On sale / Disabled / Draft), Stock (Always / Counted / Out, the grid only
+when counted), the customers waiting, **Delete** (asked first, pointing at
+Disabled as the softer choice). Inventory: each product's mode in its own
+menu, saved at once; grids only for counted products. Overview: on sale,
+disabled, low or sold out (counted sizes, and products marked out), waiting.
+
+**Tested against the stand-in** (temporary pages, since deleted): always in
+stock (+ stops at 10, no "only N left"); disable from the pop-up (out of
+Tops, in search with Notify me, Disabled filter 1); out of stock from
+Inventory; counted switched on in the editor with the old counts kept and
+only the differences sent; delete (out of the list and the shop, under
+Deleted) and bring back (a draft); the sign-in sheet from Notify me, and the
+request recorded for Sage · M; Notify me on a card, signed in; restock and
+re-enable waking both; the Overview's panel with no key, then with one, and
+Send now sending two; an order placed then confirmed before the send making
+one email, and a second send making none; phone widths; no console errors.
+And the live database before step 12: products with no stock mode keep
+counting, the ₹1,999 price shows, browsing makes no session.
 
 ## Each item's own status (7 November 2026)
 
@@ -1025,10 +1146,15 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 
 ## Open, and owned by the user
 
-- ⚠️ **db/SETUP.md step 11 is not run yet** (8 November 2026). Until it
-  is, the store cannot change a product and the server checks no price or
-  stock; the shop shows `catalog.json`. Then `selftest.sql` section 15 is
-  the first time the new SQL runs on Postgres at all.
+- ⚠️ **db/SETUP.md steps 12 and 13 are not run yet** (9 November 2026).
+  Until step 12, the live shop keeps step 11's behaviour — every product
+  counted, no disable, delete or "notify me" — and the store's new buttons
+  say to run it. `selftest.sql` section 16 is the first time that SQL runs
+  on Postgres. Until step 13 no email leaves: each one owed waits, and goes
+  once the key is in. Not yet proved anywhere: that this project lets the
+  SQL editor switch on **pg_net** and **pg_cron** (a refusal prints an
+  `EMAILS:` notice and the store page sends instead while open), and a real
+  email arriving.
 - ⚠️ **The server does not check coupons** (see *The database*): prices
   and stock it checks since step 11; the codes are in `shop.json`.
   Before real customers: give the database the coupons too, and have

@@ -38,7 +38,7 @@ my $json = sub { my $s = $J->encode($_[0] // []); $s =~ s/'/''/g; "'$s'::jsonb" 
 my $int  = sub { my ($n) = @_; die "seed.pl: '$n' is not a whole number\n" unless ($n // '') =~ /^\d+$/; $n };
 
 my @cols = qw(id slug name cat sub price mrp short_desc descr specs variants img skus
-              badges tags size_chart kind ship_class popularity added_on list_order);
+              badges tags size_chart kind ship_class popularity added_on list_order stock_mode);
 my ($n, @rows) = (0);
 for my $p (@{ $cl->{products} }) {
   $n++;
@@ -50,7 +50,10 @@ for my $p (@{ $cl->{products} }) {
     $json->($p->{specs} || []), $json->($p->{variants} || {}), $json->($p->{img} || []),
     $json->($p->{skus}), $json->($p->{badges} || []), $json->($p->{tags} || []),
     $q->($p->{sizeChart}), $q->($p->{kind} // 'goods'), $q->($p->{shipClass} // 'std'),
-    $int->($p->{popularity} // 50), "date '$p->{addedOn}'", $n) . ')';
+    $int->($p->{popularity} // 50), "date '$p->{addedOn}'", $n,
+    $q->($p->{stockMode} // 'always')) . ')';
+  die "seed.pl: $p->{id}: stockMode '$p->{stockMode}' is not always, counted or out -- run data.pl\n"
+    unless ($p->{stockMode} // 'always') =~ /^(always|counted|out)$/;
 }
 
 my $BEGIN = '-- seed.pl BEGIN -- written by tools/seed.pl from app/data/catalog.json; never edit by hand';

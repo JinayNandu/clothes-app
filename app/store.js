@@ -51,6 +51,9 @@ export let reviews = null;
  *  change its price, stock and photographs (8 November 2026). On the
  *  database with one; in one browser, the overlay of backend-local.js. */
 export let catalogAdmin = local.catalogAdmin;
+/** "Tell me when it's back" (9 November 2026): signed-in customers only,
+ *  so null in one-browser mode and while SIGN_IN is off. */
+export let interest = null;
 
 let server = null;
 
@@ -67,7 +70,7 @@ export async function ready() {
   if (!shared()) { await files; return; }
   server = await import('./backend-supabase.js');
   ({ orders, live, clearEverything, staff, reviews, catalogAdmin } = server);
-  if (SIGN_IN) ({ account, addresses } = server);
+  if (SIGN_IN) ({ account, addresses, interest } = server);
   const [, list] = await Promise.all([files, server.loadCatalogue().catch((e) => {
     console.warn('[vastra] the catalogue is not in the database; showing the file', e);
     return null;

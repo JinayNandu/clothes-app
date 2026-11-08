@@ -293,6 +293,52 @@ file, and those two tabs say what to run.
 3. Open the store page → **Products**: your 11 products. Change one
    price, then look at it in the shop.
 
+## 12. Disable, delete, stock modes, and "notify me" — 2 min
+
+Since 9 November 2026 each product is **on sale, disabled** (still found
+by search, shown as out of stock), **a draft**, or **deleted** (kept, and
+can be brought back); its stock is **always in stock** — every product,
+to begin with — **out of stock**, or **counted** by colour and size. A
+customer who signs in can ask to be told when something is back, and is
+emailed once it is; every customer is emailed when their order moves.
+
+1. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new)
+   → paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
+   → **Run** → *"Success. No rows returned."* If it warns about a
+   destructive operation, **Run this query**: it replaces the shop's own
+   rules and deletes no data. It sets every product to *always in stock*.
+   A line beginning **EMAILS:** means a Supabase switch is off — do what it
+   says, then run the file again.
+2. A new SQL tab → paste **all** of
+   [`db/selftest.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/selftest.sql)
+   → **Run**. The red box should begin:
+
+   > ALL GOOD -- every check passed, and nothing was saved.
+
+   and end by saying whether emails are ready — *"not set up yet"* until
+   step 13.
+
+## 13. Emails to customers — 5 min
+
+The database sends them itself, through the same Brevo account that
+sends the sign-in codes. It needs a Brevo **API** key — a different key
+from the SMTP one in step 7b.
+
+1. [Brevo](https://app.brevo.com) → your name (top right) → **SMTP & API**
+   → **API Keys** tab → **Generate a new API key** → name it
+   `vastra-emails` → copy it. It starts with `xkeysib-`.
+2. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new)
+   → paste **all** of [`db/email.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/email.sql).
+   Then, **in the editor** (never in the file), replace the two
+   `CHANGE-ME`s: the key on the `api_key` line, and on the `sender` line
+   the address the sign-in codes come from. **Run.**
+3. It says *"Saved. A test email is on its way"*. Look in that inbox — and
+   its spam folder — for **"Customer emails are set up"**.
+4. Run `db/selftest.sql` again: it should now end **"Emails: ready."**
+5. The store's **Overview** shows every email sent, and Brevo's answer.
+
+To change the key or the address later, run `db/email.sql` again.
+
 ## Starting again with no data — 3 min
 
 To clear out every test order and account and begin as a new customer
@@ -353,14 +399,18 @@ fortnight of testing will hit it, a shop taking orders daily will not.
 ## What is still true afterwards
 
 - **The server re-adds every total and, since step 11, checks every
-  price and the stock** against the products table, taking the pieces
-  off as the order is placed and putting them back when the store
+  price and the stock** against the products table -- refusing anything
+  disabled or out of stock, and for stock that is counted, taking the
+  pieces off as the order is placed and putting them back when the store
   cancels an item. ⚠️ **It does not check the coupon**: the coupons are
   in `app/data/shop.json`, which the database has never seen, so a
   request made by hand could name its own discount. The store page flags
   an order whose discount its coupon would not give.
 - **A returned item's stock is not put back by itself** — somebody looks
   at it first, then adds it in the store's Inventory.
+- **Emails need step 13.** Until the Brevo key is in, every email a
+  customer is owed waits, and goes once it is. Brevo's free plan sends 300
+  a day.
 - **`paid` is a note a person makes**, after looking at the bank. UPI
   sends nothing back to a web page.
 - **A customer sees their orders only in the browser they ordered from**,

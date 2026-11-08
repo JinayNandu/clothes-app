@@ -265,21 +265,67 @@ export const skuKeys = (variants) => {
   return cs.length ? cs : ss.length ? ss : ['one'];
 };
 
-/** How many of this colour in this size there are. A voucher never runs
- *  out; a product from before per-size stock answers with its total. */
+// HOW STOCK IS KEPT, AND WHETHER A PRODUCT IS ON SALE (9 November 2026, the
+// owner: "infinite stock", "out of stock", "disable", "delete"). A product's
+// `stockMode` is 'always' in stock, 'out' of stock, or 'counted' in `skus`;
+// one with none -- a database from before -- counts, as it did. Its `status`
+// is 'active', or 'disabled': still found by search and by its link, shown
+// as out of stock, so a customer can ask to be told when it is back. Drafts
+// and deleted products never reach the shop (db/schema.sql catalogue()).
+
+/** The most of one line an order may hold -- place_order refuses more. */
+export const MAX_LINE = 10;
+/** What "always in stock" counts as: more than any order can take. */
+export const ALWAYS = 9999;
+
+export const statusOf = (p) => (p && p.status) || 'active';
+export const stockModeOf = (p) => (p && p.stockMode) || 'counted';
+/** In the shop's listings: on sale. A disabled product is found by search
+ *  and by its link only. */
+export const isListed = (p) => statusOf(p) === 'active';
+
+/** How many of this colour in this size can be bought. None of a product
+ *  disabled or marked out of stock; plenty of one always in stock. A
+ *  voucher never runs out; a product from before per-size stock answers
+ *  with its total. */
 export const skuStock = (p, sel) => {
   if (!p) return 0;
   if (p.kind === 'voucher') return 99;
+  if (statusOf(p) !== 'active') return 0;
+  const mode = stockModeOf(p);
+  if (mode === 'always') return ALWAYS;
+  if (mode === 'out') return 0;
   if (!p.skus || typeof p.skus !== 'object') return Math.max(0, Number(p.stock) || 0);
   return Math.max(0, Math.floor(Number(p.skus[skuKey(p, sel)]) || 0));
 };
 
-/** The product with its total `stock` worked out from its sizes. */
+/** How many of one line the bag may hold: what there is, and never more
+ *  than an order takes. */
+export const lineMax = (p, sel) => Math.min(MAX_LINE, skuStock(p, sel));
+
+/** Why the + stops, said on its tooltip: the stock, or the order's limit. */
+export const fullTitle = (qty, p, sel) => (qty < lineMax(p, sel) ? ''
+  : skuStock(p, sel) > MAX_LINE ? `At most ${MAX_LINE} of one style in an order`
+    : `Only ${skuStock(p, sel)} in stock`);
+
+/** The product with its total `stock` worked out: from its sizes when
+ *  counted, ALWAYS when always in stock, none when it cannot be bought. */
 export const withStock = (p) => {
-  if (!p || !p.skus || typeof p.skus !== 'object') return p;
+  if (!p) return p;
+  if (p.kind !== 'voucher' && (statusOf(p) !== 'active' || (p.stockMode && p.stockMode === 'out'))) {
+    return { ...p, stock: 0 };
+  }
+  if (p.stockMode === 'always') return { ...p, stock: ALWAYS };
+  if (!p.skus || typeof p.skus !== 'object') return p;
   const stock = Object.values(p.skus).reduce((n, v) => n + Math.max(0, Math.floor(Number(v) || 0)), 0);
   return { ...p, stock };
 };
+
+/** Sold out last, keeping the order otherwise (a stable sort). */
+export const availableFirst = (list) => list
+  .map((p, i) => ({ p, i }))
+  .sort((a, b) => ((b.p.stock > 0) - (a.p.stock > 0)) || a.i - b.i)
+  .map((x) => x.p);
 
 /** ⚠️ Line identity is pid|colour|size, NOT pid. Two colours of one shirt
  *  are two lines. Without this, adding Indigo then Ecru silently increments

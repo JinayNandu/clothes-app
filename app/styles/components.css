@@ -655,9 +655,18 @@
 /* A size with none left in the colour chosen (8 November 2026: stock is kept
    by colour and size). Dashed and dim, and it cannot be picked; the product
    page strikes its name through, the card's panel says "Sold out" under it. */
-.chip.is-out{ color:var(--ink-dim); border-style:dashed; border-color:var(--edge-2); cursor:not-allowed; }
-.chip.is-out:hover{ color:var(--ink-dim); border-color:var(--edge-2); }
+.chip.is-out{ color:var(--ink-dim); border-style:dashed; border-color:var(--edge-2); }
+.chip.is-out:disabled{ cursor:not-allowed; }
+.chip.is-out:disabled:hover{ color:var(--ink-dim); border-color:var(--edge-2); }
+/* On the product page a sold-out size can still be chosen, to ask to be
+   told when it is back: struck through, and ringed like any size chosen. */
 .pdp-sizes .chip.is-out{ text-decoration:line-through; }
+.pdp-sizes .chip.is-out.on{ background:var(--sunk); color:var(--ink); border-color:var(--ink); border-style:solid; }
+/* "We will email you when it is back" (9 November 2026). */
+.wait-on{ display:flex; align-items:center; gap:var(--s2); flex-wrap:wrap; min-height:48px;
+  padding:var(--s2) var(--s3); border:1px solid var(--good); border-radius:var(--r1);
+  background:var(--good-wash); color:var(--good-ink); font-size:14px; }
+.wait-on .btn-ghost{ margin-left:auto; }
 
 .pill{
   display:inline-flex; align-items:center; gap:6px;

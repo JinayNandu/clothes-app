@@ -353,7 +353,7 @@ export const orders = {
 // name and mobile -- told to whoever listens. Everything else is this
 // browser's and stays on its bus.
 // ---------------------------------------------------------------------
-const OWN = ['orders', 'session', 'addresses', 'details', 'reviews'];
+const OWN = ['orders', 'session', 'addresses', 'details', 'reviews', 'interest'];
 const subs = new Map();
 let channel = null;
 
@@ -690,11 +690,27 @@ export const catalogAdmin = {
     return D.withStock(p);
   },
 
-  async setHidden(pid, hidden) {
-    const p = await rpc('set_hidden', { p_pid: pid, p_hidden: !!hidden });
+  /** On sale ('active'), 'disabled', a 'hidden' draft, or 'deleted' (9
+   *  November 2026). Deleting keeps the row; any other status brings it back. */
+  async setStatus(pid, status) {
+    const p = await rpc('set_status', { p_pid: pid, p_status: status });
     await refreshShop();
     return D.withStock(p);
   },
+
+  /** 'always' in stock, 'out' of stock, or 'counted' by colour and size. */
+  async setStockMode(pid, mode) {
+    const p = await rpc('set_stock_mode', { p_pid: pid, p_mode: mode });
+    await refreshShop();
+    return D.withStock(p);
+  },
+
+  /** Whether emails to customers can go, and what is waiting to. */
+  async mailStatus() { return rpc('mail_status'); },
+  /** The last forty emails, with Brevo's answer where it is still kept. */
+  async noticesLog() { return (await rpc('notices_log')) || []; },
+  /** Send what is owed now -- for when the every-minute job is not set up. */
+  async sendNow() { return Number(await rpc('send_notices_now')) || 0; },
 
   /** One photograph, already a JPEG; returns the address it is shown at.
    *  Named by the product and a random id, never overwritten. */
@@ -708,6 +724,37 @@ export const catalogAdmin = {
     });
     oops(error);
     return bucket.getPublicUrl(path).data.publicUrl;
+  },
+};
+
+// ---------------------------------------------------------------------
+// "TELL ME WHEN IT'S BACK" (9 November 2026). A signed-in customer asks
+// to be told when a product they cannot buy -- or one colour in one size
+// -- can be bought again; the database emails them once, then forgets it.
+// Signed in, so the address was proved by a code: nobody can make the
+// shop email a stranger.
+// ---------------------------------------------------------------------
+export const interest = {
+  /** Returns the address the email will go to. */
+  async add(pid, sku) {
+    const email = await rpcOrGone('register_interest', { p_pid: pid, p_sku: sku || null });
+    fire('interest');
+    return email;
+  },
+  async drop(pid, sku) {
+    await rpc('drop_interest', { p_pid: pid, p_sku: sku || null });
+    fire('interest');
+  },
+  /** What this customer is waiting for and has not been told: [{pid, sku}]. */
+  async mine() {
+    try { if (localStorage.getItem('vastra.auth') === null) return []; } catch (e) { /* ask */ }
+    const s = await session();
+    if (!s || !s.user || s.user.is_anonymous) return [];
+    const sb = await client();
+    const { data, error } = await sb.from('interest').select('pid, sku, notified_at')
+      .eq('user_id', s.user.id).is('notified_at', null);
+    oops(error);
+    return (data || []).map((r) => ({ pid: r.pid, sku: r.sku || null }));
   },
 };
 

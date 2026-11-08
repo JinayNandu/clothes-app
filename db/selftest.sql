@@ -1,17 +1,20 @@
 -- =====================================================================
 --  Vastra Apparel -- a self-test of each item's status, cancelling one
---  item, refunds, going back a step, reviews and the catalogue (its
---  prices, its stock, and the checks every order now passes), run ON
---  THE REAL DATABASE, and saving NOTHING.
+--  item, refunds, going back a step, reviews, the catalogue (its prices,
+--  its stock, and the checks every order now passes), disabling and
+--  deleting a product, how its stock is kept, customers waiting for one,
+--  and the emails -- run ON THE REAL DATABASE, and saving NOTHING. No
+--  email leaves it either: a request made here is undone with the rest.
 --
 --  Paste the whole file into the Supabase SQL editor and run it, AFTER
 --  schema.sql. It acts as the store -- the first phone let in with the
---  store code -- makes seven test orders and one test product of its
+--  store code -- makes eight test orders and one test product of its
 --  own, walks them through every rule below, and then undoes all of it
---  by ending in an error on purpose. The message you want is:
+--  by ending in an error on purpose. The message you want begins:
 --
---      ALL GOOD -- every check passed, and nothing was saved
+--      ALL GOOD -- every check passed, and nothing was saved.
 --
+--  and goes on to say whether emails are ready (db/SETUP.md step 13).
 --  Any other message names the check that failed. Either way the
 --  database is exactly as it was: the test orders use their own numbers
 --  (VA-9001 and up) and their own item ids, so no real order code or
@@ -33,6 +36,13 @@ declare
   o7 uuid := gen_random_uuid();
   pj jsonb;
   base jsonb;
+  o8 uuid := gen_random_uuid();
+  cust uuid := (select id from auth.users where email is not null
+                  and not coalesce(is_anonymous, false) order by created_at limit 1);
+  em text;
+  sent int;
+  ms jsonb;
+  mail_note text;
   rv bigint;
   r  record;
   n  int;
@@ -387,7 +397,7 @@ begin
                                                      'swatch', '#223344', 'img', 0)),
       'size', jsonb_build_array(jsonb_build_object('id', 'm', 'label', 'M', 'delta', 0),
                                 jsonb_build_object('id', 'xl', 'label', 'XL', 'delta', 50))),
-    'skus', jsonb_build_object('blue/m', 12, 'blue/xl', 1));
+    'skus', jsonb_build_object('blue/m', 12, 'blue/xl', 1), 'stockMode', 'counted');
   pj := save_product(base);
   assert pj->>'id' = 'p-selftest-shirt', 'SELFTEST FAILED: the new product is ' || coalesce(pj->>'id', 'missing');
   assert (pj->'skus'->>'blue/m')::int = 12, 'SELFTEST FAILED: a new product did not take its stock';
@@ -543,7 +553,7 @@ begin
     'SELFTEST FAILED: cancelling the order put back ' || r.skus::text;
 
   -- Hidden: out of the shop and out of every order, still in the store.
-  pj := set_hidden('p-selftest-shirt', true);
+  pj := set_status('p-selftest-shirt', 'hidden');
   select count(*) into n from jsonb_array_elements(catalogue()) as t(x) where x->>'id' = 'p-selftest-shirt';
   assert n = 0, 'SELFTEST FAILED: a hidden product is still in the shop';
   select count(*) into n from jsonb_array_elements(store_products()) as t(x) where x->>'id' = 'p-selftest-shirt';
@@ -556,5 +566,222 @@ begin
     if sqlerrm <> 'GONE_FROM_CATALOGUE p-selftest-shirt' then raise; end if;
   end;
 
-  raise exception 'ALL GOOD -- every check passed, and nothing was saved';
+  -- 16. DISABLED, DELETED, HOW STOCK IS KEPT, WAITING CUSTOMERS AND THE
+  --     EMAILS (9 November 2026). A stranger may change none of it.
+  perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid(),
+          'role', 'authenticated')::text, true);
+  begin
+    perform set_status('p-selftest-shirt', 'active');
+    raise exception 'SELFTEST FAILED: a stranger put a product on sale';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform set_stock_mode('p-selftest-shirt', 'always');
+    raise exception 'SELFTEST FAILED: a stranger changed how stock is kept';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform mail_status();
+    raise exception 'SELFTEST FAILED: a stranger read how emails are set up';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform send_notices_now();
+    raise exception 'SELFTEST FAILED: a stranger sent the waiting emails';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  -- Somebody with no proved email may not ask to be told: the shop must
+  -- never email an address nobody proved.
+  begin
+    perform register_interest('p-selftest-shirt', null);
+    raise exception 'SELFTEST FAILED: somebody with no email asked to be told';
+  exception when others then
+    if sqlerrm <> 'SIGN_IN_FIRST' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', boss::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', boss,
+          'role', 'authenticated')::text, true);
+
+  -- Always in stock: an order takes nothing off.
+  pj := set_status('p-selftest-shirt', 'active');
+  pj := set_stock_mode('p-selftest-shirt', 'always');
+  assert pj->>'status' = 'active' and pj->>'stockMode' = 'always',
+    'SELFTEST FAILED: the product reads ' || coalesce(pj->>'status', '?') || ', ' || coalesce(pj->>'stockMode', '?');
+  perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "m"},
+                        "qty": 3, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+  select (skus->>'blue/m')::int into n from products where id = 'p-selftest-shirt';
+  assert n = 14, 'SELFTEST FAILED: an order of a product always in stock took stock off (' || n || ' left of 14)';
+
+  -- Out of stock, and disabled: in nobody's order, said as out of stock.
+  pj := set_stock_mode('p-selftest-shirt', 'out');
+  begin
+    perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "m"},
+                          "qty": 1, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+    raise exception 'SELFTEST FAILED: a product marked out of stock was sold';
+  exception when others then
+    if sqlerrm <> 'OUT_OF_STOCK p-selftest-shirt blue/m 0' then raise; end if;
+  end;
+  pj := set_stock_mode('p-selftest-shirt', 'always');
+  pj := set_status('p-selftest-shirt', 'disabled');
+  select x into pj from jsonb_array_elements(catalogue()) as t(x) where x->>'id' = 'p-selftest-shirt';
+  assert pj->>'status' = 'disabled',
+    'SELFTEST FAILED: a disabled product is not in the shop marked so: ' || coalesce(pj->>'status', 'missing');
+  begin
+    perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "m"},
+                          "qty": 1, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+    raise exception 'SELFTEST FAILED: a disabled product was sold';
+  exception when others then
+    if sqlerrm <> 'OUT_OF_STOCK p-selftest-shirt blue/m 0' then raise; end if;
+  end;
+
+  -- Deleted: out of the shop and out of every order, kept in the store,
+  -- and brought back.
+  pj := set_status('p-selftest-shirt', 'deleted');
+  select count(*) into n from jsonb_array_elements(catalogue()) as t(x) where x->>'id' = 'p-selftest-shirt';
+  assert n = 0, 'SELFTEST FAILED: a deleted product is still in the shop';
+  select x into pj from jsonb_array_elements(store_products()) as t(x) where x->>'id' = 'p-selftest-shirt';
+  assert pj->>'status' = 'deleted',
+    'SELFTEST FAILED: the store lost a deleted product, or calls it ' || coalesce(pj->>'status', 'missing');
+  begin
+    perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "m"},
+                          "qty": 1, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+    raise exception 'SELFTEST FAILED: a deleted product was sold';
+  exception when others then
+    if sqlerrm <> 'GONE_FROM_CATALOGUE p-selftest-shirt' then raise; end if;
+  end;
+  begin
+    perform set_status('p-selftest-shirt', 'gone');
+    raise exception 'SELFTEST FAILED: a status that does not exist was set';
+  exception when others then
+    if sqlerrm <> 'BAD_STATUS' then raise; end if;
+  end;
+  begin
+    perform set_stock_mode('p-selftest-shirt', 'lots');
+    raise exception 'SELFTEST FAILED: a way of keeping stock that does not exist was set';
+  exception when others then
+    if sqlerrm <> 'BAD_STOCK_MODE' then raise; end if;
+  end;
+  pj := set_status('p-selftest-shirt', 'active');
+  assert pj->>'status' = 'active', 'SELFTEST FAILED: a deleted product did not come back';
+
+  -- Waiting customers: told once they can buy what they asked for -- any
+  -- of the product, or one colour in one size -- and once only. Needs a
+  -- customer who has signed in with an email; the shop has had one.
+  if cust is null then
+    mail_note := ' (Waiting customers not tested: nobody has signed in with an email yet.)';
+  else
+    pj := set_stock_mode('p-selftest-shirt', 'counted');
+    update products set skus = '{"blue/m": 0, "blue/l": 0, "blue/xl": 0}'::jsonb
+     where id = 'p-selftest-shirt';
+    perform set_config('request.jwt.claim.sub', cust::text, true);
+    perform set_config('request.jwt.claims', json_build_object('sub', cust,
+            'role', 'authenticated')::text, true);
+    em := register_interest('p-selftest-shirt', null);
+    assert em is not null, 'SELFTEST FAILED: asking to be told named no address';
+    em := register_interest('p-selftest-shirt', 'blue/xl');
+    em := register_interest('p-selftest-shirt', 'blue/xl');
+    select count(*) into n from interest where user_id = cust and pid = 'p-selftest-shirt';
+    assert n = 2, 'SELFTEST FAILED: asking for any size, then for XL twice, made ' || n || ' requests, not 2';
+    begin
+      perform register_interest('p-selftest-shirt', 'red/m');
+      raise exception 'SELFTEST FAILED: a colour the product does not have was waited for';
+    exception when others then
+      if sqlerrm <> 'BAD_SKU' then raise; end if;
+    end;
+    select count(*) into n from interest where pid = 'p-selftest-shirt' and ready_at is not null;
+    assert n = 0, 'SELFTEST FAILED: ' || n || ' waiting customers were told while nothing was in stock';
+    perform set_config('request.jwt.claim.sub', boss::text, true);
+    perform set_config('request.jwt.claims', json_build_object('sub', boss,
+            'role', 'authenticated')::text, true);
+    -- M comes in: the one waiting for any size is owed an email, the one
+    -- waiting for XL is not.
+    pj := set_stock('p-selftest-shirt', '{"blue/m": [0, 4]}'::jsonb);
+    select count(*) into n from interest
+     where pid = 'p-selftest-shirt' and sku is null and ready_at is not null;
+    assert n = 1, 'SELFTEST FAILED: the customer waiting for any size was not told when M came in';
+    select count(*) into n from interest
+     where pid = 'p-selftest-shirt' and sku = 'blue/xl' and ready_at is not null;
+    assert n = 0, 'SELFTEST FAILED: the customer waiting for XL was told when only M came in';
+    pj := set_stock('p-selftest-shirt', '{"blue/xl": [0, 1]}'::jsonb);
+    select count(*) into n from interest
+     where pid = 'p-selftest-shirt' and sku = 'blue/xl' and ready_at is not null;
+    assert n = 1, 'SELFTEST FAILED: the customer waiting for XL was not told when XL came in';
+    select x into pj from jsonb_array_elements(store_products()) as t(x) where x->>'id' = 'p-selftest-shirt';
+    assert (pj->>'waiting')::int = 2,
+      'SELFTEST FAILED: the store sees ' || coalesce(pj->>'waiting', 'none') || ' waiting, not 2';
+    pj := interest_mail((select id from interest where user_id = cust and pid = 'p-selftest-shirt'
+                           and sku = 'blue/xl'), 'Test Shop');
+    assert pj->>'subject' = 'Self Test Shirt Two in Blue · XL is back',
+      'SELFTEST FAILED: the email to a waiting customer says ' || coalesce(pj->>'subject', 'nothing');
+    perform set_config('request.jwt.claim.sub', cust::text, true);
+    perform set_config('request.jwt.claims', json_build_object('sub', cust,
+            'role', 'authenticated')::text, true);
+    perform drop_interest('p-selftest-shirt', 'blue/xl');
+    select count(*) into n from interest where user_id = cust and pid = 'p-selftest-shirt';
+    assert n = 1, 'SELFTEST FAILED: "don''t tell me" left ' || n || ' requests, not 1';
+    perform set_config('request.jwt.claim.sub', boss::text, true);
+    perform set_config('request.jwt.claims', json_build_object('sub', boss,
+            'role', 'authenticated')::text, true);
+  end if;
+
+  -- An order's news: a change owes its customer an email, two minutes on;
+  -- the email says where it is now, and anything they typed is text.
+  insert into orders (id, seq, user_id, status, cust_name, cust_mobile, addr, city, state, pin,
+                      items_total, mrp_total, saved, discount, discount_placed, shipping, bulky,
+                      grand, pay_method, arrives_from, arrives_to, history)
+  values (o8, 9008, boss, 'sent', '<b>Self</b> & Test', '9000000000', '1 Test Street, Nowhere',
+          'Bengaluru', 'Karnataka', '560001', 1000, 1500, 500, 0, 0, 0, 0, 1000, 'upi',
+          today + 5, today + 10, jsonb_build_array(jsonb_build_object('at', iso_now(), 'to', 'sent')));
+  insert into order_lines (id, order_id, pid, name, qty, unit_price, unit_mrp, line_total)
+  values (9000000081, o8, 't10', 'Test <i>scarf</i>', 1, 1000, 1500, 1000);
+  perform advance_order(o8, 'confirmed');
+  select * into r from orders where id = o8;
+  assert r.notify_after > now(), 'SELFTEST FAILED: confirming an order owed its customer no email';
+  pj := order_mail(o8, 'Test Shop');
+  assert pj->>'subject' = 'Your order is confirmed (VA-9008)',
+    'SELFTEST FAILED: the order email says ' || coalesce(pj->>'subject', 'nothing');
+  assert position('&lt;b&gt;Self&lt;/b&gt;' in pj->>'html') > 0 and position('<b>Self' in pj->>'html') = 0,
+    'SELFTEST FAILED: a name typed with markup went into the email as markup';
+  assert position('Test &lt;i&gt;scarf&lt;/i&gt;' in pj->>'html') > 0,
+    'SELFTEST FAILED: an item''s name went into the email as markup';
+
+  -- Sent when due -- if the shop has its key. The request is undone with
+  -- everything else here, so no email leaves this test.
+  ms := mail_status();
+  update orders set notify_after = now() - interval '1 second' where id = o8;
+  begin
+    sent := send_notices();
+    if (ms->>'key')::boolean then
+      select * into r from orders where id = o8;
+      assert r.notify_after is null and r.notified_state = order_state(o8),
+        'SELFTEST FAILED: an owed email was not marked sent';
+      select count(*) into n from notices where order_id = o8;
+      assert n = 1, 'SELFTEST FAILED: ' || n || ' emails for one change, not 1';
+      update orders set notify_after = now() - interval '1 second' where id = o8;
+      perform send_notices();
+      select count(*) into n from notices where order_id = o8;
+      assert n = 1, 'SELFTEST FAILED: an email went again with nothing new to say';
+    else
+      assert sent = 0, 'SELFTEST FAILED: emails went out with no key';
+      select * into r from orders where id = o8;
+      assert r.notify_after is not null,
+        'SELFTEST FAILED: with no key, the owed email was dropped instead of kept';
+    end if;
+  exception when assert_failure then
+    raise;
+  when others then
+    mail_note := coalesce(mail_note, '') || ' (Emails could not be sent: ' || sqlerrm || '.)';
+  end;
+
+  mail_note := coalesce(mail_note, '') || case
+    when not (ms->>'key')::boolean then ' Emails: not set up yet (db/SETUP.md step 13).'
+    when not (ms->>'net')::boolean then ' Emails: the key is in, but pg_net is off (db/SETUP.md step 13).'
+    when not (ms->>'cron')::boolean then ' Emails: ready, sent while the store page is open -- the every-minute job is not set up.'
+    else ' Emails: ready.' end;
+  raise exception 'ALL GOOD -- every check passed, and nothing was saved.%', mail_note;
 end $test$;

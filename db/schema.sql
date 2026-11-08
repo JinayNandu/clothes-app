@@ -228,8 +228,8 @@ create policy line_read on order_lines for select using (
 --
 --  NOBODY READS OR WRITES THE TABLE DIRECTLY, like every table here. Two
 --  functions read it -- catalogue() for everybody, with no session, and
---  store_products() for the store -- and four write it, each the store's
---  alone: save_product, set_price, set_stock and set_hidden.
+--  store_products() for the store -- and five write it, each the store's
+--  alone: save_product, set_price, set_stock, set_status and set_stock_mode.
 --
 --  ⚠️ place_order() READS IT TOO, and that is the point. Before today the
 --  server had never seen a price, so a hand-made order could name its
@@ -276,6 +276,23 @@ create table if not exists products (
 -- Row-level security on and NO policy: no role sees a row except through
 -- the functions below, which run as their owner.
 alter table products enable row level security;
+
+-- THE STORE'S CONTROLS ON A PRODUCT (9 November 2026, the owner: "keep
+-- 'infinite stock' 'out of stock' 'disable' 'delete' etc etc options for
+-- the back end").
+--   DISABLED  no longer sold, but still found by search and by its link,
+--             shown as out of stock, and a customer may ask to be told if
+--             it comes back (interest, below).
+--   DELETED   gone from the shop and from the store's list -- kept, so a
+--             past order or a bag still finds it, and the store can bring
+--             it back. `hidden` is a draft, not yet in the shop.
+--   STOCK     'always' in stock -- every product, to begin with, the
+--             owner's word -- 'out' of stock, or 'counted' by colour and
+--             size in `skus`. Only counted stock is taken off by an order.
+alter table products add column if not exists disabled   boolean not null default false;
+alter table products add column if not exists deleted_at timestamptz;
+alter table products add column if not exists stock_mode text not null default 'always'
+  check (stock_mode in ('always', 'counted', 'out'));
 
 -- What the server checked as an order was placed, line by line: today's
 -- price (`checked`), and whether its stock was taken off (`stock_taken`,
@@ -330,23 +347,29 @@ create or replace function product_json(p products, exact boolean) returns jsonb
     'badges', p.badges, 'tags', p.tags, 'sizeChart', p.size_chart,
     'kind', p.kind, 'shipClass', p.ship_class, 'popularity', p.popularity,
     'addedOn', to_char(p.added_on, 'YYYY-MM-DD'),
-    'hidden', case when exact then p.hidden end));
+    'status', case when p.deleted_at is not null then 'deleted' when p.hidden then 'hidden'
+                   when p.disabled then 'disabled' else 'active' end,
+    'stockMode', p.stock_mode));
 $fn$;
 
--- What everybody may read: the products on show, in the shop's order.
+-- What everybody may read: the products in the shop, in its order --
+-- disabled ones too, marked so, since a search must still find them.
 -- Granted to anon -- a page with no session -- like the public reviews.
 create or replace function catalogue() returns jsonb
   language sql stable security definer set search_path = public as $fn$
   select coalesce(jsonb_agg(product_json(p, false) order by p.list_order, p.id), '[]'::jsonb)
-    from products p where not p.hidden;
+    from products p where not p.hidden and p.deleted_at is null;
 $fn$;
 
--- The store's view: every product, hidden ones too, with all its stock.
+-- The store's view: every product, drafts and deleted ones too, with all
+-- its stock, and how many customers are waiting to be told it is back.
 create or replace function store_products() returns jsonb
   language plpgsql stable security definer set search_path = public as $fn$
 begin
   if not is_staff() then raise exception 'NOT_STAFF'; end if;
-  return (select coalesce(jsonb_agg(product_json(p, true) order by p.list_order, p.id), '[]'::jsonb)
+  return (select coalesce(jsonb_agg(product_json(p, true) || jsonb_build_object('waiting',
+             (select count(*) from interest i where i.pid = p.id and i.notified_at is null))
+             order by p.list_order, p.id), '[]'::jsonb)
             from products p);
 end;
 $fn$;
@@ -376,7 +399,8 @@ declare
   v_badges jsonb := coalesce(p->'badges', '[]'::jsonb);
   v_tags   jsonb := coalesce(p->'tags', '[]'::jsonb);
   v_skus   jsonb := '{}'::jsonb;
-  hid    boolean;
+  st     text;
+  sm     text;
   e      jsonb;
   k      text;
   n      int;
@@ -491,9 +515,19 @@ begin
     raise exception 'BAD_BADGES';
   end if;
 
-  -- On show needs a photograph: a shop does not sell a blank.
-  hid := coalesce((p->>'hidden')::boolean, coalesce(cur.hidden, false));
-  if not hid and jsonb_array_length(imgs) = 0 then raise exception 'NEEDS_A_PHOTO'; end if;
+  -- Where it stands: on sale ('active'), 'disabled', or a 'hidden' draft --
+  -- as given, else as it was (a new one goes on sale). Deleting is
+  -- set_status()'s alone. And how its stock is kept: always in stock unless
+  -- told otherwise (9 November 2026, the owner's word).
+  st := coalesce(nullif(p->>'status', ''),
+                 case when (p->>'hidden')::boolean then 'hidden' end,
+                 case when cur.id is null then 'active' when cur.hidden then 'hidden'
+                      when cur.disabled then 'disabled' else 'active' end);
+  if st not in ('active', 'disabled', 'hidden') then raise exception 'BAD_STATUS'; end if;
+  sm := coalesce(nullif(p->>'stockMode', ''), cur.stock_mode, 'always');
+  if sm not in ('always', 'counted', 'out') then raise exception 'BAD_STOCK_MODE'; end if;
+  -- In the shop needs a photograph: a shop does not sell a blank.
+  if st <> 'hidden' and jsonb_array_length(imgs) = 0 then raise exception 'NEEDS_A_PHOTO'; end if;
 
   -- Stock: what the database holds for every colour and size still sold,
   -- and what was given for one that is new.
@@ -517,10 +551,12 @@ begin
       pid := 'p-' || (p->>'slug') || '-' || n;
     end loop;
     insert into products (id, slug, name, cat, sub, price, mrp, short_desc, descr, specs,
-                          variants, img, skus, badges, tags, size_chart, hidden, list_order)
+                          variants, img, skus, badges, tags, size_chart, hidden, disabled,
+                          stock_mode, list_order)
     values (pid, p->>'slug', trim(p->>'name'), p->>'cat', nullif(p->>'sub', ''), pr, mr,
             trim(coalesce(p->>'shortDesc', '')), trim(coalesce(p->>'desc', '')), v_specs,
-            v, imgs, v_skus, v_badges, v_tags, nullif(p->>'sizeChart', ''), hid,
+            v, imgs, v_skus, v_badges, v_tags, nullif(p->>'sizeChart', ''),
+            st = 'hidden', st = 'disabled', sm,
             coalesce((select max(list_order) from products), 0) + 1)
     returning * into done;
   else
@@ -529,10 +565,13 @@ begin
       price = pr, mrp = mr, short_desc = trim(coalesce(p->>'shortDesc', '')),
       descr = trim(coalesce(p->>'desc', '')), specs = v_specs, variants = v, img = imgs,
       skus = v_skus, badges = v_badges, tags = v_tags, size_chart = nullif(p->>'sizeChart', ''),
-      hidden = hid, updated_at = now()
+      hidden = (st = 'hidden'), disabled = (st = 'disabled'), stock_mode = sm,
+      updated_at = now()
     where id = pid
     returning * into done;
   end if;
+  -- Back on sale, or a size back in stock: whoever asked is told.
+  perform wake_interest(done.id);
   return product_json(done, true);
 end;
 $fn$;
@@ -596,24 +635,65 @@ begin
   end loop;
   update products set skus = cur.skus, updated_at = now()
    where id = p_pid returning * into done;
+  perform wake_interest(p_pid);
   return product_json(done, true);
 end;
 $fn$;
 
--- Off the shop, or back on it. Staff only. Back on needs a photograph.
-create or replace function set_hidden(p_pid text, p_hidden boolean) returns jsonb
+-- set_hidden() became set_status() on 9 November 2026; the page no longer
+-- calls it, and a grant nothing uses is a door left open.
+drop function if exists set_hidden(text, boolean);
+
+-- ---------------------------------------------------------------------
+--  set_status(pid, status) -- on sale ('active'), 'disabled', a 'hidden'
+--  draft, or 'deleted'. Staff only. In the shop -- on sale or disabled --
+--  needs a photograph. Deleting keeps the row (past orders and bags find
+--  it by id); any other status brings a deleted product back.
+-- ---------------------------------------------------------------------
+create or replace function set_status(p_pid text, p_status text) returns jsonb
   language plpgsql volatile security definer set search_path = public as $fn$
 declare
   cur  products;
   done products;
 begin
   if not is_staff() then raise exception 'NOT_STAFF'; end if;
-  if p_hidden is null then raise exception 'BAD_HIDDEN'; end if;
+  if p_status is null or p_status not in ('active', 'disabled', 'hidden', 'deleted') then
+    raise exception 'BAD_STATUS';
+  end if;
   select * into cur from products where id = p_pid for update;
   if not found then raise exception 'NO_SUCH_PRODUCT'; end if;
-  if not p_hidden and jsonb_array_length(cur.img) = 0 then raise exception 'NEEDS_A_PHOTO'; end if;
-  update products set hidden = p_hidden, updated_at = now()
+  if p_status in ('active', 'disabled') and jsonb_array_length(cur.img) = 0 then
+    raise exception 'NEEDS_A_PHOTO';
+  end if;
+  if p_status = 'deleted' then
+    update products set deleted_at = coalesce(deleted_at, now()), updated_at = now()
+     where id = p_pid returning * into done;
+  else
+    update products set deleted_at = null, hidden = (p_status = 'hidden'),
+                        disabled = (p_status = 'disabled'), updated_at = now()
+     where id = p_pid returning * into done;
+  end if;
+  perform wake_interest(p_pid);
+  return product_json(done, true);
+end;
+$fn$;
+
+-- How a product's stock is kept: 'always' in stock, 'out' of stock, or
+-- 'counted' by colour and size. Staff only. The counts stay as they were
+-- whichever is chosen, so going back to counting finds them.
+create or replace function set_stock_mode(p_pid text, p_mode text) returns jsonb
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  done products;
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  if p_mode is null or p_mode not in ('always', 'counted', 'out') then
+    raise exception 'BAD_STOCK_MODE';
+  end if;
+  update products set stock_mode = p_mode, updated_at = now()
    where id = p_pid returning * into done;
+  if not found then raise exception 'NO_SUCH_PRODUCT'; end if;
+  perform wake_interest(p_pid);
   return product_json(done, true);
 end;
 $fn$;
@@ -661,7 +741,9 @@ begin
 
     select * into prod from products where id = item->>'pid' for update;
     if not found then raise exception 'GONE_FROM_CATALOGUE %', item->>'pid'; end if;
-    if prod.hidden then raise exception 'GONE_FROM_CATALOGUE %', prod.id; end if;
+    if prod.hidden or prod.deleted_at is not null then
+      raise exception 'GONE_FROM_CATALOGUE %', prod.id;
+    end if;
 
     -- A colour and a size it sells -- each exactly when it has them.
     col := nullif(item->'variant'->>'colour', '');
@@ -681,13 +763,21 @@ begin
       if not found then raise exception 'BAD_LINE'; end if;
     end if;
 
+    -- On sale at all (9 November 2026): a disabled product, or one marked
+    -- out of stock, is in nobody's order -- said as out of stock, so the
+    -- bag tells the customer what the shop shows.
+    if prod.kind <> 'voucher' and (prod.disabled or prod.stock_mode = 'out') then
+      raise exception 'OUT_OF_STOCK % % 0', prod.id, sku_key(item->'variant');
+    end if;
+
     -- TODAY'S PRICE for that size, and its MRP.
     if up <> prod.price + delta or um <> prod.mrp + delta then
       raise exception 'PRICE_CHANGED %', prod.id;
     end if;
 
-    -- And the stock of that colour in that size.
-    if prod.kind <> 'voucher' then
+    -- And the stock of that colour in that size -- when it is counted. A
+    -- product always in stock has nothing to take off.
+    if prod.kind <> 'voucher' and prod.stock_mode = 'counted' then
       k := sku_key(item->'variant');
       have := coalesce((prod.skus->>k)::int, 0);
       if have < q then raise exception 'OUT_OF_STOCK % % %', prod.id, k, have; end if;
@@ -720,6 +810,8 @@ begin
                       updated_at = now()
    where id = l.pid and skus ? k;
   update order_lines set stock_taken = false where id = p_line;
+  -- A size that was sold out may be back: whoever asked is told.
+  perform wake_interest(l.pid);
 end;
 $fn$;
 
@@ -754,6 +846,411 @@ begin
 exception when others then
   raise notice 'PHOTO STORAGE NOT SET UP (%): the products, prices and stock are in; uploading a photograph from the store needs this part. Tell Claude what it says.', sqlerrm;
 end $photos$;
+
+-- =====================================================================
+--  TELLING CUSTOMERS (9 November 2026, the owner): "if that product is
+--  active again ... the other user gets a notification", and "whenever
+--  any status changed, give that notification to the person who ordered
+--  the product".
+--
+--  BY EMAIL -- the one way a message can go out by itself, for nothing:
+--  WhatsApp and SMS need paid business accounts. The shop already sends
+--  its sign-in codes through Brevo; these go through Brevo's API, with a
+--  key that db/email.sql keeps in Supabase's Vault (typed into the SQL
+--  editor, never into a file -- this repository is public).
+--
+--  NOTHING HERE WAITS ON THE EMAIL: a status change or a product coming
+--  back only marks what is owed (touch_order, wake_interest), and
+--  send_notices() -- every minute, by pg_cron -- sends it. With no key
+--  yet, everything simply waits, and goes when there is one.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+--  INTEREST -- a signed-in customer asks to be told when a product, or
+--  one colour in one size, can be bought again. Signed in, so the
+--  address was proved by a code: nobody can make the shop email a
+--  stranger. Each is told once; asking again starts it over.
+-- ---------------------------------------------------------------------
+create table if not exists interest (
+  id          bigserial primary key,
+  pid         text not null,
+  sku         text,                 -- 'navy/m', or null: any colour, any size
+  user_id     uuid not null references auth.users on delete cascade,
+  email       text not null,
+  created_at  timestamptz not null default now(),
+  ready_at    timestamptz,          -- it can be bought: an email is owed
+  notified_at timestamptz           -- the email went
+);
+create unique index if not exists interest_once on interest (pid, (coalesce(sku, '')), user_id);
+alter table interest enable row level security;
+-- A customer sees what they asked for; the store sees everyone's.
+drop policy if exists interest_read on interest;
+create policy interest_read on interest for select using (user_id = auth.uid() or is_staff());
+
+-- Can this product -- or this colour in this size -- be bought now?
+create or replace function can_buy(p_pid text, p_sku text) returns boolean
+  language sql stable set search_path = public as $fn$
+  select coalesce((
+    select not p.hidden and not p.disabled and p.deleted_at is null and p.stock_mode <> 'out'
+       and (p.stock_mode = 'always'
+            or (p_sku is null and exists (select 1 from jsonb_each_text(p.skus) e where e.value::int > 0))
+            or (p_sku is not null and coalesce((p.skus->>p_sku)::int, 0) > 0))
+      from products p where p.id = p_pid), false);
+$fn$;
+
+-- Mark every customer waiting for this product who can now buy what they
+-- asked for. Called after every change to a product; granted to nobody.
+create or replace function wake_interest(p_pid text) returns int
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  n int := 0;
+begin
+  update interest set ready_at = now()
+   where pid = p_pid and notified_at is null and ready_at is null and can_buy(pid, sku);
+  get diagnostics n = row_count;
+  return n;
+end;
+$fn$;
+
+-- "Tell me when it's back". Returns the address the email will go to.
+create or replace function register_interest(p_pid text, p_sku text default null) returns text
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  prod products;
+  em   text;
+begin
+  if auth.uid() is null then raise exception 'NO_SESSION'; end if;
+  select email into em from auth.users
+   where id = auth.uid() and not coalesce(is_anonymous, false) and email is not null;
+  if em is null then raise exception 'SIGN_IN_FIRST'; end if;
+  select * into prod from products where id = p_pid;
+  if not found then raise exception 'GONE_FROM_CATALOGUE %', p_pid; end if;
+  if prod.hidden or prod.deleted_at is not null then raise exception 'GONE_FROM_CATALOGUE %', p_pid; end if;
+  if p_sku is not null and not (p_sku = any(sku_keys(prod.variants))) then raise exception 'BAD_SKU'; end if;
+  -- No captcha here either: thirty an hour is a keen customer, not a script.
+  if (select count(*) from interest
+       where user_id = auth.uid() and created_at > now() - interval '1 hour') >= 30 then
+    raise exception 'TOO_MANY';
+  end if;
+  insert into interest (pid, sku, user_id, email) values (p_pid, p_sku, auth.uid(), em)
+  on conflict (pid, (coalesce(sku, '')), user_id)
+  do update set email = excluded.email, created_at = now(), ready_at = null, notified_at = null;
+  perform wake_interest(p_pid);
+  return em;
+end;
+$fn$;
+
+-- "Don't tell me after all."
+create or replace function drop_interest(p_pid text, p_sku text default null) returns void
+  language plpgsql volatile security definer set search_path = public as $fn$
+begin
+  if auth.uid() is null then raise exception 'NO_SESSION'; end if;
+  delete from interest
+   where user_id = auth.uid() and pid = p_pid and coalesce(sku, '') = coalesce(p_sku, '');
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  AN ORDER'S NEWS. Every change marks the order (touch_order) for two
+--  minutes later, and send_notices() then compares what the order looks
+--  like now with what the customer was last told (order_state): if they
+--  differ, one email says where it is -- so a quick run of taps, or a
+--  slip put right at once, is one email or none, never a string of them.
+--  The first is "we have your order".
+-- ---------------------------------------------------------------------
+alter table orders add column if not exists notify_after   timestamptz;
+alter table orders add column if not exists notified_state text;
+
+create or replace function order_state(p_oid uuid) returns text
+  language sql stable set search_path = public as $fn$
+  select o.status || '|' || coalesce((select string_agg(l.id::text || ':' || l.status, ',' order by l.id)
+                                        from order_lines l where l.order_id = o.id), '')
+    from orders o where o.id = p_oid;
+$fn$;
+
+create or replace function touch_order(p_oid uuid) returns void
+  language sql volatile set search_path = public as $fn$
+  update orders set notify_after = now() + interval '2 minutes' where id = p_oid;
+$fn$;
+
+-- Every email that went, for the store to see (no policy: through
+-- notices_log() only).
+create table if not exists notices (
+  id         bigserial primary key,
+  kind       text not null check (kind in ('order', 'interest', 'test')),
+  order_id   uuid,
+  pid        text,
+  email      text not null,
+  subject    text not null,
+  request_id bigint,
+  created_at timestamptz not null default now()
+);
+alter table notices enable row level security;
+
+-- Words a customer typed go into an email as text, never as markup.
+create or replace function html_escape(t text) returns text
+  language sql immutable set search_path = public as $fn$
+  select replace(replace(replace(replace(replace(coalesce(t, ''),
+    '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '"', '&quot;'), '''', '&#39;');
+$fn$;
+
+-- "Navy · M" for a stock key, in the product's own names.
+create or replace function sku_label(v jsonb, k text) returns text
+  language sql immutable set search_path = public as $fn$
+  select nullif(concat_ws(' · ',
+    (select c->>'label' from jsonb_array_elements(coalesce(v->'colour', '[]'::jsonb)) c
+      where c->>'id' = case when jsonb_array_length(coalesce(v->'colour', '[]'::jsonb)) > 0
+                            then split_part(k, '/', 1) end),
+    (select s->>'label' from jsonb_array_elements(coalesce(v->'size', '[]'::jsonb)) s
+      where s->>'id' = case when jsonb_array_length(coalesce(v->'colour', '[]'::jsonb)) > 0
+                            then split_part(k, '/', 2) else k end)), '');
+$fn$;
+
+-- The email about an order, as it is now: { subject, html }. The words
+-- are the customer's (domain.js TRACK_LABEL says the same on the page).
+create or replace function order_mail(p_oid uuid, p_shop text) returns jsonb
+  language plpgsql stable security definer set search_path = public as $fn$
+declare
+  o     orders;
+  site  text := 'https://jinaynandu.github.io/clothes-app/';
+  word  text;
+  head  text;
+  items text;
+  who   text;
+  ship  text := '';
+begin
+  select * into o from orders where id = p_oid;
+  if not found then return null; end if;
+  who := split_part(coalesce(nullif(trim(o.cust_name), ''), 'there'), ' ', 1);
+  word := case o.status
+    when 'sent'      then 'We have your order'
+    when 'confirmed' then 'Your order is confirmed'
+    when 'packed'    then 'Your order is packed'
+    when 'shipped'   then 'Your order is on its way'
+    when 'delivered' then 'Your order has been delivered'
+    when 'returned'  then 'Your return has reached us'
+    else 'Your order has been cancelled' end;
+  -- The order's own step moved, or only an item within it.
+  head := case when o.notified_state is null or split_part(o.notified_state, '|', 1) <> o.status
+               then word else 'An update on your order' end;
+  if o.status = 'shipped' and o.shipment is not null and coalesce(o.shipment->>'courier', '') <> '' then
+    ship := '<p>Courier: ' || html_escape(o.shipment->>'courier')
+         || case when coalesce(o.shipment->>'ref', '') <> ''
+                 then ', tracking number ' || html_escape(o.shipment->>'ref') else '' end || '</p>';
+  end if;
+  select string_agg('<tr><td style="padding:4px 16px 4px 0">' || html_escape(l.name)
+           || case when coalesce(l.variant_label, '') <> ''
+                   then ' <span style="color:#6B5C4E">(' || html_escape(l.variant_label) || ')</span>' else '' end
+           || ' &times; ' || l.qty || '</td><td style="padding:4px 0;color:#5A4C40">'
+           || case l.status when 'sent' then 'Ordered' when 'confirmed' then 'Confirmed'
+                when 'packed' then 'Packed' when 'shipped' then 'On its way'
+                when 'delivered' then 'Delivered' when 'returned' then 'Returned'
+                else 'Cancelled' end || '</td></tr>', '' order by l.id)
+    into items from order_lines l where l.order_id = o.id;
+  return jsonb_build_object(
+    'subject', head || ' (' || o.code || ')',
+    'html', '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#241C16;max-width:560px">'
+      || '<p>Hello ' || html_escape(who) || ',</p>'
+      || '<p><b>' || html_escape(word) || '</b> &mdash; order ' || html_escape(o.code) || '.</p>'
+      || ship
+      || '<table style="border-collapse:collapse;margin:8px 0 16px">' || coalesce(items, '') || '</table>'
+      || '<p><a href="' || site || '#/order/' || html_escape(o.code) || '" style="color:#7A5D1D">See your order</a></p>'
+      || '<p style="color:#6B5C4E;font-size:13px">' || html_escape(p_shop) || '</p></div>');
+end;
+$fn$;
+
+-- The email to a customer who asked to be told: { subject, html }.
+create or replace function interest_mail(p_id bigint, p_shop text) returns jsonb
+  language plpgsql stable security definer set search_path = public as $fn$
+declare
+  i    interest;
+  prod products;
+  what text;
+  site text := 'https://jinaynandu.github.io/clothes-app/';
+begin
+  select * into i from interest where id = p_id;
+  if not found then return null; end if;
+  select * into prod from products where id = i.pid;
+  if not found then return null; end if;
+  what := prod.name || coalesce(' in ' || sku_label(prod.variants, i.sku), '');
+  return jsonb_build_object(
+    'subject', what || ' is back',
+    'html', '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#241C16;max-width:560px">'
+      || '<p>Hello,</p>'
+      || '<p>You asked us to tell you: <b>' || html_escape(what) || '</b> can be ordered again.</p>'
+      || '<p><a href="' || site || '#/p/' || html_escape(prod.slug) || '" style="color:#7A5D1D">See it in the shop</a></p>'
+      || '<p style="color:#6B5C4E;font-size:13px">We will not email you about it again. '
+      || html_escape(p_shop) || '</p></div>');
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  send_notices() -- every email that is owed, through Brevo. pg_cron
+--  runs it every minute; the store page asks for it too, in case the
+--  minute job could not be set up. Rows are taken with SKIP LOCKED, so
+--  two runs at once never send one email twice. With no key in the Vault
+--  -- db/email.sql not run yet -- it sends nothing and leaves everything
+--  owed, to go when there is one.
+-- ---------------------------------------------------------------------
+create or replace function send_notices() returns int
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  api_key text;
+  sender  text;
+  shop    text;
+  o       record;
+  i       record;
+  st      text;
+  mail    jsonb;
+  to_addr text;
+  rid     bigint;
+  n       int := 0;
+begin
+  begin
+    select decrypted_secret into api_key from vault.decrypted_secrets where name = 'vastra_brevo_key';
+    select decrypted_secret into sender  from vault.decrypted_secrets where name = 'vastra_mail_from';
+    select decrypted_secret into shop    from vault.decrypted_secrets where name = 'vastra_mail_name';
+  exception when others then
+    return 0;
+  end;
+  if api_key is null or sender is null then return 0; end if;
+  shop := coalesce(nullif(trim(shop), ''), 'Vastra Apparel');
+
+  for o in select id, user_id, cust_email, cust_name, notified_state from orders
+            where notify_after is not null and notify_after <= now()
+            order by notify_after limit 50 for update skip locked loop
+    st := order_state(o.id);
+    if st is distinct from o.notified_state then
+      to_addr := coalesce(nullif(trim(o.cust_email), ''),
+                          (select email from auth.users where id = o.user_id));
+      if to_addr is not null then
+        mail := order_mail(o.id, shop);
+        rid := net.http_post(
+          url := 'https://api.brevo.com/v3/smtp/email',
+          body := jsonb_build_object(
+            'sender', jsonb_build_object('name', shop, 'email', sender),
+            'to', jsonb_build_array(jsonb_strip_nulls(jsonb_build_object(
+                    'email', to_addr, 'name', nullif(trim(o.cust_name), '')))),
+            'subject', mail->>'subject', 'htmlContent', mail->>'html'),
+          headers := jsonb_build_object('api-key', api_key, 'Content-Type', 'application/json',
+                                        'Accept', 'application/json'));
+        insert into notices (kind, order_id, email, subject, request_id)
+        values ('order', o.id, to_addr, mail->>'subject', rid);
+        n := n + 1;
+      end if;
+    end if;
+    update orders set notify_after = null, notified_state = st where id = o.id;
+  end loop;
+
+  for i in select id, pid, sku, email from interest
+            where ready_at is not null and notified_at is null
+            order by ready_at limit 50 for update skip locked loop
+    if can_buy(i.pid, i.sku) then
+      mail := interest_mail(i.id, shop);
+      rid := net.http_post(
+        url := 'https://api.brevo.com/v3/smtp/email',
+        body := jsonb_build_object(
+          'sender', jsonb_build_object('name', shop, 'email', sender),
+          'to', jsonb_build_array(jsonb_build_object('email', i.email)),
+          'subject', mail->>'subject', 'htmlContent', mail->>'html'),
+        headers := jsonb_build_object('api-key', api_key, 'Content-Type', 'application/json',
+                                      'Accept', 'application/json'));
+      insert into notices (kind, pid, email, subject, request_id)
+      values ('interest', i.pid, i.email, mail->>'subject', rid);
+      update interest set notified_at = now() where id = i.id;
+      n := n + 1;
+    else
+      -- Gone again before it could be said: wait for the next time.
+      update interest set ready_at = null where id = i.id;
+    end if;
+  end loop;
+  return n;
+end;
+$fn$;
+
+-- The store's "send what is waiting now". Staff only.
+create or replace function send_notices_now() returns int
+  language plpgsql volatile security definer set search_path = public as $fn$
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  return send_notices();
+end;
+$fn$;
+
+-- Whether emails can go, and what is waiting. Staff only.
+create or replace function mail_status() returns jsonb
+  language plpgsql stable security definer set search_path = public as $fn$
+declare
+  has_key  boolean := false;
+  has_cron boolean := false;
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  begin
+    select exists (select 1 from vault.decrypted_secrets where name = 'vastra_brevo_key') into has_key;
+  exception when others then has_key := false;
+  end;
+  begin
+    execute 'select exists (select 1 from cron.job where jobname = ''vastra-notices'')' into has_cron;
+  exception when others then has_cron := false;
+  end;
+  return jsonb_build_object(
+    'key', has_key,
+    'net', exists (select 1 from pg_extension where extname = 'pg_net'),
+    'cron', has_cron,
+    'ordersWaiting', (select count(*) from orders where notify_after is not null),
+    'interestWaiting', (select count(*) from interest where notified_at is null),
+    'interestReady', (select count(*) from interest where ready_at is not null and notified_at is null));
+end;
+$fn$;
+
+-- The last forty emails, and what Brevo answered (pg_net keeps answers a
+-- few hours; older ones show without). Staff only.
+create or replace function notices_log() returns jsonb
+  language plpgsql stable security definer set search_path = public as $fn$
+declare
+  res jsonb;
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  begin
+    execute $q$
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'kind', n.kind, 'email', n.email, 'subject', n.subject, 'at', n.created_at,
+               'code', r.status_code,
+               'error', coalesce(r.error_msg, case when r.status_code >= 300 then left(r.content, 200) end))
+             order by n.created_at desc), '[]'::jsonb)
+        from (select * from public.notices order by created_at desc limit 40) n
+        left join net._http_response r on r.id = n.request_id
+    $q$ into res;
+  exception when others then
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'kind', n.kind, 'email', n.email, 'subject', n.subject, 'at', n.created_at)
+           order by n.created_at desc), '[]'::jsonb)
+      into res from (select * from notices order by created_at desc limit 40) n;
+  end;
+  return res;
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  EMAILS GO OUT BY THEMSELVES: pg_net makes the call to Brevo, and
+--  pg_cron runs send_notices() every minute. Each in a block that only
+--  warns if the project refuses it -- the rest of this file must not go
+--  down with it -- and selftest.sql's last line says what is ready.
+-- ---------------------------------------------------------------------
+do $mail$
+begin
+  begin
+    create extension if not exists pg_net;
+  exception when others then
+    raise notice 'EMAILS: pg_net could not be switched on (%). Database > Extensions > pg_net > enable, then run this file again.', sqlerrm;
+  end;
+  begin
+    create extension if not exists pg_cron;
+    perform cron.schedule('vastra-notices', '* * * * *', 'select public.send_notices()');
+  exception when others then
+    raise notice 'EMAILS: the every-minute sender could not be set up (%). Integrations > Cron > enable, then run this file again. Until then the store page sends them while it is open.', sqlerrm;
+  end;
+end $mail$;
 
 -- ---------------------------------------------------------------------
 --  place_order(p) -- the customer's one write, and the only way an
@@ -843,9 +1340,13 @@ begin
   select new_id, l->>'pid', pr.name, pr.slug, coalesce(l->'variant', '{}'::jsonb),
          l->>'variantLabel', (l->>'qty')::int, (l->>'unitPrice')::int,
          (l->>'unitMrp')::int, (l->>'unitPrice')::int * (l->>'qty')::int,
-         true, pr.kind <> 'voucher'
+         true, pr.kind <> 'voucher' and pr.stock_mode = 'counted'
     from jsonb_array_elements(p->'lines') as t(l)
     join products pr on pr.id = l->>'pid';
+
+  -- The customer hears that the shop has it (9 November 2026): a minute or
+  -- two from now, by send_notices().
+  perform touch_order(new_id);
 
   return jsonb_build_object('id', new_id, 'code', new_code);
 end;
@@ -934,6 +1435,9 @@ begin
     and (status = cur
       or (p_to in ('cancelled', 'abandoned') and status in ('sent', 'confirmed', 'packed'))
       or (p_to = 'returned' and status in ('shipped', 'delivered')));
+
+  -- The customer hears of it (9 November 2026), once things settle.
+  perform touch_order(p_oid);
 end;
 $fn$;
 
@@ -1043,6 +1547,8 @@ begin
   end if;
 
   update orders set updated_at = now() where id = p_oid;
+  -- One item moved, or back: the customer hears of it, once things settle.
+  perform touch_order(p_oid);
 end;
 $fn$;
 
@@ -1177,6 +1683,10 @@ begin
     shipment = case when array_position(road, p_to) < array_position(road, 'shipped')
                     then null else shipment end
   where order_id = p_oid and status = cur;
+
+  -- A correction the customer hears of too -- unless it is undone before
+  -- the email goes, when nothing is sent at all (send_notices).
+  perform touch_order(p_oid);
 end;
 $fn$;
 
@@ -1653,12 +2163,15 @@ end $pub$;
 --  revoke for every function in this file.
 -- =====================================================================
 revoke all on table staff, orders, order_lines, shop_secret, claim_attempts,
-                    addresses, handovers, reviews, delivery_ratings, products
+                    addresses, handovers, reviews, delivery_ratings, products,
+                    interest, notices
   from anon, authenticated;
-revoke all on sequence order_seq, order_lines_id_seq, reviews_id_seq from anon, authenticated;
+revoke all on sequence order_seq, order_lines_id_seq, reviews_id_seq, interest_id_seq,
+                       notices_id_seq from anon, authenticated;
 
 grant usage on schema public to authenticated;
-grant select on staff, orders, order_lines, addresses, reviews, delivery_ratings to authenticated;
+grant select on staff, orders, order_lines, addresses, reviews, delivery_ratings, interest
+  to authenticated;
 
 revoke all on function iso_now()                              from public, anon, authenticated;
 revoke all on function is_staff()                             from public, anon, authenticated;
@@ -1692,16 +2205,33 @@ revoke all on function store_products()                      from public, anon, 
 revoke all on function save_product(jsonb)                   from public, anon, authenticated;
 revoke all on function set_price(text, int, int)             from public, anon, authenticated;
 revoke all on function set_stock(text, jsonb)                from public, anon, authenticated;
-revoke all on function set_hidden(text, boolean)             from public, anon, authenticated;
+revoke all on function set_status(text, text)                from public, anon, authenticated;
+revoke all on function set_stock_mode(text, text)            from public, anon, authenticated;
+revoke all on function can_buy(text, text)                   from public, anon, authenticated;
+revoke all on function wake_interest(text)                   from public, anon, authenticated;
+revoke all on function register_interest(text, text)         from public, anon, authenticated;
+revoke all on function drop_interest(text, text)             from public, anon, authenticated;
+revoke all on function order_state(uuid)                     from public, anon, authenticated;
+revoke all on function touch_order(uuid)                     from public, anon, authenticated;
+revoke all on function html_escape(text)                     from public, anon, authenticated;
+revoke all on function sku_label(jsonb, text)                from public, anon, authenticated;
+revoke all on function order_mail(uuid, text)                from public, anon, authenticated;
+revoke all on function interest_mail(bigint, text)           from public, anon, authenticated;
+revoke all on function send_notices()                        from public, anon, authenticated;
+revoke all on function send_notices_now()                    from public, anon, authenticated;
+revoke all on function mail_status()                         from public, anon, authenticated;
+revoke all on function notices_log()                         from public, anon, authenticated;
 revoke all on function take_lines(jsonb)                     from public, anon, authenticated;
 revoke all on function restock_line(bigint)                  from public, anon, authenticated;
 
 -- is_staff() runs inside the read policies, so the reader must be
 -- allowed to call it. The rest are the only writes there are.
--- signed_in(), roll_up_order(), take_lines(), restock_line() and the four
--- catalogue helpers (whole, sku_key, sku_keys, product_json) are granted
--- to nobody: they are only ever called from inside the functions above,
--- which run as their owner.
+-- signed_in(), roll_up_order(), take_lines(), restock_line(), the catalogue
+-- helpers (whole, sku_key, sku_keys, product_json, can_buy, wake_interest)
+-- and the email ones (order_state, touch_order, html_escape, sku_label,
+-- order_mail, interest_mail, send_notices) are granted to nobody: they are
+-- only ever called from inside the functions above, which run as their
+-- owner -- and send_notices() by pg_cron, as the database itself.
 grant execute on function is_staff()                            to authenticated;
 grant execute on function place_order(jsonb)                    to authenticated;
 grant execute on function advance_order(uuid, text, text, text) to authenticated;
@@ -1724,7 +2254,15 @@ grant execute on function store_products()                      to authenticated
 grant execute on function save_product(jsonb)                   to authenticated;
 grant execute on function set_price(text, int, int)             to authenticated;
 grant execute on function set_stock(text, jsonb)                to authenticated;
-grant execute on function set_hidden(text, boolean)             to authenticated;
+grant execute on function set_status(text, text)               to authenticated;
+grant execute on function set_stock_mode(text, text)           to authenticated;
+-- Emails (9 November 2026): the store sees what went and sends what waits;
+-- a signed-in customer asks to be told, or not.
+grant execute on function send_notices_now()                   to authenticated;
+grant execute on function mail_status()                        to authenticated;
+grant execute on function notices_log()                        to authenticated;
+grant execute on function register_interest(text, text)        to authenticated;
+grant execute on function drop_interest(text, text)            to authenticated;
 
 -- ⚠️ WHAT A PAGE WITH NO SESSION MAY CALL (8 November 2026): what
 -- everybody may read of the reviews, and the catalogue itself -- the
@@ -1744,19 +2282,19 @@ grant execute on function catalogue()                            to anon, authen
 -- THE FIRST CATALOGUE: 11 products, into an EMPTY products table only.
 -- Once the store has products, this inserts nothing, so the store's own
 -- prices, stock and products survive every later run of this file.
-insert into products (id, slug, name, cat, sub, price, mrp, short_desc, descr, specs, variants, img, skus, badges, tags, size_chart, kind, ship_class, popularity, added_on, list_order)
+insert into products (id, slug, name, cat, sub, price, mrp, short_desc, descr, specs, variants, img, skus, badges, tags, size_chart, kind, ship_class, popularity, added_on, list_order, stock_mode)
 select v.* from (values
-  ('p-wd-flutter-midi', 'flutter-sleeve-midi-dress', 'Flutter-Sleeve Midi Dress', 'women', 'women-dresses', 1899, 2799, 'A V-neck, flutter sleeves and buttons all the way down, with pockets.', 'A V-neck midi with small flutter sleeves, buttons from the neckline to the hem and a seam at the natural waist. The skirt falls straight to mid-calf, and there are pockets in the side seams.', '[{"k":"Neckline","v":"V-neck"},{"k":"Sleeve","v":"Short, flutter"},{"k":"Closure","v":"Buttons down the front"},{"k":"Length","v":"Midi, to mid-calf"},{"k":"Pockets","v":"Two, in the side seams"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#989488"},{"delta":0,"id":"rust","img":2,"label":"Rust","swatch":"#653122"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-flutter-midi-sage-1.jpg","img/products/dress-flutter-midi-sage-2.jpg","img/products/dress-flutter-midi-rust-1.jpg","img/products/dress-flutter-midi-rust-2.jpg"]'::jsonb, '{"rust/l":3,"rust/m":10,"rust/s":11,"rust/xl":8,"rust/xxl":5,"sage/l":7,"sage/m":5,"sage/s":12,"sage/xl":4,"sage/xxl":12}'::jsonb, '[]'::jsonb, '["dress","midi","v-neck","flutter-sleeve","button-front","pockets"]'::jsonb, 'women-dress', 'goods', 'std', 84, date '2026-11-08', 1),
-  ('p-wd-short-button', 'button-front-short-dress', 'Button-Front Short Dress', 'women', 'women-dresses', 1599, 2299, 'A deep V, wide short sleeves and a buttoned waistband that ties at the back.', 'Wide short sleeves cut into the body and a deep V, gathered into a buttoned waistband that ties at the back, so the fit at the waist is yours to set. The skirt buttons down the front, flares a little and stops above the knee. Pockets in the side seams.', '[{"k":"Neckline","v":"Deep V-neck"},{"k":"Sleeve","v":"Short, cut into the body"},{"k":"Waist","v":"Buttoned band, ties at the back"},{"k":"Length","v":"Above the knee"},{"k":"Pockets","v":"Two, in the side seams"}]'::jsonb, '{"colour":[{"delta":0,"id":"rust","img":0,"label":"Rust","swatch":"#C48268"},{"delta":0,"id":"navy","img":1,"label":"Navy","swatch":"#1C2939"},{"delta":0,"id":"sage","img":3,"label":"Sage","swatch":"#ADAEA7"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-short-rust-1.jpg","img/products/dress-short-navy-1.jpg","img/products/dress-short-navy-2.jpg","img/products/dress-short-sage-1.jpg"]'::jsonb, '{"navy/l":14,"navy/m":10,"navy/s":9,"navy/xl":7,"navy/xxl":6,"rust/l":14,"rust/m":4,"rust/s":9,"rust/xl":3,"rust/xxl":12,"sage/l":13,"sage/m":4,"sage/s":14,"sage/xl":7,"sage/xxl":3}'::jsonb, '[]'::jsonb, '["dress","short","v-neck","button-front","tie-back","pockets"]'::jsonb, 'women-dress', 'goods', 'std', 78, date '2026-11-08', 2),
-  ('p-wd-popover', 'popover-shirt-dress', 'Popover Shirt Dress', 'women', 'women-dresses', 1799, 2499, 'A shirt collar, a half placket and long sleeves that roll up and button in place.', 'A shirt dress that goes on over the head: a collar, a placket that buttons halfway down, and long sleeves with a tab to hold them rolled. Straight and easy through the body, ending above the knee.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Closure","v":"Half placket, goes on over the head"},{"k":"Sleeve","v":"Long, with roll-up tabs"},{"k":"Fit","v":"Straight and relaxed"},{"k":"Length","v":"Above the knee"}]'::jsonb, '{"colour":[{"delta":0,"id":"olive","img":0,"label":"Olive","swatch":"#887C69"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#1B2737"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-popover-olive-1.jpg","img/products/dress-popover-olive-2.jpg","img/products/dress-popover-navy-1.jpg","img/products/dress-popover-navy-2.jpg","img/products/dress-popover-navy-3.jpg"]'::jsonb, '{"navy/l":11,"navy/m":10,"navy/s":4,"navy/xl":6,"navy/xxl":10,"olive/l":12,"olive/m":9,"olive/s":11,"olive/xl":13,"olive/xxl":12}'::jsonb, '[]'::jsonb, '["dress","shirt-dress","popover","long-sleeve"]'::jsonb, 'women-dress', 'goods', 'std', 71, date '2026-11-08', 3),
-  ('p-wt-relaxed-shirt', 'relaxed-short-sleeve-shirt', 'Relaxed Short-Sleeve Shirt', 'women', 'women-tops', 999, 1499, 'A collared shirt with short sleeves cut into the body and a gathered back.', 'An easy collared shirt with short sleeves cut into the body, buttons all the way down and a yoke at the back, gathered for room. The hem curves, so it can be worn loose or tucked in.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Sleeve","v":"Short, cut into the body"},{"k":"Closure","v":"Buttons down the front"},{"k":"Back","v":"Gathered under a yoke"},{"k":"Hem","v":"Curved"}]'::jsonb, '{"colour":[{"delta":0,"id":"white","img":0,"label":"White","swatch":"#DEDEDE"},{"delta":0,"id":"rust","img":2,"label":"Rust","swatch":"#BE705F"},{"delta":0,"id":"navy","img":4,"label":"Navy","swatch":"#354153"},{"delta":0,"id":"sand","img":6,"label":"Sand","swatch":"#E1D6C8"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/top-relaxed-white-1.jpg","img/products/top-relaxed-white-2.jpg","img/products/top-relaxed-rust-1.jpg","img/products/top-relaxed-rust-2.jpg","img/products/top-relaxed-navy-1.jpg","img/products/top-relaxed-navy-2.jpg","img/products/top-relaxed-sand-1.jpg","img/products/top-relaxed-sand-2.jpg"]'::jsonb, '{"navy/l":9,"navy/m":9,"navy/s":8,"navy/xl":6,"navy/xxl":11,"rust/l":9,"rust/m":13,"rust/s":12,"rust/xl":8,"rust/xxl":4,"sand/l":13,"sand/m":6,"sand/s":5,"sand/xl":5,"sand/xxl":7,"white/l":10,"white/m":7,"white/s":3,"white/xl":4,"white/xxl":14}'::jsonb, '[]'::jsonb, '["shirt","top","short-sleeve","collar","relaxed"]'::jsonb, 'women-top', 'goods', 'std', 88, date '2026-11-08', 4),
-  ('p-wt-utility-shirt', 'utility-shirt', 'Utility Shirt', 'women', 'women-tops', 1399, 1999, 'Two flap pockets on the chest and long sleeves that roll up and button.', 'A long-sleeved shirt with two buttoned flap pockets on the chest and tabs to hold the sleeves rolled up. Cut loose and a little long, with a curved hem: over trousers, or open as a light layer.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Pockets","v":"Two flap pockets on the chest"},{"k":"Sleeve","v":"Long, with roll-up tabs"},{"k":"Fit","v":"Relaxed"},{"k":"Hem","v":"Curved"}]'::jsonb, '{"colour":[{"delta":0,"id":"olive","img":0,"label":"Olive","swatch":"#7D7158"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#293345"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/top-utility-olive-1.jpg","img/products/top-utility-olive-2.jpg","img/products/top-utility-navy-1.jpg","img/products/top-utility-navy-2.jpg","img/products/top-utility-navy-3.jpg"]'::jsonb, '{"navy/l":12,"navy/m":7,"navy/s":11,"navy/xl":7,"navy/xxl":9,"olive/l":4,"olive/m":3,"olive/s":8,"olive/xl":14,"olive/xxl":11}'::jsonb, '[]'::jsonb, '["shirt","top","long-sleeve","utility","pockets"]'::jsonb, 'women-top', 'goods', 'std', 69, date '2026-11-08', 5),
-  ('p-wb-drawstring-shorts', 'drawstring-shorts', 'Drawstring Shorts', 'women', 'women-bottoms', 799, 1199, 'An elastic waist with a drawstring, pockets at the sides and patch pockets at the back.', 'Pull-on shorts with an elastic waistband and a drawstring to tighten it, pockets at the sides and two patch pockets at the back. A short, easy leg.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and two patch pockets at the back"},{"k":"Fit","v":"Relaxed"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"navy","img":0,"label":"Navy","swatch":"#1E293B"},{"delta":0,"id":"rust","img":1,"label":"Rust","swatch":"#954538"},{"delta":0,"id":"stone","img":3,"label":"Stone","swatch":"#CFC3B3"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/shorts-drawstring-navy-1.jpg","img/products/shorts-drawstring-rust-1.jpg","img/products/shorts-drawstring-rust-2.jpg","img/products/shorts-drawstring-stone-1.jpg"]'::jsonb, '{"navy/l":3,"navy/m":3,"navy/s":4,"navy/xl":6,"navy/xxl":14,"rust/l":10,"rust/m":6,"rust/s":3,"rust/xl":8,"rust/xxl":10,"stone/l":4,"stone/m":10,"stone/s":4,"stone/xl":13,"stone/xxl":8}'::jsonb, '[]'::jsonb, '["shorts","drawstring","elastic-waist","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 80, date '2026-11-08', 6),
-  ('p-ws-shirt-shorts-set', 'shirt-and-shorts-set', 'Shirt and Shorts Set', 'women', 'women-sets', 1999, 2899, 'A short-sleeved shirt and matching drawstring shorts, sold together.', 'Two pieces in one colour: a collared shirt with short sleeves and a gathered back, and pull-on shorts with an elastic drawstring waist and patch pockets at the back. Wear them together, or each with something else.', '[{"k":"In the set","v":"A shirt and a pair of shorts"},{"k":"Shirt","v":"Collar, short sleeves, buttons down the front"},{"k":"Shorts","v":"Elastic drawstring waist, patch pockets at the back"},{"k":"Fit","v":"Relaxed"}]'::jsonb, '{"colour":[{"delta":0,"id":"butter","img":0,"label":"Butter","swatch":"#E8D9BC"},{"delta":0,"id":"sage","img":3,"label":"Sage","swatch":"#767868"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/set-shirt-shorts-butter-1.jpg","img/products/set-shirt-shorts-butter-2.jpg","img/products/set-shirt-shorts-butter-3.jpg","img/products/set-shirt-shorts-sage-1.jpg"]'::jsonb, '{"butter/l":11,"butter/m":7,"butter/s":8,"butter/xl":11,"butter/xxl":10,"sage/l":8,"sage/m":13,"sage/s":14,"sage/xl":4,"sage/xxl":8}'::jsonb, '[]'::jsonb, '["set","co-ord","shirt","shorts","matching"]'::jsonb, 'women-set', 'goods', 'std', 74, date '2026-11-08', 7),
-  ('p-wb-cargo-trousers', 'cargo-trousers', 'Cargo Trousers', 'women', 'women-bottoms', 1499, 2199, 'A drawstring waist, cargo pockets on the thighs and a straight, ankle-length leg.', 'Pull-on trousers with an elastic drawstring waist, deep pockets at the sides and a flap cargo pocket on each thigh. The leg is straight and stops at the ankle.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and a flap cargo pocket on each thigh"},{"k":"Leg","v":"Straight, ankle length"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#97907B"},{"delta":0,"id":"stone","img":2,"label":"Stone","swatch":"#E0D3C6"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/trousers-cargo-sage-1.jpg","img/products/trousers-cargo-sage-2.jpg","img/products/trousers-cargo-stone-1.jpg","img/products/trousers-cargo-stone-2.jpg"]'::jsonb, '{"sage/l":13,"sage/m":11,"sage/s":3,"sage/xl":7,"sage/xxl":6,"stone/l":12,"stone/m":6,"stone/s":9,"stone/xl":9,"stone/xxl":10}'::jsonb, '[]'::jsonb, '["trousers","cargo","drawstring","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 76, date '2026-11-08', 8),
-  ('p-wb-wide-trousers', 'drawstring-wide-leg-trousers', 'Drawstring Wide-Leg Trousers', 'women', 'women-bottoms', 1299, 1899, 'An elastic drawstring waist and a wide, full-length leg, with pockets.', 'Easy pull-on trousers: an elastic waistband with a drawstring, pockets at the sides and one at the back, and a wide leg that falls straight to the floor.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and one at the back"},{"k":"Leg","v":"Wide, full length"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"navy","img":0,"label":"Navy","swatch":"#202A3B"},{"delta":0,"id":"sage","img":5,"label":"Sage","swatch":"#887C66"},{"delta":0,"id":"stone","img":7,"label":"Stone","swatch":"#DDD3C6"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/trousers-wide-navy-1.jpg","img/products/trousers-wide-navy-2.jpg","img/products/trousers-wide-navy-3.jpg","img/products/trousers-wide-navy-4.jpg","img/products/trousers-wide-navy-5.jpg","img/products/trousers-wide-sage-1.jpg","img/products/trousers-wide-sage-2.jpg","img/products/trousers-wide-stone-1.jpg","img/products/trousers-wide-stone-2.jpg"]'::jsonb, '{"navy/l":13,"navy/m":6,"navy/s":8,"navy/xl":8,"navy/xxl":10,"sage/l":8,"sage/m":7,"sage/s":9,"sage/xl":9,"sage/xxl":7,"stone/l":11,"stone/m":8,"stone/s":6,"stone/xl":9,"stone/xxl":8}'::jsonb, '[]'::jsonb, '["trousers","wide-leg","drawstring","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 82, date '2026-11-08', 9),
-  ('p-ws-tie-jumpsuit', 'tie-waist-jumpsuit', 'Tie-Waist Jumpsuit', 'women', 'women-sets', 2199, 2999, 'A V-neck, short sleeves and a tie at the waist you set yourself.', 'A one-piece with a V-neck, short sleeves and a fabric tie at the waist, so the fit is yours to set. Easy through the body, with a tapered leg that ends at the ankle.', '[{"k":"Neckline","v":"V-neck"},{"k":"Sleeve","v":"Short"},{"k":"Waist","v":"A fabric tie"},{"k":"Leg","v":"Tapered, ankle length"},{"k":"Fit","v":"Easy through the body"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#AEA28C"},{"delta":0,"id":"black","img":2,"label":"Black","swatch":"#212023"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/jumpsuit-tie-waist-sage-1.jpg","img/products/jumpsuit-tie-waist-sage-2.jpg","img/products/jumpsuit-tie-waist-black-1.jpg","img/products/jumpsuit-tie-waist-black-2.jpg"]'::jsonb, '{"black/l":9,"black/m":3,"black/s":6,"black/xl":5,"black/xxl":5,"sage/l":10,"sage/m":11,"sage/s":5,"sage/xl":6,"sage/xxl":4}'::jsonb, '[]'::jsonb, '["jumpsuit","one-piece","tie-waist","v-neck"]'::jsonb, 'women-set', 'goods', 'std', 67, date '2026-11-08', 10),
-  ('p-ms-camp-collar', 'camp-collar-shirt', 'Camp-Collar Shirt', 'men', 'men-shirts', 1199, 1199, 'An open camp collar, short sleeves and a pocket on the chest.', 'A short-sleeved shirt with a flat, open camp collar, buttons down the front and one pocket on the chest. Straight at the hem, so it is meant to be worn out.', '[{"k":"Collar","v":"Camp collar, worn open"},{"k":"Sleeve","v":"Short"},{"k":"Pocket","v":"One, on the chest"},{"k":"Hem","v":"Straight, worn out"},{"k":"Fit","v":"Relaxed"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#857E6B"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#242E3C"},{"delta":0,"id":"white","img":4,"label":"White","swatch":"#DAD7D5"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/men-camp-shirt-sage-1.jpg","img/products/men-camp-shirt-sage-2.jpg","img/products/men-camp-shirt-navy-1.jpg","img/products/men-camp-shirt-navy-2.jpg","img/products/men-camp-shirt-white-1.jpg","img/products/men-camp-shirt-white-2.jpg","img/products/men-camp-shirt-white-3.jpg"]'::jsonb, '{"navy/l":8,"navy/m":3,"navy/s":8,"navy/xl":6,"navy/xxl":11,"sage/l":6,"sage/m":13,"sage/s":7,"sage/xl":6,"sage/xxl":12,"white/l":12,"white/m":10,"white/s":11,"white/xl":7,"white/xxl":3}'::jsonb, '[]'::jsonb, '["shirt","camp-collar","short-sleeve","men"]'::jsonb, 'men-shirt', 'goods', 'std', 86, date '2026-11-08', 11)
-) as v(id, slug, name, cat, sub, price, mrp, short_desc, descr, specs, variants, img, skus, badges, tags, size_chart, kind, ship_class, popularity, added_on, list_order)
+  ('p-wd-flutter-midi', 'flutter-sleeve-midi-dress', 'Flutter-Sleeve Midi Dress', 'women', 'women-dresses', 1899, 2799, 'A V-neck, flutter sleeves and buttons all the way down, with pockets.', 'A V-neck midi with small flutter sleeves, buttons from the neckline to the hem and a seam at the natural waist. The skirt falls straight to mid-calf, and there are pockets in the side seams.', '[{"k":"Neckline","v":"V-neck"},{"k":"Sleeve","v":"Short, flutter"},{"k":"Closure","v":"Buttons down the front"},{"k":"Length","v":"Midi, to mid-calf"},{"k":"Pockets","v":"Two, in the side seams"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#989488"},{"delta":0,"id":"rust","img":2,"label":"Rust","swatch":"#653122"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-flutter-midi-sage-1.jpg","img/products/dress-flutter-midi-sage-2.jpg","img/products/dress-flutter-midi-rust-1.jpg","img/products/dress-flutter-midi-rust-2.jpg"]'::jsonb, '{"rust/l":3,"rust/m":10,"rust/s":11,"rust/xl":8,"rust/xxl":5,"sage/l":7,"sage/m":5,"sage/s":12,"sage/xl":4,"sage/xxl":12}'::jsonb, '[]'::jsonb, '["dress","midi","v-neck","flutter-sleeve","button-front","pockets"]'::jsonb, 'women-dress', 'goods', 'std', 84, date '2026-11-08', 1, 'always'),
+  ('p-wd-short-button', 'button-front-short-dress', 'Button-Front Short Dress', 'women', 'women-dresses', 1599, 2299, 'A deep V, wide short sleeves and a buttoned waistband that ties at the back.', 'Wide short sleeves cut into the body and a deep V, gathered into a buttoned waistband that ties at the back, so the fit at the waist is yours to set. The skirt buttons down the front, flares a little and stops above the knee. Pockets in the side seams.', '[{"k":"Neckline","v":"Deep V-neck"},{"k":"Sleeve","v":"Short, cut into the body"},{"k":"Waist","v":"Buttoned band, ties at the back"},{"k":"Length","v":"Above the knee"},{"k":"Pockets","v":"Two, in the side seams"}]'::jsonb, '{"colour":[{"delta":0,"id":"rust","img":0,"label":"Rust","swatch":"#C48268"},{"delta":0,"id":"navy","img":1,"label":"Navy","swatch":"#1C2939"},{"delta":0,"id":"sage","img":3,"label":"Sage","swatch":"#ADAEA7"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-short-rust-1.jpg","img/products/dress-short-navy-1.jpg","img/products/dress-short-navy-2.jpg","img/products/dress-short-sage-1.jpg"]'::jsonb, '{"navy/l":14,"navy/m":10,"navy/s":9,"navy/xl":7,"navy/xxl":6,"rust/l":14,"rust/m":4,"rust/s":9,"rust/xl":3,"rust/xxl":12,"sage/l":13,"sage/m":4,"sage/s":14,"sage/xl":7,"sage/xxl":3}'::jsonb, '[]'::jsonb, '["dress","short","v-neck","button-front","tie-back","pockets"]'::jsonb, 'women-dress', 'goods', 'std', 78, date '2026-11-08', 2, 'always'),
+  ('p-wd-popover', 'popover-shirt-dress', 'Popover Shirt Dress', 'women', 'women-dresses', 1799, 2499, 'A shirt collar, a half placket and long sleeves that roll up and button in place.', 'A shirt dress that goes on over the head: a collar, a placket that buttons halfway down, and long sleeves with a tab to hold them rolled. Straight and easy through the body, ending above the knee.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Closure","v":"Half placket, goes on over the head"},{"k":"Sleeve","v":"Long, with roll-up tabs"},{"k":"Fit","v":"Straight and relaxed"},{"k":"Length","v":"Above the knee"}]'::jsonb, '{"colour":[{"delta":0,"id":"olive","img":0,"label":"Olive","swatch":"#887C69"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#1B2737"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-popover-olive-1.jpg","img/products/dress-popover-olive-2.jpg","img/products/dress-popover-navy-1.jpg","img/products/dress-popover-navy-2.jpg","img/products/dress-popover-navy-3.jpg"]'::jsonb, '{"navy/l":11,"navy/m":10,"navy/s":4,"navy/xl":6,"navy/xxl":10,"olive/l":12,"olive/m":9,"olive/s":11,"olive/xl":13,"olive/xxl":12}'::jsonb, '[]'::jsonb, '["dress","shirt-dress","popover","long-sleeve"]'::jsonb, 'women-dress', 'goods', 'std', 71, date '2026-11-08', 3, 'always'),
+  ('p-wt-relaxed-shirt', 'relaxed-short-sleeve-shirt', 'Relaxed Short-Sleeve Shirt', 'women', 'women-tops', 999, 1499, 'A collared shirt with short sleeves cut into the body and a gathered back.', 'An easy collared shirt with short sleeves cut into the body, buttons all the way down and a yoke at the back, gathered for room. The hem curves, so it can be worn loose or tucked in.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Sleeve","v":"Short, cut into the body"},{"k":"Closure","v":"Buttons down the front"},{"k":"Back","v":"Gathered under a yoke"},{"k":"Hem","v":"Curved"}]'::jsonb, '{"colour":[{"delta":0,"id":"white","img":0,"label":"White","swatch":"#DEDEDE"},{"delta":0,"id":"rust","img":2,"label":"Rust","swatch":"#BE705F"},{"delta":0,"id":"navy","img":4,"label":"Navy","swatch":"#354153"},{"delta":0,"id":"sand","img":6,"label":"Sand","swatch":"#E1D6C8"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/top-relaxed-white-1.jpg","img/products/top-relaxed-white-2.jpg","img/products/top-relaxed-rust-1.jpg","img/products/top-relaxed-rust-2.jpg","img/products/top-relaxed-navy-1.jpg","img/products/top-relaxed-navy-2.jpg","img/products/top-relaxed-sand-1.jpg","img/products/top-relaxed-sand-2.jpg"]'::jsonb, '{"navy/l":9,"navy/m":9,"navy/s":8,"navy/xl":6,"navy/xxl":11,"rust/l":9,"rust/m":13,"rust/s":12,"rust/xl":8,"rust/xxl":4,"sand/l":13,"sand/m":6,"sand/s":5,"sand/xl":5,"sand/xxl":7,"white/l":10,"white/m":7,"white/s":3,"white/xl":4,"white/xxl":14}'::jsonb, '[]'::jsonb, '["shirt","top","short-sleeve","collar","relaxed"]'::jsonb, 'women-top', 'goods', 'std', 88, date '2026-11-08', 4, 'always'),
+  ('p-wt-utility-shirt', 'utility-shirt', 'Utility Shirt', 'women', 'women-tops', 1399, 1999, 'Two flap pockets on the chest and long sleeves that roll up and button.', 'A long-sleeved shirt with two buttoned flap pockets on the chest and tabs to hold the sleeves rolled up. Cut loose and a little long, with a curved hem: over trousers, or open as a light layer.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Pockets","v":"Two flap pockets on the chest"},{"k":"Sleeve","v":"Long, with roll-up tabs"},{"k":"Fit","v":"Relaxed"},{"k":"Hem","v":"Curved"}]'::jsonb, '{"colour":[{"delta":0,"id":"olive","img":0,"label":"Olive","swatch":"#7D7158"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#293345"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/top-utility-olive-1.jpg","img/products/top-utility-olive-2.jpg","img/products/top-utility-navy-1.jpg","img/products/top-utility-navy-2.jpg","img/products/top-utility-navy-3.jpg"]'::jsonb, '{"navy/l":12,"navy/m":7,"navy/s":11,"navy/xl":7,"navy/xxl":9,"olive/l":4,"olive/m":3,"olive/s":8,"olive/xl":14,"olive/xxl":11}'::jsonb, '[]'::jsonb, '["shirt","top","long-sleeve","utility","pockets"]'::jsonb, 'women-top', 'goods', 'std', 69, date '2026-11-08', 5, 'always'),
+  ('p-wb-drawstring-shorts', 'drawstring-shorts', 'Drawstring Shorts', 'women', 'women-bottoms', 799, 1199, 'An elastic waist with a drawstring, pockets at the sides and patch pockets at the back.', 'Pull-on shorts with an elastic waistband and a drawstring to tighten it, pockets at the sides and two patch pockets at the back. A short, easy leg.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and two patch pockets at the back"},{"k":"Fit","v":"Relaxed"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"navy","img":0,"label":"Navy","swatch":"#1E293B"},{"delta":0,"id":"rust","img":1,"label":"Rust","swatch":"#954538"},{"delta":0,"id":"stone","img":3,"label":"Stone","swatch":"#CFC3B3"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/shorts-drawstring-navy-1.jpg","img/products/shorts-drawstring-rust-1.jpg","img/products/shorts-drawstring-rust-2.jpg","img/products/shorts-drawstring-stone-1.jpg"]'::jsonb, '{"navy/l":3,"navy/m":3,"navy/s":4,"navy/xl":6,"navy/xxl":14,"rust/l":10,"rust/m":6,"rust/s":3,"rust/xl":8,"rust/xxl":10,"stone/l":4,"stone/m":10,"stone/s":4,"stone/xl":13,"stone/xxl":8}'::jsonb, '[]'::jsonb, '["shorts","drawstring","elastic-waist","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 80, date '2026-11-08', 6, 'always'),
+  ('p-ws-shirt-shorts-set', 'shirt-and-shorts-set', 'Shirt and Shorts Set', 'women', 'women-sets', 1999, 2899, 'A short-sleeved shirt and matching drawstring shorts, sold together.', 'Two pieces in one colour: a collared shirt with short sleeves and a gathered back, and pull-on shorts with an elastic drawstring waist and patch pockets at the back. Wear them together, or each with something else.', '[{"k":"In the set","v":"A shirt and a pair of shorts"},{"k":"Shirt","v":"Collar, short sleeves, buttons down the front"},{"k":"Shorts","v":"Elastic drawstring waist, patch pockets at the back"},{"k":"Fit","v":"Relaxed"}]'::jsonb, '{"colour":[{"delta":0,"id":"butter","img":0,"label":"Butter","swatch":"#E8D9BC"},{"delta":0,"id":"sage","img":3,"label":"Sage","swatch":"#767868"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/set-shirt-shorts-butter-1.jpg","img/products/set-shirt-shorts-butter-2.jpg","img/products/set-shirt-shorts-butter-3.jpg","img/products/set-shirt-shorts-sage-1.jpg"]'::jsonb, '{"butter/l":11,"butter/m":7,"butter/s":8,"butter/xl":11,"butter/xxl":10,"sage/l":8,"sage/m":13,"sage/s":14,"sage/xl":4,"sage/xxl":8}'::jsonb, '[]'::jsonb, '["set","co-ord","shirt","shorts","matching"]'::jsonb, 'women-set', 'goods', 'std', 74, date '2026-11-08', 7, 'always'),
+  ('p-wb-cargo-trousers', 'cargo-trousers', 'Cargo Trousers', 'women', 'women-bottoms', 1499, 2199, 'A drawstring waist, cargo pockets on the thighs and a straight, ankle-length leg.', 'Pull-on trousers with an elastic drawstring waist, deep pockets at the sides and a flap cargo pocket on each thigh. The leg is straight and stops at the ankle.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and a flap cargo pocket on each thigh"},{"k":"Leg","v":"Straight, ankle length"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#97907B"},{"delta":0,"id":"stone","img":2,"label":"Stone","swatch":"#E0D3C6"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/trousers-cargo-sage-1.jpg","img/products/trousers-cargo-sage-2.jpg","img/products/trousers-cargo-stone-1.jpg","img/products/trousers-cargo-stone-2.jpg"]'::jsonb, '{"sage/l":13,"sage/m":11,"sage/s":3,"sage/xl":7,"sage/xxl":6,"stone/l":12,"stone/m":6,"stone/s":9,"stone/xl":9,"stone/xxl":10}'::jsonb, '[]'::jsonb, '["trousers","cargo","drawstring","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 76, date '2026-11-08', 8, 'always'),
+  ('p-wb-wide-trousers', 'drawstring-wide-leg-trousers', 'Drawstring Wide-Leg Trousers', 'women', 'women-bottoms', 1299, 1899, 'An elastic drawstring waist and a wide, full-length leg, with pockets.', 'Easy pull-on trousers: an elastic waistband with a drawstring, pockets at the sides and one at the back, and a wide leg that falls straight to the floor.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and one at the back"},{"k":"Leg","v":"Wide, full length"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"navy","img":0,"label":"Navy","swatch":"#202A3B"},{"delta":0,"id":"sage","img":5,"label":"Sage","swatch":"#887C66"},{"delta":0,"id":"stone","img":7,"label":"Stone","swatch":"#DDD3C6"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/trousers-wide-navy-1.jpg","img/products/trousers-wide-navy-2.jpg","img/products/trousers-wide-navy-3.jpg","img/products/trousers-wide-navy-4.jpg","img/products/trousers-wide-navy-5.jpg","img/products/trousers-wide-sage-1.jpg","img/products/trousers-wide-sage-2.jpg","img/products/trousers-wide-stone-1.jpg","img/products/trousers-wide-stone-2.jpg"]'::jsonb, '{"navy/l":13,"navy/m":6,"navy/s":8,"navy/xl":8,"navy/xxl":10,"sage/l":8,"sage/m":7,"sage/s":9,"sage/xl":9,"sage/xxl":7,"stone/l":11,"stone/m":8,"stone/s":6,"stone/xl":9,"stone/xxl":8}'::jsonb, '[]'::jsonb, '["trousers","wide-leg","drawstring","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 82, date '2026-11-08', 9, 'always'),
+  ('p-ws-tie-jumpsuit', 'tie-waist-jumpsuit', 'Tie-Waist Jumpsuit', 'women', 'women-sets', 2199, 2999, 'A V-neck, short sleeves and a tie at the waist you set yourself.', 'A one-piece with a V-neck, short sleeves and a fabric tie at the waist, so the fit is yours to set. Easy through the body, with a tapered leg that ends at the ankle.', '[{"k":"Neckline","v":"V-neck"},{"k":"Sleeve","v":"Short"},{"k":"Waist","v":"A fabric tie"},{"k":"Leg","v":"Tapered, ankle length"},{"k":"Fit","v":"Easy through the body"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#AEA28C"},{"delta":0,"id":"black","img":2,"label":"Black","swatch":"#212023"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/jumpsuit-tie-waist-sage-1.jpg","img/products/jumpsuit-tie-waist-sage-2.jpg","img/products/jumpsuit-tie-waist-black-1.jpg","img/products/jumpsuit-tie-waist-black-2.jpg"]'::jsonb, '{"black/l":9,"black/m":3,"black/s":6,"black/xl":5,"black/xxl":5,"sage/l":10,"sage/m":11,"sage/s":5,"sage/xl":6,"sage/xxl":4}'::jsonb, '[]'::jsonb, '["jumpsuit","one-piece","tie-waist","v-neck"]'::jsonb, 'women-set', 'goods', 'std', 67, date '2026-11-08', 10, 'always'),
+  ('p-ms-camp-collar', 'camp-collar-shirt', 'Camp-Collar Shirt', 'men', 'men-shirts', 1199, 1199, 'An open camp collar, short sleeves and a pocket on the chest.', 'A short-sleeved shirt with a flat, open camp collar, buttons down the front and one pocket on the chest. Straight at the hem, so it is meant to be worn out.', '[{"k":"Collar","v":"Camp collar, worn open"},{"k":"Sleeve","v":"Short"},{"k":"Pocket","v":"One, on the chest"},{"k":"Hem","v":"Straight, worn out"},{"k":"Fit","v":"Relaxed"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#857E6B"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#242E3C"},{"delta":0,"id":"white","img":4,"label":"White","swatch":"#DAD7D5"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/men-camp-shirt-sage-1.jpg","img/products/men-camp-shirt-sage-2.jpg","img/products/men-camp-shirt-navy-1.jpg","img/products/men-camp-shirt-navy-2.jpg","img/products/men-camp-shirt-white-1.jpg","img/products/men-camp-shirt-white-2.jpg","img/products/men-camp-shirt-white-3.jpg"]'::jsonb, '{"navy/l":8,"navy/m":3,"navy/s":8,"navy/xl":6,"navy/xxl":11,"sage/l":6,"sage/m":13,"sage/s":7,"sage/xl":6,"sage/xxl":12,"white/l":12,"white/m":10,"white/s":11,"white/xl":7,"white/xxl":3}'::jsonb, '[]'::jsonb, '["shirt","camp-collar","short-sleeve","men"]'::jsonb, 'men-shirt', 'goods', 'std', 86, date '2026-11-08', 11, 'always')
+) as v(id, slug, name, cat, sub, price, mrp, short_desc, descr, specs, variants, img, skus, badges, tags, size_chart, kind, ship_class, popularity, added_on, list_order, stock_mode)
 where not exists (select 1 from products);
 -- seed.pl END

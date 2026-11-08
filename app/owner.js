@@ -60,6 +60,17 @@ async function boot() {
     }
   }
   await router.start(OWNER_ROUTES);
+
+  // Emails to customers (9 November 2026): the database sends what is due
+  // every minute (pg_cron). Where that job could not be set up, this page
+  // sends it instead, every minute while it is open.
+  if (store.shared() && store.catalogAdmin.mailStatus) {
+    store.catalogAdmin.mailStatus().then((m) => {
+      if (m && m.key && m.net && !m.cron) {
+        setInterval(() => { store.catalogAdmin.sendNow().catch(() => {}); }, 60000);
+      }
+    }).catch(() => {});
+  }
 }
 
 // ⚠️ THE BAR SAYS WHICH LOCK THIS IS. With no database there is no server to

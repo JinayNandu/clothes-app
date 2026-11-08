@@ -22,8 +22,11 @@ router.registerScreen('listing', async (host, r) => {
     store.catalog.shop(), store.wishlist.ids(),
   ]);
 
-  const ctx = resolve(r, all, cats, shop);
-  const bands = D.priceBands(all);
+  // Listings show what is ON SALE; a disabled product (9 November 2026) is
+  // found by search alone -- and anything sold out goes last.
+  const listed = all.filter(D.isListed);
+  const ctx = resolve(r, r.path === '/search' ? all : listed, cats, shop);
+  const bands = D.priceBands(listed);
 
   // Price band -> min/max. A band id is shorter and more readable in a URL
   // than a pair of numbers, and it survives a price edit.
@@ -35,7 +38,7 @@ router.registerScreen('listing', async (host, r) => {
   });
 
   const sort = r.query.sort || ctx.defaultSort;
-  const list = D.sortProducts(filtered, sort);
+  const list = D.availableFirst(D.sortProducts(filtered, sort));
 
   host.innerHTML = `
     ${ctx.crumbs ? crumbs(ctx.crumbs) : ''}

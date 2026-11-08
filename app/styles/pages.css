@@ -747,6 +747,30 @@
   .ed-colour select{ grid-column:2 / 3; }
 }
 
+/* Status and stock (9 November 2026): which products the list shows, the
+   one pop-up that sets both, and the choices in the editor. */
+.pm-shows{ display:flex; flex-wrap:wrap; gap:var(--s2); margin:0 0 var(--s3); }
+.pm-shows .chip small{ font-size:11px; opacity:.75; }
+.pm-statusbox{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s3); margin-top:var(--s3); }
+.pm-statusbox label{ display:flex; flex-direction:column; gap:var(--s1); font-size:12px; font-weight:600; color:var(--ink-soft); }
+@media (max-width:420px){ .pm-statusbox{ grid-template-columns:minmax(0,1fr); } }
+.ed-choices{ display:flex; flex-direction:column; gap:var(--s2); margin-bottom:var(--s3); }
+.ed-choice{ display:flex; gap:var(--s3); align-items:flex-start; padding:var(--s3);
+  border:1px solid var(--edge); border-radius:var(--r2); cursor:pointer; font-size:14px; }
+.ed-choice:has(input:checked){ border-color:var(--ink); background:var(--paper); }
+.ed-choice input{ margin-top:3px; width:18px; height:18px; flex:none; accent-color:var(--ink); }
+.ed-counted[hidden]{ display:none; }
+.ed-waiting{ display:flex; gap:var(--s2); align-items:center; flex-wrap:wrap; margin:0 0 var(--s3);
+  padding:var(--s2) var(--s3); border-radius:var(--r2); background:var(--gold-wash); color:var(--gold-ink); font-size:13px; }
+.ed-delete{ margin-left:auto; color:var(--alert-ink); }
+.inv-name{ flex:1; min-width:0; }
+.inv-mode select{ max-width:190px; font-size:13px; }
+@media (max-width:599px){
+  .inv-head{ flex-wrap:wrap; }
+  .inv-mode{ width:100%; }
+  .inv-mode select{ max-width:none; width:100%; }
+}
+
 /* Stock: colours down, sizes across. Its own scroll if a product has more
    sizes than a phone is wide; the page never grows sideways. */
 .inv-list{ display:flex; flex-direction:column; gap:var(--s3); }

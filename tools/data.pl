@@ -176,6 +176,16 @@ for my $p (@{ $cl->{products} }) {
   # it must NOT be stored -- a stored total disagrees with its sizes the first
   # time either is edited.
   fail("$id: `stock` is derived from skus and must not be stored") if exists $p->{stock};
+  # How the stock is kept (9 November 2026): always in stock, out of stock,
+  # or counted in skus. Said in the file, so no reader has to guess what an
+  # absent one means. And `status`, when given, is on sale or disabled --
+  # a draft or a deleted product is the database's business, not the file's.
+  if (($p->{kind} // '') ne 'voucher') {
+    fail("$id: stockMode '" . ($p->{stockMode} // '') . "' is not always, counted or out")
+      unless ($p->{stockMode} // '') =~ /^(always|counted|out)$/;
+  }
+  fail("$id: status '$p->{status}' is not active or disabled")
+    if defined $p->{status} && $p->{status} !~ /^(active|disabled)$/;
   if (($p->{kind} // '') eq 'voucher') {
     fail("$id: a voucher must not declare skus") if exists $p->{skus};
   } else {

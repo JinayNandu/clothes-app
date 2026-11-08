@@ -246,6 +246,47 @@ if ($code =~ /declare\s+code\s+text\s*:=\s*'([^']*)'/) {
 }
 fail('store-code.sql no longer insists on 8 or more characters') unless $code =~ /\{8,24\}/;
 
+# 6b. THE EMAIL KEY IS NEVER IN A FILE EITHER (9 November 2026). db/email.sql
+#     must still say CHANGE-ME for the Brevo key and the sender's address
+#     (the shop's own mailbox, a personal address this public repository
+#     must not carry), must refuse to run while either does, and no Brevo
+#     key may be anywhere in the repository.
+if (-e "$root/db/email.sql") {
+  my $em = slurp("$root/db/email.sql");
+  my $ebad = 0;
+  for my $var (qw(api_key sender)) {
+    if ($em =~ /^\s*\Q$var\E\s+text\s*:=\s*'([^']*)'/m) {
+      if ($1 ne 'CHANGE-ME') {
+        $ebad++; fail("db/email.sql holds a real $var -- this repository is public. Put CHANGE-ME back "
+                    . 'and type it in the SQL editor only');
+      }
+    } else { $ebad++; fail("could not find the $var := line in db/email.sql"); }
+    unless ($em =~ /if\s+\Q$var\E\s*=\s*'CHANGE-ME'/) {
+      $ebad++; fail("db/email.sql no longer refuses to run while $var is CHANGE-ME");
+    }
+  }
+  ok('email.sql still holds CHANGE-ME for the key and the sender, and refuses to run so') unless $ebad;
+} else {
+  fail('db/email.sql is missing');
+}
+{
+  my @keys;
+  my $walk; $walk = sub {
+    my ($d) = @_;
+    opendir my $dh, $d or return;
+    for my $n (grep { !/^\.\.?$/ } readdir $dh) {
+      next if $n eq '.git' || $n eq 'Catalogue images' || $n eq 'build' || $n eq 'docs';
+      my $p = "$d/$n";
+      if (-d $p) { $walk->($p) } elsif ($n =~ /\.(?:js|json|html|css|sql|pl|md|sh|txt)$/) {
+        push @keys, $p if slurp($p) =~ /\bx(?:keysib|smtpsib)-[A-Za-z0-9]{16,}/;
+      }
+    }
+  };
+  $walk->($root);
+  if (@keys) { fail("a Brevo key is written into the repository: $_") for @keys; }
+  else { ok('no Brevo key anywhere in the repository'); }
+}
+
 # Nothing in the app that has any business with the code or its hash.
 my @leak;
 for my $f (glob("$APP/*.js"), glob("$APP/pages/*.js"), glob("$APP/*.html"), glob("$APP/data/*.json")) {
@@ -370,7 +411,8 @@ if (-e "$root/db/reset.sql") {
        . 'a second run of schema.sql would write over the store\'s own prices and stock');
   }
   my $cbad = 0;
-  for my $fn (qw(store_products save_product set_price set_stock set_hidden)) {
+  for my $fn (qw(store_products save_product set_price set_stock set_status set_stock_mode
+                 send_notices_now mail_status notices_log)) {
     my ($body) = $sqlc =~ /function\s+\Q$fn\E\s*\([^)]*\).*?\$fn\$(.*?)\$fn\$/s;
     if (!defined $body) { $cbad++; fail("could not find $fn() in schema.sql"); next; }
     unless ($body =~ /^\s*(?:declare\b.*?)?begin\s+if\s+not\s+is_staff\(\)\s+then\s+raise\s+exception\s+'NOT_STAFF'/s) {

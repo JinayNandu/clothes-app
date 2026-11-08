@@ -241,34 +241,36 @@ export const catalog = {
   async shop() { return clone(SHOP); },
   async pages() { return clone(PAGES); },
 
+  // Listings, rails and counts are of products ON SALE (9 November 2026):
+  // a disabled one is found by search and by its link, and nowhere else.
   async byCat(cat, sub) {
-    return clone(CAT.filter((p) => p.cat === cat && (!sub || p.sub === sub)));
+    return clone(CAT.filter((p) => D.isListed(p) && p.cat === cat && (!sub || p.sub === sub)));
   },
   async search(q) { return clone(D.searchProducts(CAT, q, CATS)); },
 
   async bestsellers(n = 8) {
-    return clone(CAT.filter((p) => (p.badges || []).includes('bestseller'))
+    return clone(CAT.filter((p) => D.isListed(p) && (p.badges || []).includes('bestseller'))
                     .sort((a, b) => b.popularity - a.popularity).slice(0, n));
   },
   async newArrivals(n = 8) {
-    return clone(CAT.filter((p) => D.isNew(p, SHOP))
+    return clone(CAT.filter((p) => D.isListed(p) && D.isNew(p, SHOP))
                     .sort((a, b) => b.addedOn.localeCompare(a.addedOn)).slice(0, n));
   },
   async onOffer(n = 8) {
-    return clone(CAT.slice().sort((a, b) => D.discountPct(b) - D.discountPct(a)).slice(0, n));
+    return clone(CAT.filter(D.isListed).sort((a, b) => D.discountPct(b) - D.discountPct(a)).slice(0, n));
   },
   async under(amount, n = 8) {
-    return clone(CAT.filter((p) => p.price <= amount)
+    return clone(CAT.filter((p) => D.isListed(p) && p.price <= amount)
                     .sort((a, b) => b.popularity - a.popularity).slice(0, n));
   },
   async related(id, n = 4) {
     const p = byIdSync(id);
-    return p ? clone(D.relatedTo(p, CAT, n)) : [];
+    return p ? clone(D.relatedTo(p, CAT.filter(D.isListed), n)) : [];
   },
   /** Counts per subcategory, for the sidebar. */
   async counts() {
     const out = {};
-    for (const p of CAT) {
+    for (const p of CAT.filter(D.isListed)) {
       // A leaf category's products have no sub; counting them under the
       // literal key "undefined" would show 0 beside the only row that
       // has anything in it.
@@ -466,7 +468,10 @@ const everyProduct = () => {
   const retired = new Set((ov && ov.retired) || []);
   const live = O.overlayState(SHIPPED.rev, ov) === 'current';
   const list = live ? O.applyOverlay(SHIPPED.products, { ...ov, retired: [] }) : SHIPPED.products.slice();
-  return list.map((p) => D.withStock({ ...p, hidden: retired.has(p.id) }));
+  // A retired product is a draft or, marked so, deleted; anything else is
+  // on sale or disabled, as its own `status` says.
+  return list.map((p) => D.withStock({ ...p, status: retired.has(p.id)
+    ? (p.status === 'deleted' ? 'deleted' : 'hidden') : D.statusOf(p) }));
 };
 
 export const catalogAdmin = {
@@ -478,13 +483,14 @@ export const catalogAdmin = {
 
   /** A new product (no id) or a change to one. Returns it as saved. */
   async save(product) {
-    const { id, hidden, stock, ...fields } = clone(product);
+    const { id, hidden, stock, status, waiting, ...fields } = clone(product);
     const known = id && everyProduct().some((p) => p.id === id);
     let pid = id;
     if (known) await catalog.patch(id, fields);
     else pid = (await catalog.addProduct({ kind: 'goods', shipClass: 'std', popularity: 50,
                                            addedOn: D.istDate(), badges: [], ...fields })).id;
-    if (hidden != null) await catalogAdmin.setHidden(pid, hidden);
+    const st = status || (hidden ? 'hidden' : null);
+    if (st) await catalogAdmin.setStatus(pid, st);
     return clone(everyProduct().find((p) => p.id === pid));
   },
 
@@ -507,8 +513,18 @@ export const catalogAdmin = {
     return clone(everyProduct().find((x) => x.id === pid));
   },
 
-  async setHidden(pid, hidden) {
-    if (hidden) await catalog.retire(pid); else await catalog.unretire(pid);
+  /** On sale, disabled, a draft or deleted: the last two leave the shop. */
+  async setStatus(pid, status) {
+    if (!['active', 'disabled', 'hidden', 'deleted'].includes(status)) throw new Error('BAD_STATUS');
+    await catalog.patch(pid, { status: ['disabled', 'deleted'].includes(status) ? status : null });
+    if (['hidden', 'deleted'].includes(status)) await catalog.retire(pid); else await catalog.unretire(pid);
+    return clone(everyProduct().find((p) => p.id === pid));
+  },
+
+  /** Always in stock, out of stock, or counted by colour and size. */
+  async setStockMode(pid, mode) {
+    if (!['always', 'counted', 'out'].includes(mode)) throw new Error('BAD_STOCK_MODE');
+    await catalog.patch(pid, { stockMode: mode });
     return clone(everyProduct().find((p) => p.id === pid));
   },
 

@@ -311,7 +311,7 @@ router.registerScreen('checkout', async (host) => {
     // basket can sit open across a sell-out.
     for (let i = 0; i < lines.length; i++) {
       const p = products[i];
-      const left = D.skuStock(p, lines[i].variant);
+      const left = D.lineMax(p, lines[i].variant);
       if (p && p.kind !== 'voucher' && lines[i].qty > left) {
         toast(`Only ${left} of ${p.name}${D.variantLabel(p, lines[i].variant) ? ' (' + D.variantLabel(p, lines[i].variant) + ')' : ''} left — please adjust your bag.`);
         router.go('/cart');

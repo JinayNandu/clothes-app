@@ -92,7 +92,7 @@ export const emptyOverlay = (rev) =>
 export const EDITABLE = [
   'name', 'slug', 'shortDesc', 'desc', 'price', 'mrp', 'skus', 'popularity',
   'shipClass', 'kind', 'cat', 'sub', 'addedOn', 'badges', 'tags', 'specs',
-  'variants', 'img', 'sizeChart',
+  'variants', 'img', 'sizeChart', 'stockMode', 'status',
 ];
 
 /** Numbers that must stay whole rupees, and whole counts. */

@@ -65,6 +65,7 @@ function said(e) {
   const m = String((e && e.message) || e);
   if (/NOT_STAFF/.test(m)) return 'This browser is no longer let into the store. Reload the page and type the store code.';
   if (/NOT_SET_UP/.test(m)) return 'The products are not in the database yet: run db/SETUP.md step 11 first.';
+  if (/PGRST202|Could not find the function/.test(m)) return 'This needs the newest database update: run db/SETUP.md step 12 (schema.sql, then selftest.sql).';
   if (/NO_UPLOADS_HERE/.test(m)) return 'Photographs can be uploaded once the shop has its database.';
   if (/SLUG_TAKEN/.test(m)) return 'Another product already has the link this name makes. Change the name a little.';
   if (/NEEDS_A_PHOTO/.test(m)) return 'A product in the shop needs at least one photograph. Add one, or untick "Show it in the shop".';
@@ -73,6 +74,8 @@ function said(e) {
   if (/BAD_PHOTOS/.test(m)) return 'One of the photographs is not this shop\'s own. Remove it and upload it again.';
   if (/BAD_COLOUR/.test(m)) return 'A colour needs a name and a colour, and only sizes may change the price.';
   if (/BAD_SIZE/.test(m)) return 'A size needs a short name, and its extra must be whole rupees.';
+  if (/BAD_STATUS/.test(m)) return 'That is not a status a product can have.';
+  if (/BAD_STOCK_MODE/.test(m)) return 'That is not a way of keeping stock.';
   if (/BAD_STOCK/.test(m)) return 'Stock must be whole numbers, 0 or more.';
   if (/row-level security|Bucket not found/i.test(m)) return 'The photograph could not be stored: the photo storage is not set up yet. Run db/SETUP.md step 11 again, and see what selftest.sql says.';
   if (/Payload too large|exceeded the maximum|413/.test(m)) return 'That photograph is too large to upload.';
@@ -100,15 +103,45 @@ const oneBrowser = () => (store.shared() ? '' : notice('info', `<b>One-browser m
   A change made here is seen in this browser only, and photographs cannot be uploaded.
   With the database connected, every change reaches every customer.`));
 
-/** "124 pieces · XL sold out in Navy", or what is left when it is little. */
+// The words for a product's status and how its stock is kept (9 November
+// 2026, the owner: "keep 'infinite stock' 'out of stock' 'disable' 'delete'").
+const STATUS = {
+  active: 'On sale',
+  disabled: 'Disabled',
+  hidden: 'Draft',
+  deleted: 'Deleted',
+};
+const STATUS_WHY = {
+  active: 'In the shop, and can be bought.',
+  disabled: 'No longer sold. Still found by search and its link, shown as out of stock; customers can ask to be told if it comes back.',
+  hidden: 'Not in the shop yet: a draft, while you finish it.',
+  deleted: 'Gone from the shop and from this list. Kept, so past orders still show it, and it can be brought back.',
+};
+const MODE = {
+  always: 'Always in stock',
+  counted: 'Counted by colour and size',
+  out: 'Out of stock',
+};
+const MODE_WHY = {
+  always: 'Never runs out: nothing is counted, and orders take nothing off.',
+  counted: 'How many of each colour in each size; an order takes its pieces off, and a size at 0 is sold out.',
+  out: 'Shown as sold out until you change this; customers can ask to be told when it is back.',
+};
+const statusOf = (p) => (p && p.status) || 'active';
+const modeOf = (p) => (p && p.stockMode) || 'counted';
+
+/** "Always in stock", "Out of stock", or "124 pieces · 2 sizes sold out". */
 function stockLine(p, shop) {
   if (p.kind === 'voucher') return 'Not stocked';
+  if (modeOf(p) === 'always') return 'Always in stock';
+  if (modeOf(p) === 'out') return '<span class="pm-out">Out of stock</span>';
   const skus = p.skus || {};
   const keys = D.skuKeys(p.variants);
+  const count = keys.reduce((n, k) => n + Math.max(0, Number(skus[k]) || 0), 0);
   const out = keys.filter((k) => !(Number(skus[k]) > 0));
   const low = keys.filter((k) => Number(skus[k]) > 0 && Number(skus[k]) <= (shop.lowStockAt || 0));
-  if (!p.stock) return '<span class="pm-out">Sold out</span>';
-  const bits = [`${D.fmtInt(p.stock)} ${p.stock === 1 ? 'piece' : 'pieces'}`];
+  if (!count) return '<span class="pm-out">Sold out: every size at 0</span>';
+  const bits = [`${D.fmtInt(count)} ${count === 1 ? 'piece' : 'pieces'}`];
   if (out.length) bits.push(`<span class="pm-out">${out.length} ${out.length === 1 ? 'size' : 'sizes'} sold out</span>`);
   if (low.length) bits.push(`<span class="pm-low">${low.length} running low</span>`);
   return bits.join(' · ');
@@ -134,8 +167,20 @@ export function renderCatalogue(ctx) {
   return productList(ctx);
 }
 
+// Which products the list shows: everything in use, or one status. Deleted
+// products are kept out of the way unless asked for.
+const SHOWS = [
+  { id: '', label: 'All', test: (p) => statusOf(p) !== 'deleted' },
+  { id: 'active', label: 'On sale', test: (p) => statusOf(p) === 'active' },
+  { id: 'disabled', label: 'Disabled', test: (p) => statusOf(p) === 'disabled' },
+  { id: 'hidden', label: 'Drafts', test: (p) => statusOf(p) === 'hidden' },
+  { id: 'deleted', label: 'Deleted', test: (p) => statusOf(p) === 'deleted' },
+];
+
 function productList({ products, cats, shop, query }) {
-  const shown = products.filter((p) => !p.hidden).length;
+  const show = SHOWS.find((s) => s.id === (query.show || '')) || SHOWS[0];
+  const list = products.filter(show.test);
+  const waiting = products.reduce((n, p) => n + (Number(p.waiting) || 0), 0);
   return `
   <div class="adm-bar">
     <input class="adm-search" type="search" id="adm-q" value="${esc(query.q || '')}"
@@ -143,30 +188,87 @@ function productList({ products, cats, shop, query }) {
     <a class="btn btn-sm btn-primary" href="#/catalogue?p=new">${icon('plus', 14)} Add a product</a>
   </div>
   ${oneBrowser()}
-  <p class="t-micro dim pm-count">${shown} in the shop${products.length > shown
-    ? ` · ${products.length - shown} hidden` : ''} · tap a product to change its photographs,
-    colours, sizes, stock and words</p>
+  <nav class="pm-shows" aria-label="Which products">
+    ${SHOWS.map((s) => {
+      const n = products.filter(s.test).length;
+      if (s.id && !n && s.id !== show.id) return '';
+      return `<a class="chip${s.id === show.id ? ' on' : ''}" href="#/catalogue${s.id ? `?show=${s.id}` : ''}"
+        ${s.id === show.id ? 'aria-current="true"' : ''}>${esc(s.label)} <small>${n}</small></a>`;
+    }).join('')}
+  </nav>
+  <p class="t-micro dim pm-count">Tap a product to change its photographs, colours, sizes,
+    stock and words.${waiting ? ` <b>${waiting} ${waiting === 1 ? 'customer is' : 'customers are'}
+    waiting</b> to be told a product is back.` : ''}</p>
   <ul class="pm-list">
-    ${products.map((p) => `
-    <li class="pm-row${p.hidden ? ' is-hidden' : ''}" data-row="${esc(p.id)}">
-      <a class="pm-thumb" href="#/catalogue?p=${encodeURIComponent(p.id)}" aria-hidden="true" tabindex="-1">${
+    ${list.map((p) => {
+      const st = statusOf(p);
+      const href = `#/catalogue?p=${encodeURIComponent(p.id)}`;
+      return `
+    <li class="pm-row${st === 'active' ? '' : ' is-hidden'}" data-row="${esc(p.id)}">
+      <a class="pm-thumb" href="${href}" aria-hidden="true" tabindex="-1">${
         (p.img || []).length ? art(p, 0) : '<span class="pm-nophoto">No photo</span>'}</a>
       <div class="pm-main">
-        <a class="pm-name" href="#/catalogue?p=${encodeURIComponent(p.id)}">${esc(p.name)}</a>
-        <div class="pm-meta">${esc(filedAs(p, cats))}${p.hidden ? ' · <span class="pill pill-bad">Hidden</span>' : ''}</div>
+        <a class="pm-name" href="${href}">${esc(p.name)}</a>
+        <div class="pm-meta">${esc(filedAs(p, cats))}${st === 'active' ? ''
+          : ` · <span class="pill ${st === 'deleted' ? 'pill-bad' : 'pill-draft'}">${STATUS[st]}</span>`}${
+          Number(p.waiting) ? ` · <span class="pill pill-sent">${p.waiting} waiting</span>` : ''}</div>
         <div class="pm-price"><b>${D.rupees(p.price)}</b>${p.mrp > p.price
           ? ` <s>${D.rupees(p.mrp)}</s> <span>−${D.discountPct(p)}%</span>` : ''}</div>
         <div class="pm-stock">${stockLine(p, shop)}</div>
       </div>
       <div class="pm-acts">
-        <button type="button" class="btn btn-sm btn-secondary" data-price="${esc(p.id)}">Change price</button>
-        <a class="btn btn-sm btn-ghost" href="#/inventory?p=${encodeURIComponent(p.id)}">Stock</a>
-        <a class="btn btn-sm btn-ghost" href="#/catalogue?p=${encodeURIComponent(p.id)}">Edit</a>
+        ${st === 'deleted'
+          ? `<button type="button" class="btn btn-sm btn-secondary" data-restore="${esc(p.id)}">Bring it back</button>`
+          : `<button type="button" class="btn btn-sm btn-secondary" data-price="${esc(p.id)}">Change price</button>
+        <button type="button" class="btn btn-sm btn-ghost" data-status="${esc(p.id)}">Status and stock</button>`}
+        <a class="btn btn-sm btn-ghost" href="${href}">Edit</a>
       </div>
-    </li>`).join('')}
+    </li>`;
+    }).join('')}
   </ul>
-  ${products.length ? '' : `<p class="t-micro dim" style="padding:var(--s4) 0">No products yet.
-    <a href="#/catalogue?p=new">Add the first one</a>.</p>`}`;
+  ${list.length ? '' : `<p class="t-micro dim" style="padding:var(--s4) 0">${products.length
+    ? 'Nothing here.' : 'No products yet.'} <a href="#/catalogue?p=new">Add a product</a>.</p>`}`;
+}
+
+/** A product's status and how its stock is kept, in one pop-up. */
+async function changeStatus(p, repaint) {
+  const st = statusOf(p);
+  const mode = modeOf(p);
+  const opts = (map, cur) => Object.keys(map)
+    .map((k) => `<option value="${k}"${k === cur ? ' selected' : ''}>${esc(map[k])}</option>`).join('');
+  const ans = await askFirst({
+    title: p.name,
+    body: `<b>Disabled</b>: no longer sold, still found by search and shown as out of stock,
+      and customers can ask to be told if it comes back. <b>Deleted</b>: gone from the shop
+      and this list; past orders still show it, and it can be brought back.`,
+    more: `<div class="pm-statusbox">
+      <label>Status<select name="status">${opts(STATUS, st)}</select></label>
+      <label>Stock<select name="mode">${opts(MODE, mode)}</select></label>
+    </div>`,
+    yes: 'Save', no: 'Cancel',
+  });
+  if (!ans) return;
+  try {
+    if (ans.status && ans.status !== st) await store.catalogAdmin.setStatus(p.id, ans.status);
+    if (ans.mode && ans.mode !== mode) await store.catalogAdmin.setStockMode(p.id, ans.mode);
+    if (ans.status === st && ans.mode === mode) { toast('Nothing changed.'); return; }
+    toast(`${p.name}: ${STATUS[ans.status] || STATUS[st]}, ${(MODE[ans.mode] || MODE[mode]).toLowerCase()}.`);
+    repaint();
+  } catch (e) {
+    toast(said(e));
+  }
+}
+
+/** A deleted product back -- as a draft, so it goes on sale only when
+ *  somebody says so. */
+async function restore(p, repaint) {
+  try {
+    await store.catalogAdmin.setStatus(p.id, 'hidden');
+    toast(`${p.name} is back, as a draft. Set it On sale when it is ready.`);
+    repaint();
+  } catch (e) {
+    toast(said(e));
+  }
 }
 
 /** The price and the MRP, in a pop-up, and nothing else. */
@@ -248,7 +350,12 @@ function draftFrom(p, ctx) {
     bestseller: (p.badges || []).includes('bestseller'),
     badges: (p.badges || []).filter((b) => b !== 'bestseller'),
     tags: (p.tags || []).slice(),
-    hidden: !!p.hidden,
+    // On sale, disabled, a draft or deleted; and how its stock is kept --
+    // always in stock, out of stock, or counted (9 November 2026). A new
+    // product is always in stock unless the owner says otherwise.
+    status: p.id ? statusOf(p) : 'active',
+    mode: p.id ? modeOf(p) : 'always',
+    waiting: Number(p.waiting) || 0,
   };
 }
 
@@ -414,10 +521,17 @@ function editorHtml() {
 
     <section class="panel ed-sec">
       <h3 class="t-h3">Stock</h3>
-      <p class="t-micro dim">${isNew ? 'How many pieces you have of each colour in each size.'
-        : 'How many pieces you have of each colour in each size. An order placed while this is open still counts.'}
-        A size at 0 shows as sold out.</p>
-      ${stockTable(d.colours, d.sizes, (cr, sr) => d.stock[`${cr}|${sr}`] || 0, 'ed')}
+      <div class="ed-choices" role="radiogroup" aria-label="How its stock is kept">
+        ${Object.keys(MODE).map((k) => `<label class="ed-choice">
+          <input type="radio" name="mode" value="${k}" ${d.mode === k ? 'checked' : ''}>
+          <span><b>${esc(MODE[k])}</b><br><span class="t-micro dim">${esc(MODE_WHY[k])}</span></span></label>`).join('')}
+      </div>
+      <div class="ed-counted" data-counted ${d.mode === 'counted' ? '' : 'hidden'}>
+        <p class="t-micro dim">${isNew ? 'How many pieces you have of each colour in each size.'
+          : 'How many pieces you have of each colour in each size. An order placed while this is open still counts.'}
+          A size at 0 shows as sold out.</p>
+        ${stockTable(d.colours, d.sizes, (cr, sr) => d.stock[`${cr}|${sr}`] || 0, 'ed')}
+      </div>
       <div class="adm-err" data-err="stock" hidden></div>
     </section>
 
@@ -437,9 +551,17 @@ function editorHtml() {
     </section>
 
     <section class="panel ed-sec">
-      <label class="ed-check"><input type="checkbox" name="shown" ${d.hidden ? '' : 'checked'}>
-        <span><b>Show it in the shop</b><br><span class="t-micro dim">Untick to keep it out of
-          the shop while you finish it. A product is never deleted: bags and past orders still find it.</span></span></label>
+      <h3 class="t-h3">Status</h3>
+      ${d.status === 'deleted' ? notice('warn', `<b>Deleted.</b> Not in the shop and not in the
+        list. Bring it back below, as a draft.`) : `
+      <div class="ed-choices" role="radiogroup" aria-label="Status">
+        ${['active', 'disabled', 'hidden'].map((k) => `<label class="ed-choice">
+          <input type="radio" name="status" value="${k}" ${d.status === k ? 'checked' : ''}>
+          <span><b>${esc(STATUS[k])}</b><br><span class="t-micro dim">${esc(STATUS_WHY[k])}</span></span></label>`).join('')}
+      </div>`}
+      ${d.waiting ? `<p class="ed-waiting">${icon('mail', 14)} <b>${d.waiting}
+        ${d.waiting === 1 ? 'customer is' : 'customers are'} waiting</b> to be told it is back.
+        Each is emailed once, the moment it can be bought.</p>` : ''}
       <label class="ed-check"><input type="checkbox" name="bestseller" ${d.bestseller ? 'checked' : ''}>
         <span><b>One of the bestsellers</b><br><span class="t-micro dim">It goes in the
           Bestsellers row on the home page.</span></span></label>
@@ -448,6 +570,9 @@ function editorHtml() {
     <div class="adm-save">
       <button class="btn btn-primary" type="submit" data-save ${ed.uploading ? 'disabled' : ''}>${isNew ? 'Add the product' : 'Save the changes'}</button>
       <a class="btn btn-secondary" href="#/catalogue">Cancel</a>
+      ${isNew ? '' : d.status === 'deleted'
+        ? '<button type="button" class="btn btn-ghost" data-restore-ed>Bring it back</button>'
+        : `<button type="button" class="btn btn-ghost ed-delete" data-delete>${icon('trash', 14)} Delete</button>`}
       <div class="adm-errs" id="ed-errs" hidden></div>
     </div>
   </form>`;
@@ -483,7 +608,10 @@ function sync(form) {
   d.name = g('name'); d.filed = g('filed'); d.sizeChart = g('sizeChart');
   d.shortDesc = g('shortDesc'); d.desc = g('desc');
   d.price = g('price'); d.mrp = g('mrp');
-  d.hidden = !form.elements.shown.checked;
+  const st = form.querySelector('input[name="status"]:checked');
+  if (st) d.status = st.value;
+  const md = form.querySelector('input[name="mode"]:checked');
+  if (md) d.mode = md.value;
   d.bestseller = form.elements.bestseller.checked;
   for (const row of $$('[data-colour]', form)) {
     const c = d.colours.find((x) => x.ref === row.dataset.colour);
@@ -518,7 +646,9 @@ function check(d, ctx) {
   if (d.shortDesc.length > 300) bad('shortDesc', 'At most 300 letters.');
   if (d.desc.length > 4000) bad('desc', 'At most 4,000 letters.');
 
-  if (!d.hidden && !d.photos.length) bad('photos', 'A product in the shop needs at least one photograph — add one, or untick "Show it in the shop" below.');
+  if (['active', 'disabled'].includes(d.status) && !d.photos.length) {
+    bad('photos', 'A product in the shop needs at least one photograph — add one, or choose Draft under Status below.');
+  }
 
   const cnames = d.colours.map((c) => slugify(c.label, 30));
   if (d.colours.some((c) => !c.label.trim())) bad('colours', 'Every colour needs a name — or remove the ones you do not need.');
@@ -639,7 +769,10 @@ function build(d, products) {
     specs: d.specs.filter((s) => s.k.trim() && s.v.trim()).map((s) => ({ k: s.k.trim(), v: s.v.trim() })),
     badges: [...d.badges, ...(d.bestseller ? ['bestseller'] : [])],
     tags: d.tags.length ? d.tags : [...new Set([...words, ...colours.map((c) => slugify(c.label, 40))])].slice(0, 20),
-    hidden: d.hidden,
+    // A deleted product keeps its status: only set_status() deletes or
+    // brings back, and save_product() refuses the word.
+    ...(d.status !== 'deleted' ? { status: d.status } : {}),
+    stockMode: d.mode,
   };
   // What changed of the stock that exists: [what the page showed, what was typed].
   const changes = {};
@@ -733,6 +866,41 @@ function wireEditor(host, repaint) {
       redraw();
     }
     if (e.target.matches('[data-ph-add]')) addPhotos(e.target);
+    // Counted: the grid. Always in stock or out of stock: nothing to count
+    // -- the numbers stay as they were, for whenever it is counted again.
+    if (e.target.name === 'mode') {
+      const grid = $('[data-counted]', box);
+      if (grid) grid.hidden = ed.d.mode !== 'counted';
+    }
+  });
+
+  // Delete -- asked first, since it takes the product out of the shop and
+  // the list -- and Bring it back, as a draft.
+  box.addEventListener('click', async (e) => {
+    const del = e.target.closest('[data-delete]');
+    const back = e.target.closest('[data-restore-ed]');
+    if (!del && !back) return;
+    const d = ed.d;
+    if (del) {
+      const yes = await askFirst({
+        title: `Delete ${d.name}?`,
+        body: `It leaves the shop and this list. Past orders still show it, and it can
+          be brought back from <b>Deleted</b> on the products page. To keep it findable
+          but not for sale, choose <b>Disabled</b> instead.`,
+        yes: 'Delete it', no: 'Keep it', danger: true,
+      });
+      if (!yes) return;
+    }
+    try {
+      await store.catalogAdmin.setStatus(d.id, del ? 'deleted' : 'hidden');
+      const name = d.name;
+      ed = null;
+      toast(del ? `${name} is deleted. It is under Deleted if you need it back.`
+        : `${name} is back, as a draft. Set it On sale when it is ready.`);
+      if (location.hash === '#/catalogue') repaint(); else location.hash = '#/catalogue';
+    } catch (err) {
+      toast(said(err));
+    }
   });
 
   box.addEventListener('click', (e) => {
@@ -854,38 +1022,53 @@ function stockDirty() {
 export function renderInventory(ctx) {
   const why = unavailable(ctx);
   if (why) return why;
-  const { products, shop } = ctx;
+  // Deleted products have no stock to keep; everything else is here, each
+  // with how its stock is kept, changed at once from its own menu.
+  const products = ctx.products.filter((p) => statusOf(p) !== 'deleted');
+  const { shop } = ctx;
   const low = shop.lowStockAt || 0;
   let out = 0;
   let few = 0;
   for (const p of products) {
+    if (modeOf(p) !== 'counted') continue;
     for (const k of D.skuKeys(p.variants)) {
       const n = Number((p.skus || {})[k]) || 0;
       if (n === 0) out += 1; else if (n <= low) few += 1;
     }
   }
+  const always = products.filter((p) => modeOf(p) === 'always').length;
+  const marked = products.filter((p) => modeOf(p) === 'out').length;
   return `
   ${oneBrowser()}
-  ${notice('info', `<b>How many pieces you have of each colour in each size.</b> An order
-    takes its pieces off as it is placed, and an item the store cancels puts them back.
-    A returned item is <b>not</b> put back — look at it first, then add it here. A size at
-    0 shows as sold out in the shop.`)}
+  ${notice('info', `<b>Each product is always in stock, out of stock, or counted.</b>
+    Counted, it has a box for each colour in each size: an order takes its pieces off as it
+    is placed, an item the store cancels puts them back, and a size at 0 shows as sold out.
+    A returned item is <b>not</b> put back — look at it first, then add it here.`)}
   <div class="adm-bar">
-    <span class="t-micro dim">${products.length} products · ${out} ${out === 1 ? 'size' : 'sizes'} sold out ·
-      ${few} at ${low} or fewer</span>
+    <span class="t-micro dim">${always} always in stock · ${marked} out of stock ·
+      ${products.length - always - marked} counted, with ${out} ${out === 1 ? 'size' : 'sizes'}
+      sold out and ${few} at ${low} or fewer</span>
     <button type="button" class="btn btn-sm btn-primary" data-act="save-stock" disabled>Save the stock</button>
   </div>
   <div class="inv-list" id="inv-list">
     ${products.map((p) => {
       const cols = ((p.variants && p.variants.colour) || []).map((c) => ({ ...c, ref: c.id }));
       const sizes = ((p.variants && p.variants.size) || []).map((s) => ({ ...s, ref: s.id }));
-      return `<section class="panel inv-card${p.hidden ? ' is-hidden' : ''}" data-inv="${esc(p.id)}">
+      const mode = modeOf(p);
+      const st = statusOf(p);
+      return `<section class="panel inv-card${st === 'active' ? '' : ' is-hidden'}" data-inv="${esc(p.id)}">
         <div class="inv-head">
           <span class="inv-thumb">${(p.img || []).length ? art(p, 0) : ''}</span>
-          <div><a href="#/catalogue?p=${encodeURIComponent(p.id)}" class="pm-name">${esc(p.name)}</a>
-            <div class="t-micro dim">${D.fmtInt(p.stock || 0)} ${p.stock === 1 ? 'piece' : 'pieces'}${p.hidden ? ' · hidden from the shop' : ''}</div></div>
+          <div class="inv-name"><a href="#/catalogue?p=${encodeURIComponent(p.id)}" class="pm-name">${esc(p.name)}</a>
+            <div class="t-micro dim">${stockLine(p, shop)}${st === 'active' ? '' : ` · ${esc(STATUS[st])}`}</div></div>
+          <label class="inv-mode"><span class="sr-only">How the stock of ${esc(p.name)} is kept</span>
+            <select data-mode="${esc(p.id)}">
+              ${Object.keys(MODE).map((k) => `<option value="${k}"${k === mode ? ' selected' : ''}>${esc(MODE[k])}</option>`).join('')}
+            </select></label>
         </div>
-        ${stockTable(cols, sizes, (cr, sr) => Number((p.skus || {})[keyOf(cols.length ? cr : '', sizes.length ? sr : '')]) || 0, 'inv')}
+        ${mode === 'counted'
+          ? stockTable(cols, sizes, (cr, sr) => Number((p.skus || {})[keyOf(cols.length ? cr : '', sizes.length ? sr : '')]) || 0, 'inv')
+          : ''}
       </section>`;
     }).join('')}
   </div>
@@ -899,6 +1082,26 @@ function wireInventory(host, repaint, query = {}) {
   const list = $('#inv-list', host);
   if (!list) return;
   stockHost = list;
+  // How a product's stock is kept: saved the moment it is chosen. Counted
+  // shows its boxes, with the numbers they had when it was last counted.
+  list.addEventListener('change', async (e) => {
+    const sel = e.target.closest('[data-mode]');
+    if (!sel) return;
+    if (stockDirty()) {
+      toast('Save the stock first: there are numbers here not saved yet.');
+      sel.value = sel.querySelector('[selected]') ? sel.querySelector('[selected]').value : sel.value;
+      return;
+    }
+    sel.disabled = true;
+    try {
+      const p = await store.catalogAdmin.setStockMode(sel.dataset.mode, sel.value);
+      toast(`${p.name}: ${MODE[sel.value].toLowerCase()}.`);
+      repaint();
+    } catch (err) {
+      sel.disabled = false;
+      toast(said(err));
+    }
+  });
   const buttons = $$('[data-act="save-stock"]', host);
   const said1 = $('[data-stock-said]', host);
   const changed = () => $$('[data-inv-cell]', list).filter((i) => i.value !== i.dataset.was);
@@ -978,6 +1181,18 @@ export function wireCatalogTab(tab, host, ctx, repaint) {
       b.addEventListener('click', () => {
         const p = ctx.products.find((x) => x.id === b.dataset.price);
         if (p) changePrice(p, repaint);
+      });
+    }
+    for (const b of $$('[data-status]', host)) {
+      b.addEventListener('click', () => {
+        const p = ctx.products.find((x) => x.id === b.dataset.status);
+        if (p) changeStatus(p, repaint);
+      });
+    }
+    for (const b of $$('[data-restore]', host)) {
+      b.addEventListener('click', () => {
+        const p = ctx.products.find((x) => x.id === b.dataset.restore);
+        if (p) restore(p, repaint);
       });
     }
     wireEditor(host, repaint);

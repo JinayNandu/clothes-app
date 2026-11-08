@@ -1,278 +1,1240 @@
 {
-  "note": "Integer rupees everywhere -- no floats, no toFixed. price <= mrp. The discount percentage is DERIVED, never stored. `new`, `sale`, `low-stock` and `sold-out` are DERIVED too: `badges` holds only what a human chose. Variants carry `delta`, never a price, and ONLY THE SIZE AXIS may carry a non-zero one -- for a garment that is real: XL and XXL take more cloth. `swatch` is a literal hex and is the one permitted literal colour in this project -- it is product data, not theme, and tokens.pl never sees it because tokens.pl reads only styles/*.css. `sizeChart` names a chart in shop.json; data.pl fails if the chart is missing or does not cover every size this product sells. A product with no `img` key renders generated artwork from art.js; adding `img` is the photography swap path. PRICES AND PRODUCTS ARE ILLUSTRATIVE, NOT REAL -- see shop.json placeholder. Three products is the skeleton, not the shop.",
+  "note": "Integer rupees everywhere -- no floats, no toFixed. price <= mrp. The discount percentage is DERIVED, never stored. `new`, `sale`, `low-stock` and `sold-out` are DERIVED too: `badges` holds only what a human chose. Variants carry `delta`, never a price, and ONLY THE SIZE AXIS may carry a non-zero one -- for a garment that is real: XL and XXL take more cloth. `swatch` is a literal hex and is the one permitted literal colour in this project -- it is product data, not theme, taken from a plain patch of cloth in that colour's own photograph, and tokens.pl never sees it because tokens.pl reads only styles/*.css. `sizeChart` names a chart in shop.json; data.pl fails if the chart is missing or does not cover every size this product sells. `skus` is the STOCK OF EACH COLOUR IN EACH SIZE, keyed colour/size (a product with only one axis keys by that axis alone, and one with neither by `one`); a product's `stock` is their sum, worked out when the catalogue loads (domain.js withStock) and never stored, so the two cannot disagree. THE PHOTOGRAPHS ARE THE OWNER'S OWN (8 November 2026), under img/products/. THE PRICES AND THE STOCK ARE NOT REAL YET -- the owner: \"right now you can keep random prices\". SINCE 8 NOVEMBER 2026 THE DATABASE IS WHERE PRODUCTS LIVE: tools/seed.pl writes this file into db/schema.sql, which puts it into an EMPTY products table once; after that the store page adds products and changes prices and stock, and this file is what a page shows only when the database cannot be reached, and in the single-file build.",
   "products": [
     {
-      "addedOn": "2026-10-18",
+      "addedOn": "2026-11-08",
       "badges": [],
-      "cat": "men",
-      "desc": "Linen washed before it is cut, so it arrives soft rather than stiff and keeps its size after the first wash. A band collar instead of a spread one, a short placket, and sleeves that stop above the elbow — a shirt for heat, not for an office.",
-      "id": "p-ms-indigo-dobby",
+      "cat": "women",
+      "desc": "A V-neck midi with small flutter sleeves, buttons from the neckline to the hem and a seam at the natural waist. The skirt falls straight to mid-calf, and there are pockets in the side seams.",
+      "id": "p-wd-flutter-midi",
       "img": [
-        "img/products/shirt-indigo.jpg",
-        "img/products/shirt-indigo-detail.jpg",
-        "img/products/shirt-ecru.jpg",
-        "img/products/shirt-sky.jpg"
+        "img/products/dress-flutter-midi-sage-1.jpg",
+        "img/products/dress-flutter-midi-sage-2.jpg",
+        "img/products/dress-flutter-midi-rust-1.jpg",
+        "img/products/dress-flutter-midi-rust-2.jpg"
       ],
       "kind": "goods",
-      "mrp": 1799,
-      "name": "Band-Collar Linen Shirt",
-      "popularity": 78,
-      "price": 1299,
+      "mrp": 2799,
+      "name": "Flutter-Sleeve Midi Dress",
+      "popularity": 84,
+      "price": 1899,
       "shipClass": "std",
-      "shortDesc": "Pure linen, band collar, short sleeves, relaxed through the body.",
-      "sizeChart": "men-shirt",
-      "slug": "indigo-dobby-cotton-shirt",
+      "shortDesc": "A V-neck, flutter sleeves and buttons all the way down, with pockets.",
+      "sizeChart": "women-dress",
+      "skus": {
+        "rust/l": 3,
+        "rust/m": 10,
+        "rust/s": 11,
+        "rust/xl": 8,
+        "rust/xxl": 5,
+        "sage/l": 7,
+        "sage/m": 5,
+        "sage/s": 12,
+        "sage/xl": 4,
+        "sage/xxl": 12
+      },
+      "slug": "flutter-sleeve-midi-dress",
       "specs": [
         {
-          "k": "Material",
-          "v": "100% linen, garment washed"
-        },
-        {
-          "k": "Fit",
-          "v": "Relaxed, straight hem"
-        },
-        {
-          "k": "Collar",
-          "v": "Band collar, short placket"
+          "k": "Neckline",
+          "v": "V-neck"
         },
         {
           "k": "Sleeve",
-          "v": "Short, above the elbow"
+          "v": "Short, flutter"
         },
         {
-          "k": "Care",
-          "v": "Machine wash cold, line dry in shade"
-        },
-        {
-          "k": "Made in",
-          "v": "Our own unit"
-        }
-      ],
-      "stock": 24,
-      "sub": "men-shirts",
-      "tags": [
-        "shirt",
-        "linen",
-        "band-collar",
-        "short-sleeve",
-        "casual",
-        "summer"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "delta": 0,
-            "id": "indigo",
-            "img": 0,
-            "label": "Indigo",
-            "swatch": "#303F4F"
-          },
-          {
-            "delta": 0,
-            "id": "ecru",
-            "img": 2,
-            "label": "Ecru",
-            "swatch": "#EAE6DD"
-          },
-          {
-            "delta": 0,
-            "id": "sky",
-            "img": 3,
-            "label": "Sky",
-            "swatch": "#CBCAD1"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "s",
-            "label": "S"
-          },
-          {
-            "delta": 0,
-            "id": "m",
-            "label": "M"
-          },
-          {
-            "delta": 0,
-            "id": "l",
-            "label": "L"
-          },
-          {
-            "delta": 50,
-            "id": "xl",
-            "label": "XL"
-          },
-          {
-            "delta": 100,
-            "id": "xxl",
-            "label": "XXL"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-09-22",
-      "badges": [],
-      "cat": "women",
-      "desc": "Cut as an A-line from the yoke down, so it moves when you walk and sits flat when you sit. The indigo is block printed; the turmeric is plain, with the colour carried up into an embroidered yoke. Both are cotton washed once before cutting, so neither shrinks on you.",
-      "id": "p-wk-bagru-straight",
-      "img": [
-        "img/products/kurti-indigo.jpg",
-        "img/products/kurti-indigo-detail.jpg",
-        "img/products/kurti-turmeric.jpg",
-        "img/products/kurti-turmeric-detail.jpg"
-      ],
-      "kind": "goods",
-      "mrp": 1499,
-      "name": "A-Line Cotton Kurti",
-      "popularity": 85,
-      "price": 999,
-      "shipClass": "std",
-      "shortDesc": "An indigo block print, or plain turmeric with an embroidered yoke. Pre-shrunk cotton.",
-      "sizeChart": "women-kurti",
-      "slug": "bagru-block-print-straight-kurti",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "100% cotton, pre-shrunk"
-        },
-        {
-          "k": "Fit",
-          "v": "A-line from the yoke, flared hem"
+          "k": "Closure",
+          "v": "Buttons down the front"
         },
         {
           "k": "Length",
-          "v": "Calf length, 44 to 46 in by size"
+          "v": "Midi, to mid-calf"
         },
         {
-          "k": "Care",
-          "v": "First wash separately, cold"
-        },
-        {
-          "k": "Made in",
-          "v": "Our own unit"
+          "k": "Pockets",
+          "v": "Two, in the side seams"
         }
       ],
-      "stock": 31,
-      "sub": "women-kurtis",
-      "tags": [
-        "kurti",
-        "cotton",
-        "a-line",
-        "block-print",
-        "embroidered",
-        "indigo",
-        "turmeric"
-      ],
-      "variants": {
-        "colour": [
-          {
-            "delta": 0,
-            "id": "indigo",
-            "img": 0,
-            "label": "Indigo print",
-            "swatch": "#363453"
-          },
-          {
-            "delta": 0,
-            "id": "turmeric",
-            "img": 2,
-            "label": "Turmeric",
-            "swatch": "#E6B311"
-          }
-        ],
-        "size": [
-          {
-            "delta": 0,
-            "id": "s",
-            "label": "S"
-          },
-          {
-            "delta": 0,
-            "id": "m",
-            "label": "M"
-          },
-          {
-            "delta": 0,
-            "id": "l",
-            "label": "L"
-          },
-          {
-            "delta": 50,
-            "id": "xl",
-            "label": "XL"
-          },
-          {
-            "delta": 100,
-            "id": "xxl",
-            "label": "XXL"
-          }
-        ]
-      }
-    },
-    {
-      "addedOn": "2026-11-01",
-      "badges": [],
-      "cat": "women",
-      "desc": "Each tier is gathered onto the one above, so the weight of the cloth does the shaping and nothing needs fitting at the waist. Long enough to wear with flats, and cut generously through the body, so the size you choose is about the bust and not the hips.",
-      "id": "p-wd-tiered-midi",
-      "img": [
-        "img/products/dress-green.jpg",
-        "img/products/dress-green-detail.jpg",
-        "img/products/dress-dove.jpg",
-        "img/products/dress-dove-detail.jpg"
-      ],
-      "kind": "goods",
-      "mrp": 2599,
-      "name": "Tiered Cotton Dress",
-      "popularity": 64,
-      "price": 1899,
-      "shipClass": "std",
-      "shortDesc": "Gathered tiers that do the shaping, in soft cotton.",
-      "sizeChart": "women-dress",
-      "slug": "tiered-cotton-midi-dress",
-      "specs": [
-        {
-          "k": "Material",
-          "v": "Cotton, soft finish"
-        },
-        {
-          "k": "Fit",
-          "v": "Relaxed through the body, gathered tiers"
-        },
-        {
-          "k": "Length",
-          "v": "46 to 48 in from shoulder, by size"
-        },
-        {
-          "k": "Care",
-          "v": "Gentle machine wash cold"
-        }
-      ],
-      "stock": 2,
       "sub": "women-dresses",
       "tags": [
         "dress",
-        "tiered",
-        "cotton",
-        "summer"
+        "midi",
+        "v-neck",
+        "flutter-sleeve",
+        "button-front",
+        "pockets"
       ],
       "variants": {
         "colour": [
           {
             "delta": 0,
-            "id": "green",
+            "id": "sage",
             "img": 0,
-            "label": "Green",
-            "swatch": "#5B9D5C"
+            "label": "Sage",
+            "swatch": "#989488"
           },
           {
             "delta": 0,
-            "id": "dove",
+            "id": "rust",
             "img": 2,
-            "label": "Dove grey",
-            "swatch": "#C5C1C7"
+            "label": "Rust",
+            "swatch": "#653122"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "Wide short sleeves cut into the body and a deep V, gathered into a buttoned waistband that ties at the back, so the fit at the waist is yours to set. The skirt buttons down the front, flares a little and stops above the knee. Pockets in the side seams.",
+      "id": "p-wd-short-button",
+      "img": [
+        "img/products/dress-short-rust-1.jpg",
+        "img/products/dress-short-navy-1.jpg",
+        "img/products/dress-short-navy-2.jpg",
+        "img/products/dress-short-sage-1.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 2299,
+      "name": "Button-Front Short Dress",
+      "popularity": 78,
+      "price": 1599,
+      "shipClass": "std",
+      "shortDesc": "A deep V, wide short sleeves and a buttoned waistband that ties at the back.",
+      "sizeChart": "women-dress",
+      "skus": {
+        "navy/l": 14,
+        "navy/m": 10,
+        "navy/s": 9,
+        "navy/xl": 7,
+        "navy/xxl": 6,
+        "rust/l": 14,
+        "rust/m": 4,
+        "rust/s": 9,
+        "rust/xl": 3,
+        "rust/xxl": 12,
+        "sage/l": 13,
+        "sage/m": 4,
+        "sage/s": 14,
+        "sage/xl": 7,
+        "sage/xxl": 3
+      },
+      "slug": "button-front-short-dress",
+      "specs": [
+        {
+          "k": "Neckline",
+          "v": "Deep V-neck"
+        },
+        {
+          "k": "Sleeve",
+          "v": "Short, cut into the body"
+        },
+        {
+          "k": "Waist",
+          "v": "Buttoned band, ties at the back"
+        },
+        {
+          "k": "Length",
+          "v": "Above the knee"
+        },
+        {
+          "k": "Pockets",
+          "v": "Two, in the side seams"
+        }
+      ],
+      "sub": "women-dresses",
+      "tags": [
+        "dress",
+        "short",
+        "v-neck",
+        "button-front",
+        "tie-back",
+        "pockets"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "rust",
+            "img": 0,
+            "label": "Rust",
+            "swatch": "#C48268"
+          },
+          {
+            "delta": 0,
+            "id": "navy",
+            "img": 1,
+            "label": "Navy",
+            "swatch": "#1C2939"
+          },
+          {
+            "delta": 0,
+            "id": "sage",
+            "img": 3,
+            "label": "Sage",
+            "swatch": "#ADAEA7"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "A shirt dress that goes on over the head: a collar, a placket that buttons halfway down, and long sleeves with a tab to hold them rolled. Straight and easy through the body, ending above the knee.",
+      "id": "p-wd-popover",
+      "img": [
+        "img/products/dress-popover-olive-1.jpg",
+        "img/products/dress-popover-olive-2.jpg",
+        "img/products/dress-popover-navy-1.jpg",
+        "img/products/dress-popover-navy-2.jpg",
+        "img/products/dress-popover-navy-3.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 2499,
+      "name": "Popover Shirt Dress",
+      "popularity": 71,
+      "price": 1799,
+      "shipClass": "std",
+      "shortDesc": "A shirt collar, a half placket and long sleeves that roll up and button in place.",
+      "sizeChart": "women-dress",
+      "skus": {
+        "navy/l": 11,
+        "navy/m": 10,
+        "navy/s": 4,
+        "navy/xl": 6,
+        "navy/xxl": 10,
+        "olive/l": 12,
+        "olive/m": 9,
+        "olive/s": 11,
+        "olive/xl": 13,
+        "olive/xxl": 12
+      },
+      "slug": "popover-shirt-dress",
+      "specs": [
+        {
+          "k": "Collar",
+          "v": "Shirt collar"
+        },
+        {
+          "k": "Closure",
+          "v": "Half placket, goes on over the head"
+        },
+        {
+          "k": "Sleeve",
+          "v": "Long, with roll-up tabs"
+        },
+        {
+          "k": "Fit",
+          "v": "Straight and relaxed"
+        },
+        {
+          "k": "Length",
+          "v": "Above the knee"
+        }
+      ],
+      "sub": "women-dresses",
+      "tags": [
+        "dress",
+        "shirt-dress",
+        "popover",
+        "long-sleeve"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "olive",
+            "img": 0,
+            "label": "Olive",
+            "swatch": "#887C69"
+          },
+          {
+            "delta": 0,
+            "id": "navy",
+            "img": 2,
+            "label": "Navy",
+            "swatch": "#1B2737"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "An easy collared shirt with short sleeves cut into the body, buttons all the way down and a yoke at the back, gathered for room. The hem curves, so it can be worn loose or tucked in.",
+      "id": "p-wt-relaxed-shirt",
+      "img": [
+        "img/products/top-relaxed-white-1.jpg",
+        "img/products/top-relaxed-white-2.jpg",
+        "img/products/top-relaxed-rust-1.jpg",
+        "img/products/top-relaxed-rust-2.jpg",
+        "img/products/top-relaxed-navy-1.jpg",
+        "img/products/top-relaxed-navy-2.jpg",
+        "img/products/top-relaxed-sand-1.jpg",
+        "img/products/top-relaxed-sand-2.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 1499,
+      "name": "Relaxed Short-Sleeve Shirt",
+      "popularity": 88,
+      "price": 999,
+      "shipClass": "std",
+      "shortDesc": "A collared shirt with short sleeves cut into the body and a gathered back.",
+      "sizeChart": "women-top",
+      "skus": {
+        "navy/l": 9,
+        "navy/m": 9,
+        "navy/s": 8,
+        "navy/xl": 6,
+        "navy/xxl": 11,
+        "rust/l": 9,
+        "rust/m": 13,
+        "rust/s": 12,
+        "rust/xl": 8,
+        "rust/xxl": 4,
+        "sand/l": 13,
+        "sand/m": 6,
+        "sand/s": 5,
+        "sand/xl": 5,
+        "sand/xxl": 7,
+        "white/l": 10,
+        "white/m": 7,
+        "white/s": 3,
+        "white/xl": 4,
+        "white/xxl": 14
+      },
+      "slug": "relaxed-short-sleeve-shirt",
+      "specs": [
+        {
+          "k": "Collar",
+          "v": "Shirt collar"
+        },
+        {
+          "k": "Sleeve",
+          "v": "Short, cut into the body"
+        },
+        {
+          "k": "Closure",
+          "v": "Buttons down the front"
+        },
+        {
+          "k": "Back",
+          "v": "Gathered under a yoke"
+        },
+        {
+          "k": "Hem",
+          "v": "Curved"
+        }
+      ],
+      "sub": "women-tops",
+      "tags": [
+        "shirt",
+        "top",
+        "short-sleeve",
+        "collar",
+        "relaxed"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "white",
+            "img": 0,
+            "label": "White",
+            "swatch": "#DEDEDE"
+          },
+          {
+            "delta": 0,
+            "id": "rust",
+            "img": 2,
+            "label": "Rust",
+            "swatch": "#BE705F"
+          },
+          {
+            "delta": 0,
+            "id": "navy",
+            "img": 4,
+            "label": "Navy",
+            "swatch": "#354153"
+          },
+          {
+            "delta": 0,
+            "id": "sand",
+            "img": 6,
+            "label": "Sand",
+            "swatch": "#E1D6C8"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "A long-sleeved shirt with two buttoned flap pockets on the chest and tabs to hold the sleeves rolled up. Cut loose and a little long, with a curved hem: over trousers, or open as a light layer.",
+      "id": "p-wt-utility-shirt",
+      "img": [
+        "img/products/top-utility-olive-1.jpg",
+        "img/products/top-utility-olive-2.jpg",
+        "img/products/top-utility-navy-1.jpg",
+        "img/products/top-utility-navy-2.jpg",
+        "img/products/top-utility-navy-3.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 1999,
+      "name": "Utility Shirt",
+      "popularity": 69,
+      "price": 1399,
+      "shipClass": "std",
+      "shortDesc": "Two flap pockets on the chest and long sleeves that roll up and button.",
+      "sizeChart": "women-top",
+      "skus": {
+        "navy/l": 12,
+        "navy/m": 7,
+        "navy/s": 11,
+        "navy/xl": 7,
+        "navy/xxl": 9,
+        "olive/l": 4,
+        "olive/m": 3,
+        "olive/s": 8,
+        "olive/xl": 14,
+        "olive/xxl": 11
+      },
+      "slug": "utility-shirt",
+      "specs": [
+        {
+          "k": "Collar",
+          "v": "Shirt collar"
+        },
+        {
+          "k": "Pockets",
+          "v": "Two flap pockets on the chest"
+        },
+        {
+          "k": "Sleeve",
+          "v": "Long, with roll-up tabs"
+        },
+        {
+          "k": "Fit",
+          "v": "Relaxed"
+        },
+        {
+          "k": "Hem",
+          "v": "Curved"
+        }
+      ],
+      "sub": "women-tops",
+      "tags": [
+        "shirt",
+        "top",
+        "long-sleeve",
+        "utility",
+        "pockets"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "olive",
+            "img": 0,
+            "label": "Olive",
+            "swatch": "#7D7158"
+          },
+          {
+            "delta": 0,
+            "id": "navy",
+            "img": 2,
+            "label": "Navy",
+            "swatch": "#293345"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "Pull-on shorts with an elastic waistband and a drawstring to tighten it, pockets at the sides and two patch pockets at the back. A short, easy leg.",
+      "id": "p-wb-drawstring-shorts",
+      "img": [
+        "img/products/shorts-drawstring-navy-1.jpg",
+        "img/products/shorts-drawstring-rust-1.jpg",
+        "img/products/shorts-drawstring-rust-2.jpg",
+        "img/products/shorts-drawstring-stone-1.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 1199,
+      "name": "Drawstring Shorts",
+      "popularity": 80,
+      "price": 799,
+      "shipClass": "std",
+      "shortDesc": "An elastic waist with a drawstring, pockets at the sides and patch pockets at the back.",
+      "sizeChart": "women-bottom",
+      "skus": {
+        "navy/l": 3,
+        "navy/m": 3,
+        "navy/s": 4,
+        "navy/xl": 6,
+        "navy/xxl": 14,
+        "rust/l": 10,
+        "rust/m": 6,
+        "rust/s": 3,
+        "rust/xl": 8,
+        "rust/xxl": 10,
+        "stone/l": 4,
+        "stone/m": 10,
+        "stone/s": 4,
+        "stone/xl": 13,
+        "stone/xxl": 8
+      },
+      "slug": "drawstring-shorts",
+      "specs": [
+        {
+          "k": "Waist",
+          "v": "Elastic, with a drawstring"
+        },
+        {
+          "k": "Pockets",
+          "v": "At the sides, and two patch pockets at the back"
+        },
+        {
+          "k": "Fit",
+          "v": "Relaxed"
+        },
+        {
+          "k": "Closure",
+          "v": "Pulls on"
+        }
+      ],
+      "sub": "women-bottoms",
+      "tags": [
+        "shorts",
+        "drawstring",
+        "elastic-waist",
+        "pockets"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "navy",
+            "img": 0,
+            "label": "Navy",
+            "swatch": "#1E293B"
+          },
+          {
+            "delta": 0,
+            "id": "rust",
+            "img": 1,
+            "label": "Rust",
+            "swatch": "#954538"
+          },
+          {
+            "delta": 0,
+            "id": "stone",
+            "img": 3,
+            "label": "Stone",
+            "swatch": "#CFC3B3"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "Two pieces in one colour: a collared shirt with short sleeves and a gathered back, and pull-on shorts with an elastic drawstring waist and patch pockets at the back. Wear them together, or each with something else.",
+      "id": "p-ws-shirt-shorts-set",
+      "img": [
+        "img/products/set-shirt-shorts-butter-1.jpg",
+        "img/products/set-shirt-shorts-butter-2.jpg",
+        "img/products/set-shirt-shorts-butter-3.jpg",
+        "img/products/set-shirt-shorts-sage-1.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 2899,
+      "name": "Shirt and Shorts Set",
+      "popularity": 74,
+      "price": 1999,
+      "shipClass": "std",
+      "shortDesc": "A short-sleeved shirt and matching drawstring shorts, sold together.",
+      "sizeChart": "women-set",
+      "skus": {
+        "butter/l": 11,
+        "butter/m": 7,
+        "butter/s": 8,
+        "butter/xl": 11,
+        "butter/xxl": 10,
+        "sage/l": 8,
+        "sage/m": 13,
+        "sage/s": 14,
+        "sage/xl": 4,
+        "sage/xxl": 8
+      },
+      "slug": "shirt-and-shorts-set",
+      "specs": [
+        {
+          "k": "In the set",
+          "v": "A shirt and a pair of shorts"
+        },
+        {
+          "k": "Shirt",
+          "v": "Collar, short sleeves, buttons down the front"
+        },
+        {
+          "k": "Shorts",
+          "v": "Elastic drawstring waist, patch pockets at the back"
+        },
+        {
+          "k": "Fit",
+          "v": "Relaxed"
+        }
+      ],
+      "sub": "women-sets",
+      "tags": [
+        "set",
+        "co-ord",
+        "shirt",
+        "shorts",
+        "matching"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "butter",
+            "img": 0,
+            "label": "Butter",
+            "swatch": "#E8D9BC"
+          },
+          {
+            "delta": 0,
+            "id": "sage",
+            "img": 3,
+            "label": "Sage",
+            "swatch": "#767868"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "Pull-on trousers with an elastic drawstring waist, deep pockets at the sides and a flap cargo pocket on each thigh. The leg is straight and stops at the ankle.",
+      "id": "p-wb-cargo-trousers",
+      "img": [
+        "img/products/trousers-cargo-sage-1.jpg",
+        "img/products/trousers-cargo-sage-2.jpg",
+        "img/products/trousers-cargo-stone-1.jpg",
+        "img/products/trousers-cargo-stone-2.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 2199,
+      "name": "Cargo Trousers",
+      "popularity": 76,
+      "price": 1499,
+      "shipClass": "std",
+      "shortDesc": "A drawstring waist, cargo pockets on the thighs and a straight, ankle-length leg.",
+      "sizeChart": "women-bottom",
+      "skus": {
+        "sage/l": 13,
+        "sage/m": 11,
+        "sage/s": 3,
+        "sage/xl": 7,
+        "sage/xxl": 6,
+        "stone/l": 12,
+        "stone/m": 6,
+        "stone/s": 9,
+        "stone/xl": 9,
+        "stone/xxl": 10
+      },
+      "slug": "cargo-trousers",
+      "specs": [
+        {
+          "k": "Waist",
+          "v": "Elastic, with a drawstring"
+        },
+        {
+          "k": "Pockets",
+          "v": "At the sides, and a flap cargo pocket on each thigh"
+        },
+        {
+          "k": "Leg",
+          "v": "Straight, ankle length"
+        },
+        {
+          "k": "Closure",
+          "v": "Pulls on"
+        }
+      ],
+      "sub": "women-bottoms",
+      "tags": [
+        "trousers",
+        "cargo",
+        "drawstring",
+        "pockets"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "sage",
+            "img": 0,
+            "label": "Sage",
+            "swatch": "#97907B"
+          },
+          {
+            "delta": 0,
+            "id": "stone",
+            "img": 2,
+            "label": "Stone",
+            "swatch": "#E0D3C6"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "Easy pull-on trousers: an elastic waistband with a drawstring, pockets at the sides and one at the back, and a wide leg that falls straight to the floor.",
+      "id": "p-wb-wide-trousers",
+      "img": [
+        "img/products/trousers-wide-navy-1.jpg",
+        "img/products/trousers-wide-navy-2.jpg",
+        "img/products/trousers-wide-navy-3.jpg",
+        "img/products/trousers-wide-navy-4.jpg",
+        "img/products/trousers-wide-navy-5.jpg",
+        "img/products/trousers-wide-sage-1.jpg",
+        "img/products/trousers-wide-sage-2.jpg",
+        "img/products/trousers-wide-stone-1.jpg",
+        "img/products/trousers-wide-stone-2.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 1899,
+      "name": "Drawstring Wide-Leg Trousers",
+      "popularity": 82,
+      "price": 1299,
+      "shipClass": "std",
+      "shortDesc": "An elastic drawstring waist and a wide, full-length leg, with pockets.",
+      "sizeChart": "women-bottom",
+      "skus": {
+        "navy/l": 13,
+        "navy/m": 6,
+        "navy/s": 8,
+        "navy/xl": 8,
+        "navy/xxl": 10,
+        "sage/l": 8,
+        "sage/m": 7,
+        "sage/s": 9,
+        "sage/xl": 9,
+        "sage/xxl": 7,
+        "stone/l": 11,
+        "stone/m": 8,
+        "stone/s": 6,
+        "stone/xl": 9,
+        "stone/xxl": 8
+      },
+      "slug": "drawstring-wide-leg-trousers",
+      "specs": [
+        {
+          "k": "Waist",
+          "v": "Elastic, with a drawstring"
+        },
+        {
+          "k": "Pockets",
+          "v": "At the sides, and one at the back"
+        },
+        {
+          "k": "Leg",
+          "v": "Wide, full length"
+        },
+        {
+          "k": "Closure",
+          "v": "Pulls on"
+        }
+      ],
+      "sub": "women-bottoms",
+      "tags": [
+        "trousers",
+        "wide-leg",
+        "drawstring",
+        "pockets"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "navy",
+            "img": 0,
+            "label": "Navy",
+            "swatch": "#202A3B"
+          },
+          {
+            "delta": 0,
+            "id": "sage",
+            "img": 5,
+            "label": "Sage",
+            "swatch": "#887C66"
+          },
+          {
+            "delta": 0,
+            "id": "stone",
+            "img": 7,
+            "label": "Stone",
+            "swatch": "#DDD3C6"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "women",
+      "desc": "A one-piece with a V-neck, short sleeves and a fabric tie at the waist, so the fit is yours to set. Easy through the body, with a tapered leg that ends at the ankle.",
+      "id": "p-ws-tie-jumpsuit",
+      "img": [
+        "img/products/jumpsuit-tie-waist-sage-1.jpg",
+        "img/products/jumpsuit-tie-waist-sage-2.jpg",
+        "img/products/jumpsuit-tie-waist-black-1.jpg",
+        "img/products/jumpsuit-tie-waist-black-2.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 2999,
+      "name": "Tie-Waist Jumpsuit",
+      "popularity": 67,
+      "price": 2199,
+      "shipClass": "std",
+      "shortDesc": "A V-neck, short sleeves and a tie at the waist you set yourself.",
+      "sizeChart": "women-set",
+      "skus": {
+        "black/l": 9,
+        "black/m": 3,
+        "black/s": 6,
+        "black/xl": 5,
+        "black/xxl": 5,
+        "sage/l": 10,
+        "sage/m": 11,
+        "sage/s": 5,
+        "sage/xl": 6,
+        "sage/xxl": 4
+      },
+      "slug": "tie-waist-jumpsuit",
+      "specs": [
+        {
+          "k": "Neckline",
+          "v": "V-neck"
+        },
+        {
+          "k": "Sleeve",
+          "v": "Short"
+        },
+        {
+          "k": "Waist",
+          "v": "A fabric tie"
+        },
+        {
+          "k": "Leg",
+          "v": "Tapered, ankle length"
+        },
+        {
+          "k": "Fit",
+          "v": "Easy through the body"
+        }
+      ],
+      "sub": "women-sets",
+      "tags": [
+        "jumpsuit",
+        "one-piece",
+        "tie-waist",
+        "v-neck"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "sage",
+            "img": 0,
+            "label": "Sage",
+            "swatch": "#AEA28C"
+          },
+          {
+            "delta": 0,
+            "id": "black",
+            "img": 2,
+            "label": "Black",
+            "swatch": "#212023"
+          }
+        ],
+        "size": [
+          {
+            "delta": 0,
+            "id": "s",
+            "label": "S"
+          },
+          {
+            "delta": 0,
+            "id": "m",
+            "label": "M"
+          },
+          {
+            "delta": 0,
+            "id": "l",
+            "label": "L"
+          },
+          {
+            "delta": 50,
+            "id": "xl",
+            "label": "XL"
+          },
+          {
+            "delta": 100,
+            "id": "xxl",
+            "label": "XXL"
+          }
+        ]
+      }
+    },
+    {
+      "addedOn": "2026-11-08",
+      "badges": [],
+      "cat": "men",
+      "desc": "A short-sleeved shirt with a flat, open camp collar, buttons down the front and one pocket on the chest. Straight at the hem, so it is meant to be worn out.",
+      "id": "p-ms-camp-collar",
+      "img": [
+        "img/products/men-camp-shirt-sage-1.jpg",
+        "img/products/men-camp-shirt-sage-2.jpg",
+        "img/products/men-camp-shirt-navy-1.jpg",
+        "img/products/men-camp-shirt-navy-2.jpg",
+        "img/products/men-camp-shirt-white-1.jpg",
+        "img/products/men-camp-shirt-white-2.jpg",
+        "img/products/men-camp-shirt-white-3.jpg"
+      ],
+      "kind": "goods",
+      "mrp": 1199,
+      "name": "Camp-Collar Shirt",
+      "popularity": 86,
+      "price": 1199,
+      "shipClass": "std",
+      "shortDesc": "An open camp collar, short sleeves and a pocket on the chest.",
+      "sizeChart": "men-shirt",
+      "skus": {
+        "navy/l": 8,
+        "navy/m": 3,
+        "navy/s": 8,
+        "navy/xl": 6,
+        "navy/xxl": 11,
+        "sage/l": 6,
+        "sage/m": 13,
+        "sage/s": 7,
+        "sage/xl": 6,
+        "sage/xxl": 12,
+        "white/l": 12,
+        "white/m": 10,
+        "white/s": 11,
+        "white/xl": 7,
+        "white/xxl": 3
+      },
+      "slug": "camp-collar-shirt",
+      "specs": [
+        {
+          "k": "Collar",
+          "v": "Camp collar, worn open"
+        },
+        {
+          "k": "Sleeve",
+          "v": "Short"
+        },
+        {
+          "k": "Pocket",
+          "v": "One, on the chest"
+        },
+        {
+          "k": "Hem",
+          "v": "Straight, worn out"
+        },
+        {
+          "k": "Fit",
+          "v": "Relaxed"
+        }
+      ],
+      "sub": "men-shirts",
+      "tags": [
+        "shirt",
+        "camp-collar",
+        "short-sleeve",
+        "men"
+      ],
+      "variants": {
+        "colour": [
+          {
+            "delta": 0,
+            "id": "sage",
+            "img": 0,
+            "label": "Sage",
+            "swatch": "#857E6B"
+          },
+          {
+            "delta": 0,
+            "id": "navy",
+            "img": 2,
+            "label": "Navy",
+            "swatch": "#242E3C"
+          },
+          {
+            "delta": 0,
+            "id": "white",
+            "img": 4,
+            "label": "White",
+            "swatch": "#DAD7D5"
           }
         ],
         "size": [

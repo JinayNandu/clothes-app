@@ -25,17 +25,18 @@ import * as D from '../domain.js';
 import * as O from '../overlay.js';
 import { icon } from '../icons.js';
 import { stars } from '../components.js';
-import { renderCatalogue, renderInventory, renderCategories, renderData, wireCatalogTab }
-  from './admin-catalog.js';
+import { renderCatalogue, renderInventory, wireCatalogTab, busy } from './admin-catalog.js';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'orders', label: 'Orders' },
   { id: 'reviews', label: 'Reviews' },
-  { id: 'catalogue', label: 'Catalogue' },
+  // Products and Inventory (8 November 2026): on the database, every change
+  // reaches every customer. Categories and Data went with the browser-only
+  // editor they belonged to -- an export to paste into a file is not
+  // something the owner can do.
+  { id: 'catalogue', label: 'Products' },
   { id: 'inventory', label: 'Inventory' },
-  { id: 'categories', label: 'Categories' },
-  { id: 'data', label: 'Data' },
 ];
 
 const tabHref = (id, q) => `#/${id}${q ? '?' + q : ''}`;
@@ -48,29 +49,48 @@ function tabBar(active) {
 }
 
 /**
- * The strip that says what the browser is holding over the shipped catalogue.
- * It is on every tab, because the one thing an owner must never do is edit for
- * an hour without realising nothing has been exported.
+ * In ONE-BROWSER mode only: the strip that says the catalogue edits are held
+ * in this browser (backend-local.js's overlay). With the database, an edit
+ * is the database's and every customer sees it, so there is nothing to say.
  */
 function overlayStrip(state, edits) {
-  if (state === 'none') return '';
+  if (store.shared() || state === 'none') return '';
   if (state === 'stale') {
-    return notice('warn', `<b>${edits} unsaved edit${edits === 1 ? '' : 's'},
-      held back.</b> They were made against an older <code>catalog.json</code>
-      than the one now loaded, so they are <b>not</b> being applied — the shop
-      is showing the shipped catalogue.
-      <a href="${tabHref('data')}">Review them</a> and decide, field by field.`);
+    return notice('warn', `<b>${edits} ${edits === 1 ? 'change' : 'changes'} held back.</b>
+      They were made against an older catalogue file than the one now loaded,
+      so the shop here shows the file as it is.`);
   }
-  return notice('info', `<b>${edits} edit${edits === 1 ? '' : 's'} live in this
-    browser only.</b> The shop here reflects them; nobody else sees them until
-    you <a href="${tabHref('data')}">export the catalogue</a> and commit it.`);
+  return notice('info', `<b>${edits} ${edits === 1 ? 'change' : 'changes'} to the
+    catalogue, in this browser only.</b> With the database connected, changes
+    reach every customer.`);
 }
 
 // ---------------------------------------------------------------------------
 // OVERVIEW
 // ---------------------------------------------------------------------------
-function renderOverview({ orders, all, shop, cats }) {
-  const lowStock = all.filter((p) => p.kind !== 'voucher' && p.stock <= shop.lowStockAt);
+function renderOverview({ orders, all, shop, products }) {
+  // The store's own list where it could be read -- hidden products, and
+  // every piece of stock -- and the shop's otherwise.
+  const list = products || all;
+  const onShow = list.filter((p) => !p.hidden);
+  // Stock is by colour and size (8 November 2026): a size sold out is worth
+  // knowing about even while the product has plenty of others.
+  const sizesLow = [];
+  for (const p of onShow) {
+    if (p.kind === 'voucher') continue;
+    const cols = (p.variants && p.variants.colour) || [];
+    const sizes = (p.variants && p.variants.size) || [];
+    for (const k of D.skuKeys(p.variants)) {
+      const n = Math.max(0, Number((p.skus || {})[k]) || 0);
+      if (n > (shop.lowStockAt || 0)) continue;
+      const [a, b] = k.split('/');
+      const c = cols.find((x) => x.id === a);
+      const s = sizes.find((x) => x.id === (b || (cols.length ? '' : a)));
+      sizesLow.push({ p, n, what: [c && c.label, s && s.label].filter(Boolean).join(' · ') });
+    }
+  }
+  sizesLow.sort((x, y) => x.n - y.n);
+  const lowStock = onShow.filter((p) => sizesLow.some((x) => x.p === p));
   const open = orders.filter((o) => ['sent', 'confirmed', 'packed', 'shipped'].includes(o.status));
   const unpaid = orders.filter((o) => !o.paid && !['draft', 'cancelled', 'abandoned'].includes(o.status));
   const late = orders.filter((o) => D.isLate(o));
@@ -101,10 +121,10 @@ function renderOverview({ orders, all, shop, cats }) {
 
   <h2 class="t-h3 adm-sec">Your catalogue</h2>
   <div class="adm-stats">
-    ${stat('Products in the shop', all.length, 'Styles customers can buy', tabHref('catalogue'))}
-    ${stat('Categories', cats.length, cats.map((c) => c.name).join(', '), tabHref('categories'))}
-    ${stat('Low or out of stock', lowStock.length, `${shop.lowStockAt} or fewer left`, tabHref('inventory'))}
-    ${stat('On offer', all.filter((p) => p.mrp > p.price).length, 'Priced below MRP', tabHref('catalogue'))}
+    ${stat('Products in the shop', onShow.length, list.length > onShow.length
+      ? `${list.length - onShow.length} more hidden` : 'Styles customers can buy', tabHref('catalogue'))}
+    ${stat('Sizes low or sold out', sizesLow.length, `${shop.lowStockAt} or fewer left, in ${lowStock.length} ${lowStock.length === 1 ? 'product' : 'products'}`, tabHref('inventory'))}
+    ${stat('On offer', onShow.filter((p) => p.mrp > p.price).length, 'Priced below MRP', tabHref('catalogue'))}
   </div>
 
   <!-- One panel across the page. "Where the data lives" sat beside it, a
@@ -123,9 +143,12 @@ function renderOverview({ orders, all, shop, cats }) {
           <span><a href="${tabHref('orders')}">${esc(o.code)}</a> —
             payment not yet received (${esc(D.PAY_LABEL[o.payMethod] || o.payMethod)})</span>
           <span>${D.rupees(o.grand)}</span></div>`).join('')}
-        ${lowStock.map((p) => `<div class="total-row muted">
-          <span><a href="${tabHref('catalogue', 'p=' + encodeURIComponent(p.id))}">${esc(p.name)}</a></span>
-          <span>${p.stock === 0 ? 'out of stock' : 'only ' + p.stock + ' left in stock'}</span></div>`).join('')}
+        ${sizesLow.slice(0, 8).map((x) => `<div class="total-row muted">
+          <span><a href="${tabHref('inventory', 'p=' + encodeURIComponent(x.p.id))}">${esc(x.p.name)}</a>${x.what
+            ? ` — ${esc(x.what)}` : ''}</span>
+          <span>${x.n === 0 ? 'sold out' : `only ${x.n} left`}</span></div>`).join('')}
+        ${sizesLow.length > 8 ? `<div class="total-row muted"><span><a href="${tabHref('inventory')}">${
+          sizesLow.length - 8} more sizes low or sold out</a></span><span></span></div>` : ''}
       </div>` : `<p class="t-micro dim" style="margin-top:var(--s3)">
         Nothing is late, nothing is low on stock and no order is waiting on a payment check.</p>`}
   </section>`;
@@ -884,19 +907,20 @@ router.registerScreen('admin', async (host, r) => {
       try { ctx.rv = await store.reviews.all(); } catch (e) { ctx.rv = { error: e }; }
       if (mine !== generation) return;
     }
+    // The store's own list of products (8 November 2026): hidden ones too,
+    // and every piece of stock. The overview counts from it; Products and
+    // Inventory edit it.
+    if (['overview', 'catalogue', 'inventory'].includes(tab)) {
+      try { ctx.products = await store.catalogAdmin.all(); } catch (e) { ctx.productsError = e; }
+      if (mine !== generation) return;
+    }
 
     let body;
     if (tab === 'orders') body = renderOrders(ctx);
     else if (tab === 'reviews') body = renderReviews(ctx);
     else if (tab === 'catalogue') body = renderCatalogue(ctx);
     else if (tab === 'inventory') body = renderInventory(ctx);
-    else if (tab === 'categories') body = renderCategories(ctx);
-    else if (tab === 'data') body = await renderData(ctx);
     else body = renderOverview(ctx);
-
-    // renderData awaits again (the export encode and the canonical check), so
-    // the guard is re-tested here rather than only above.
-    if (mine !== generation) return;
 
     host.innerHTML = `
       ${h1('Store', shop.brand.name, 'Orders, the catalogue and stock, for the people who run the shop.')}
@@ -912,10 +936,16 @@ router.registerScreen('admin', async (host, r) => {
 
   await draw();
 
+  // ⚠️ NOT OVER UNSAVED WORK (8 November 2026). An order arriving redraws the
+  // page; while a product is open in the editor, or the stock has changes
+  // not yet saved, that would throw away what the owner typed. busy() says
+  // so, and the next redraw -- after Save, or on leaving -- shows it all.
+  const maybe = () => { if (!busy()) draw(); };
+
   // Contract rule 4: subscribe returns the unsubscribe, and a screen that
   // forgets it fires N times after N visits.
-  const offCat = store.live.subscribe('catalog', draw);
-  const offOrd = store.live.subscribe('orders', draw);
-  const offRev = store.live.subscribe('reviews', draw);
+  const offCat = store.live.subscribe('catalog', maybe);
+  const offOrd = store.live.subscribe('orders', maybe);
+  const offRev = store.live.subscribe('reviews', maybe);
   router.onLeave(() => { offCat(); offOrd(); offRev(); });
 });

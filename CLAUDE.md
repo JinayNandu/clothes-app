@@ -20,6 +20,15 @@ a **pop-up** in place of every second tap and **going back a step**
 **reviews**: once an item is delivered the customer rates the delivery
 and the item, and products show their average and reviews — db/SETUP.md
 step 10, run and proved on the real project the same day (*Reviews*).
+**Later on 8 November 2026: the owner's own photographs** — 58 of them, 11
+garments — replaced the stand-ins and the three invented products, at
+random prices for now; and **the store can add products, change their
+prices and photographs, and keep the stock of every colour in every size**
+(Products and Inventory tabs), on the database, where every order is now
+checked against today's prices and stock. ⚠️ That needs db/SETUP.md
+**step 11**, which the owner has not run yet: until then the shop shows the
+11 products from `catalog.json` and those two tabs say so (*The catalogue in
+the database*).
 See *Where this is*, *Accounts* and *The order of work*.
 
 ---
@@ -64,9 +73,9 @@ for the store owner**.
 
 | Question | Answer |
 |---|---|
-| What do they make? | **Men's shirts, and womenswear across the board** — tops, kurtis, dresses. The skeleton carries one shirt, one kurti, one dress. |
+| What do they make? | **Men's shirts, and womenswear across the board.** Since 8 November 2026 the catalogue is the owner's own: 11 garments from their photographs -- three dresses, two tops, shorts, two trousers, a shirt-and-shorts set, a jumpsuit and a men's camp-collar shirt, each in 2 to 4 colours. No kurtis among them, so the Kurtis subcategory and its size chart are gone. |
 | One manufacturer or several? | **One.** Milan's `db/MULTISTORE.md` is there for the day it is more, and that day is cheaper to reach than to start from. |
-| Photographs? | **None of their own yet.** Since 4 November 2026 the site shows Unsplash stand-ins, on the owner's word that the drawn garments looked "too kiddish". `art.js` is now only the fallback. ⚠️ Still the biggest risk to the idea -- see *Open*. |
+| Photographs? | **Their own, since 8 November 2026** — 58 photographs sent on WhatsApp (in `Catalogue images/`, git-ignored, copied into `app/img/products/` under product names). All 1024 × 1280, exactly the 4:5 the cards use, and with no camera or location data in them. The two home-page pictures of a workshop are still Unsplash stand-ins. From 4 to 8 November the products were stand-ins too. ⚠️ They look like a brand's studio shoot: if any were taken by a label the owner makes for, the owner should be sure the shop may use them. |
 | How do they pay? | **UPI, and cash or UPI on delivery.** Both. Since 8 November 2026 the second is called **"Cash / UPI on delivery"** everywhere (`D.PAY_LABEL.cod`; the id stays `cod`, as in every order and in `schema.sql`) -- the owner: "they can do the UPI payment at delivery too, cash is not necessary". The Terms page's payment paragraph was rewritten with it: it still said "the checkout says so" about the demo UPI id, untrue since that note went on 7 November. The UPI id is a demo one that cannot resolve (`@example`). ⚠️ Since 7 November 2026 the checkout no longer SAYS so — the owner shows the site as the flow it will be, and the amber "this QR cannot take money" strip read as a broken shop. The guard is in the data now: `data.pl` fails unless a demo id is on `@example` (an allow-list; it was a deny-list of real handles, which `@okbizaxis` walked past) and fails if `placeholder` goes false while the id is a demo. The Preview bar still calls every order a test. **No card or net banking** since 7 November 2026: both need a gateway (about 2% an order) and a server to verify each payment; they were shown greyed out with "Not set up yet", which read as unfinished. The Razorpay seam stays dormant in `gateway-razorpay.js`. The UPI step asks the customer to keep the payment screenshot and show it to the delivery partner. |
 
 ### Still not answered, and each one blocks something
@@ -94,12 +103,12 @@ for the store owner**.
 | Cart, coupon, totals | **Built.** `money.pl` green, including the size delta. **Other products you may like** (8 November 2026, the owner's ask) after the bag's lines — so on a phone before the order summary — and under an empty bag: the same categories as the bag and every earlier order (`D.alsoLike`: the bag's subcategory, its category, then an earlier order's, styles not bought yet first, never one in the bag or sold out), as the shop's own cards. Past orders are read once per visit, and not at all without a stored session — `orders.mine()` answers from storage before loading supabase-js, so browsing still touches no server. ⚠️ **Fixed the same day: the bag page added a click listener on every repaint**, so taps doubled — a + tapped six times ran `setQty` 1, 2, 4, 8, 16, 32 times; it is wired once per screen now, measured at one call a tap |
 | Add to bag, as it feels | **Built, 7 November 2026, on the owner's ask.** A card's Add to bag **asks for a size** (a panel over the photo; each chip names its size and any extra cost), then turns into **− M · n in bag +** for that line; − at one takes it off. A card's colour dots switch its photo and the colour added. A see-through copy of the photo flies into the bag (`ui.js` `flyToBag`) and the bag's count goes up **as it lands**, one per flight, so quick taps read 1, 2, 3. The bag fills with ink once something is in it and says "Bag" from 1024 up. **The product page works the same way since 8 November 2026** (the owner: "if I had added 2-3, it should show that"): its quantity box is gone; Add to bag puts one in and becomes **− M · 1 in bag +**, at the height of a full button; it opens on the newest line of that product already in the bag — its colour, photo and size, "M · 3 in bag" — and a size or colour picked shows that line's own count or Add to bag. Its flight used to be skipped without a word on a phone, where the photo has scrolled away by the time the button is reached; `flyToBag(from, qty, near)` now lifts a small copy of the photo off the pressed button instead. See *Sizes that are garment sizes* for the rule |
 | Checkout, address, pay options | **Built.** With the database it places the order. **Since 8 November 2026 it asks the customer to sign in first** — the owner: "how will they ever view that order again" — as step 1, in place on the page (`config.js` `SIGN_IN_TO_ORDER`, a PAGE rule: the server still takes a guest, so one flag brings guest checkout back if codes stop arriving). Signed in: the account's saved addresses as cards, the default first, and "Add a new address", prefilled from the account's name and mobile; a new address is **saved to the account as the order goes through** — no tick box, not twice, not past ten — and the account's name and mobile are kept the first time. A saved address reads "Name · 98765 43210" over the address (`D.fmtMobile`), on checkout, the profile and the order page; the mobile used to trail the PIN code. UPI or cash on delivery. In one browser, as before: no sign-in, a form, the WhatsApp handoff |
-| An order, end to end | **Built (step 4).** Saved → sent by the customer → confirmed, packed, shipped (courier and tracking number optional) and delivered by the store. `deliveredAt` is stamped on delivery. **The order-details page** (8 November 2026, the owner's ask): a way back to Your orders, the code and its pill, then **every step with its date** on top, following the store live; what it says about that; what was bought, **each item opening its product page**; payment; help. It drew the order twice for an hour that day -- a chain of dots across the top and the dated steps further down -- until the owner asked for one: the dated list stays, first, and the dots (`components.js` `orderChain`, from `trackSteps()`) only on Your orders' cards. "Copy the text" is offered only on an order saved in one browser, where copying is a way to send it. **Your orders** shows each order as a card, tapped anywhere (only the code could be tapped before), with its photos, total, delivery range and a small chain. **Stock is not taken off on ordering** — that belongs on the server, where two phones cannot both buy the last one |
-| Catalogue | **3 products**, 2 categories, 3 subcategories. Prices and products INVENTED. Photographs are Unsplash stand-ins, credited in `shop.json` `photos` and on the About page |
+| An order, end to end | **Built (step 4).** Saved → sent by the customer → confirmed, packed, shipped (courier and tracking number optional) and delivered by the store. `deliveredAt` is stamped on delivery. **The order-details page** (8 November 2026, the owner's ask): a way back to Your orders, the code and its pill, then **every step with its date** on top, following the store live; what it says about that; what was bought, **each item opening its product page**; payment; help. It drew the order twice for an hour that day -- a chain of dots across the top and the dated steps further down -- until the owner asked for one: the dated list stays, first, and the dots (`components.js` `orderChain`, from `trackSteps()`) only on Your orders' cards. "Copy the text" is offered only on an order saved in one browser, where copying is a way to send it. **Your orders** shows each order as a card, tapped anywhere (only the code could be tapped before), with its photos, total, delivery range and a small chain. **Stock is taken off as an order is placed**, on the server, since step 11 (8 November 2026) -- the product's row locked first, so two phones cannot both buy the last one -- and put back when the store cancels an item (*The catalogue in the database*) |
+| Catalogue | **11 products from the owner's photographs** (8 November 2026), 2 categories, 5 subcategories (Men: Shirts; Women: Dresses, Tops and shirts, Trousers and shorts, Jumpsuits and sets). Names, descriptions and details are written only from what the photographs show — **no material or care is claimed**, because nobody has said what the cloth is; the owner fills those in from the store. **Prices and stock are random for now** (the owner: "right now you can keep random prices"). Stock is kept **by colour and size**. In the database once step 11 runs; `catalog.json` is the first catalogue and the fallback. See *The catalogue in the database* |
 | Size charts | **Built.** A **Size chart** pop-up from the product page and, since 8 November 2026, from every card's size picker — a full-width line in words under the chips, because the info icon in the panel's corner (words only from 600px) went unseen on a phone. The table opens with one line on how to read it ("Measure your chest, and find it under To fit chest"), plus the no-tap fit hint under the product page's picker |
 | Delivery range | **Frozen into the order (step 5)** as it reaches the shop, and read back everywhere after. Live only where it should be: the product page and the shipping page. The store flags an order **Late** once its last promised day has passed |
 | Return window | Config and `returnWindow()` exist. **No return flow** — step 9 |
-| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). **Each item has its own status** (built 7 November 2026, on the owner's yes): a "Move this item to…" menu and Cancel item on every item; the order's status is its slowest item still on its way (`roll_up_order`), rising through every step it passes; cancelling an item takes it out of the total and shrinks the coupon in proportion to `discount_placed`; paid and then cut, the store sees "Refund ₹X" and notes it sent (`mark_refund`), and the customer sees what is owed, then when it went. Needs `schema.sql` re-run — the page hides every per-item control until items carry a status (`D.hasItemStatus`) — and `db/selftest.sql` proves the SQL on the real database and rolls back. **Since 8 November 2026, on the owner's word:** every second tap is a **pop-up that says what will happen** (`ui.js` `askFirst` — never `window.confirm()`, which the artifact viewers answer "no" unseen); a step BEHIND the order is a button as well as every step ahead, plus "Back to <step>", and the order — or one item — goes **back** (see *Each item's own status*); each item's one menu holds Move on, Move back, Cancel this item and Returned (the owner looked for Cancel there), with Cancel item a button beside it too; courier and tracking number are asked in the Shipped pop-up; the overview's "Late" is **Running late**, "None past the delivery date promised to the customer" ("What is 0 late? Late for what?"); and a **Reviews** tab (8 November 2026: every delivery rating with its courier, every product review with Hide -- see *Reviews*); the overview's "Where the data lives" note (catalog.json, patch sets) is gone — "not needed", the owner said; the Data tab still explains exporting. Going back needs `schema.sql` run again (db/SETUP.md step 9); until then the board says so. See *Two pages* |
+| Store page | **Its own page and link** since 4 November 2026 — `app/owner.html`, opened at `…/clothes-app/store/`, locked by the store code on the server since step 6. Orders with the address, the phone and the next step; catalogue; stock. **Since 7 November 2026, on the owner's word:** the overview counts are in two named groups, *Your orders* and *Your catalogue* (as one row, "3 Products" read as three products ordered); each order's status is the whole road top to bottom, every step ahead a button, and a tap marks it AND every step above it — sent→packed is Confirm then Pack, each in the history (`D.roadTo`), so the customer's timeline goes green to there and the server's one-step road is never skipped; more than one step takes a second tap. "Mark paid" is **"Mark payment received"**, with what to check written beside it (UPI: the amount and the order code in the bank; COD: the courier's cash). **Each item has its own status** (built 7 November 2026, on the owner's yes): a "Move this item to…" menu and Cancel item on every item; the order's status is its slowest item still on its way (`roll_up_order`), rising through every step it passes; cancelling an item takes it out of the total and shrinks the coupon in proportion to `discount_placed`; paid and then cut, the store sees "Refund ₹X" and notes it sent (`mark_refund`), and the customer sees what is owed, then when it went. Needs `schema.sql` re-run — the page hides every per-item control until items carry a status (`D.hasItemStatus`) — and `db/selftest.sql` proves the SQL on the real database and rolls back. **Since 8 November 2026, on the owner's word:** every second tap is a **pop-up that says what will happen** (`ui.js` `askFirst` — never `window.confirm()`, which the artifact viewers answer "no" unseen); a step BEHIND the order is a button as well as every step ahead, plus "Back to <step>", and the order — or one item — goes **back** (see *Each item's own status*); each item's one menu holds Move on, Move back, Cancel this item and Returned (the owner looked for Cancel there), with Cancel item a button beside it too; courier and tracking number are asked in the Shipped pop-up; the overview's "Late" is **Running late**, "None past the delivery date promised to the customer" ("What is 0 late? Late for what?"); and a **Reviews** tab (8 November 2026: every delivery rating with its courier, every product review with Hide -- see *Reviews*); the overview's "Where the data lives" note (catalog.json, patch sets) is gone — "not needed", the owner said. **Products and Inventory tabs** (8 November 2026, the owner: "they should have an option to add any new products with images etc, / update price of existing products / update inventory"): add a product with its photographs, change a price in a pop-up, edit everything else, hide one, and keep the stock of every colour in every size; the browser-only Catalogue, Categories and Data tabs inherited from DEVI are gone (*The catalogue in the database*). Going back needs `schema.sql` run again (db/SETUP.md step 9); until then the board says so. See *Two pages* |
 | Database | **Connected (step 6), 7 November 2026**, to the shop's own project: ref `tquymsewhzfawjkyysax`, Mumbai, in an organization of its own (Milan's was full). `db/schema.sql` and `db/store-code.sql` ran clean; the rules were probed from outside. ⚠️ **No order has been placed in it yet**, so `place_order`'s happy path is first exercised by the owner's test order — see *The database* |
 | Accounts | **Built and switched on** (7 November 2026) — step 7. Email and a six-digit code, never a password, never required to buy; an address book; a guest's orders follow them into an account. The owner set up Brevo (sender `Vastra Apparel`, a Gmail of the shop's), the switches and both templates; the new SQL ran and its rules were probed from outside. **The first real code arrived by email** (the owner, 7 November 2026), so the sender, SMTP and the code template work. ⚠️ Still unseen: signing in on a SECOND phone, which takes the other template (Magic Link). **8 November 2026:** required at checkout (above), and a **profile page** (`#/account`) behind a person icon in the header on every screen, a phone included — who you are, your orders, saved addresses (signed in with none, the form is already open), your name and mobile (kept on the account, Supabase `user_metadata`), Help and support (the shop's phone, WhatsApp, email, hours, the policy pages) and Settings (wishlist, bag, sign out, clear this browser), after Milan's settings screen. See *Accounts* |
 | Brand name and identity | **PLACEHOLDER.** "Vastra Apparel" is invented |
@@ -133,8 +142,9 @@ and there is no build step on either side.
 
 Product links, for sending to someone — each one goes through the root
 redirect, which is why that redirect must keep the hash:
-`…/clothes-app/#/p/indigo-dobby-cotton-shirt`,
-`…/#/p/bagru-block-print-straight-kurti`, `…/#/p/tiered-cotton-midi-dress`.
+`…/clothes-app/#/p/flutter-sleeve-midi-dress`,
+`…/#/p/relaxed-short-sleeve-shirt`, `…/#/p/camp-collar-shirt` (since 8 November
+2026; a product added in the store gets its link from its name).
 
 **The store has its own link**, `…/clothes-app/store/`. `store/index.html`
 is only a door, the same shape as the root one: it forwards to
@@ -195,12 +205,16 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   lines in one transaction, sets owner, status `sent`, `paid` false and
   the time itself, caps five orders an hour per session, and rejects a
   delivery promise no rule could produce.
-- ⚠️ **It does not know the prices.** The catalogue is JSON in git, not in
-  the database, so a hand-made request can name its own unit price and
-  coupon. `checkOrderPrices()` flags any such order on the store's board
-  ("These are not today's catalogue prices") — proved with a ₹1 shirt.
-  **A server-side price check must come before taking money from
-  strangers.** See *Open*.
+- **It knows the prices since step 11 (8 November 2026)**: the catalogue
+  is in the database, and `take_lines()` holds every line to today's
+  price for its size, a colour and size the product sells, and the stock
+  -- see *The catalogue in the database*. Before that a hand-made request
+  could name its own unit price (proved with a ₹1 shirt). ⚠️ **The coupon
+  is still unchecked on the server**: the codes are in `shop.json`, which
+  the database has never seen. `checkOrderPrices()` flags a discount its
+  coupon would not give, worked out on the order's own prices, and holds
+  a line to today's catalogue only when the server did not check it
+  (`checked`). See *Open*.
 - **The store code is `claim_staff()`**: a bcrypt compare on the server,
   8–24 lowercase characters, five tries an hour per session. The code is
   typed into the SQL editor only; `db.pl` fails if `store-code.sql` holds
@@ -224,8 +238,13 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
 - **`tools/db.pl`, the eleventh check**: the order prefix, the statuses
   and the road agree between `schema.sql` and `domain.js`; every table
   has RLS and is revoked before any grant; nothing is granted to `anon`
-  but the schema and the two public review readers, which must be STABLE
-  and may not name a customer's column (since 8 November 2026);
+  but the schema, the two public review readers and `catalogue()`, which
+  must be STABLE and may not name a customer's column (since 8 November
+  2026; `product_json()`, which `catalogue()` builds with, is held to the
+  same); section 10 (8 November 2026): the first catalogue is
+  `catalog.json` as `tools/seed.pl` writes it and goes into an empty
+  table only, every product write checks `is_staff()` first, and
+  `place_order` still checks its lines through `take_lines`;
   every function is revoked from public, anon and authenticated, and
   granted back to exactly the functions the app calls (section 5b, since
   8 November 2026: a missing grant hides from the self-test and from a
@@ -307,6 +326,142 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   reads. And with the config pointed at a dead address: browsing still
   works, "Place order" says it could not reach the shop and keeps the
   bag, and the store page fails shut rather than showing local orders.
+
+## The catalogue in the database (8 November 2026)
+
+The owner, sending their own photographs: "please use those images and
+right now you can keep random prices … on the store end, they should have
+an option to add any new products with images etc, / update price of
+existing products / update inventory etc too". Until then the catalogue was
+JSON in git, and the store's catalogue tabs (DEVI's) edited a copy in one
+browser to be exported into a file -- nothing the owner could use.
+
+⚠️ **Built and tested against the stand-in; NOT YET ON THE REAL DATABASE.**
+db/SETUP.md step 11 (`schema.sql`, then `selftest.sql`) puts it there. Until
+then `catalogue()` answers 404 on the real project, the shop shows
+`catalog.json` (the same 11 products), and Products and Inventory say what
+to run. Nothing breaks in between: the old `place_order` takes the new
+products' orders as it took the old ones.
+
+**The photographs** — 58, all 1024 × 1280 JPEGs with no camera or location
+data, grouped by eye into 11 garments and copied to `app/img/products/` as
+`<type>-<style>-<colour>-<n>.jpg`; every one is used. Each colour's swatch is
+the median of a patch of plain cloth in its own photograph (sampled in the
+preview, each patch checked on screen). The category tiles show two of them.
+They are declared ONCE in `shop.json` `ownPhotos` (`dir: img/products/`):
+`data.pl` counts a photograph there as credited and not stock, and fails if
+`photos` also credits one there -- a stand-in cannot hide in the shop's own
+folder by carrying a credit. The 12 stand-in product photographs and the 2
+category tiles were deleted, on the owner's yes; the two hero pictures stay
+(stock, credited). The About page now says the clothes are photographed by
+the shop.
+
+**The data.** `products` is a table like every other here: RLS on, no
+policy, revoked from everybody; nobody reads or writes it directly.
+- `catalogue()` -- the products on show, for everybody, granted to `anon`
+  beside the review readers, read once per page load with the publishable
+  key by a plain fetch, ALONGSIDE the shop's own files (store.js `ready()`),
+  so browsing costs no extra time and still makes no session. It shows each
+  size's stock **up to 10** -- enough for "Only 2 left" and for the bag's
+  limit (an order takes at most 10 of a line) -- not the warehouse.
+- `store_products()` -- the store's view: hidden products too, every piece.
+- `save_product(p)`, `set_price`, `set_stock`, `set_hidden` -- the store's
+  writes, each `is_staff()` first and every field checked again: whole
+  rupees, price at or under MRP, no size coming to nothing, slugs unique,
+  swatches six-digit hex, a colour never moving the price, photographs only
+  this shop's own files or its own storage (`..` refused), a product on
+  show needing a photograph. `db.pl` section 10 fails if any of the five
+  loses its `is_staff()` check.
+- **A product is never deleted, only hidden** -- bags, wishlists and orders
+  find it by id.
+- `product_json()` is the only place the table's snake_case becomes the
+  app's shape, so a row never reaches a screen.
+
+**Stock is kept by colour and size** -- `skus`, `{"sage/m": 4}`, keyed as
+`domain.js` `skuKey()`, `schema.sql` `sku_key()` and `data.pl` agree
+(colour/size, the one axis alone, or `one`). A product's `stock` is their
+sum, worked out as the catalogue loads (`D.withStock`), never stored --
+`data.pl` fails on a stored one. On the shop: a size with none left in the
+colour shown is struck through and cannot be picked, on the card's panel
+and the product page; the bag, the card's + and the product page's + stop
+at that colour-and-size's stock; "Only N left" means that size.
+
+**Every order is checked against today's catalogue** -- `take_lines()`, which
+`place_order()` calls for its lines (granted to nobody; the self-test calls
+it directly, because calling `place_order` would use up a real order
+number): the product exists and is on show, the colour and size are ones it
+sells, the unit price and MRP are today's for that size, and the stock is
+there -- each product row locked (`for update`) and the pieces taken off in
+the order's own transaction. Refusals name the item: `GONE_FROM_CATALOGUE
+<pid>`, `PRICE_CHANGED <pid>`, `OUT_OF_STOCK <pid> <key> <left>`. The
+checkout then reads the catalogue again and goes back to the bag, which
+shows the new price or what is left (tested: a price changed under an open
+page, a size sold out under one). Each line records `checked` and
+`stock_taken`; **an item the store cancels puts its pieces back once**
+(`restock_line`, from `advance_order` and `advance_line`); **a returned
+item does not** -- somebody looks at it first, then adds it in Inventory.
+
+**The first catalogue** is `catalog.json`, written by `tools/seed.pl` into a
+marked block at the end of `schema.sql` that inserts into an **empty table
+only** -- a later run of `schema.sql` leaves the store's own prices, stock
+and products alone. `db.pl` runs `seed.pl` and fails if the block is not
+`catalog.json` as `data.pl` passed it, or loses its empty-table guard.
+After the first run `catalog.json` is only what a page shows when the
+database cannot be reached, and the single-file build.
+
+**Photographs uploaded from the store** go to Supabase Storage, bucket
+`product-photos`: public to read, only the store may add one (policy on
+`storage.objects` calling `is_staff()`). The page first makes each one the
+shop's shape -- the largest 4:5 window from the middle, at most 1024 × 1280,
+never enlarged, JPEG 0.86 (`admin-catalog.js` `shrinkPhoto`), which also
+drops any camera or location data -- and names it by the product and a
+random id, never overwriting. Tested: a 1600 × 1000 picture became 800 ×
+1000, a 3000 × 4000 one 1024 × 1280. A photograph uploaded and then left
+unsaved stays in the bucket, unused.
+
+**The store's screens** (`pages/admin-catalog.js`, replacing DEVI's):
+- **Products** -- every product with its photograph, price, discount and
+  stock ("124 pieces · 2 sizes sold out · 1 running low"); **Change price**
+  is a pop-up (`askFirst` with two boxes); **Stock** jumps to its grid;
+  **Edit** opens the editor. **Add a product** opens it empty.
+- **The editor** -- photographs (add several, move, remove; the first is
+  the card's), name, category, size chart (picked from the products beside
+  it), the card's one line and the page's words, price and MRP (with the
+  discount the customer will see), colours (name, dot, which photograph),
+  sizes (presets S to XXL, XS to XXL, One size; each size's extra), the
+  stock grid, details ("Material", "Fit"…), Show it in the shop, One of the
+  bestsellers. Every rule the server holds is checked at its field first,
+  plus a size chart with no row for a size, and a new colour's dot left
+  unpicked. A new product's link comes from its name and never changes; a
+  colour or size, once saved, keeps its id for good (bags and orders name
+  it). ⚠️ **Saving never writes over stock that exists**: the editor sends
+  stock only for a new colour or size, and changes the rest through
+  `set_stock`.
+- **Inventory** -- every product's grid, colours down and sizes across; a
+  box changed turns gold, 0 red; one Save sends each product's changes.
+- ⚠️ **Stock changes go as DIFFERENCES** -- [what the box showed, what was
+  typed] -- so an order placed while the page was open stands: shown 2,
+  typed 5, an order took 1 meanwhile → 4 (tested).
+- ⚠️ **Nothing typed is lost to a redraw**: an order arriving redraws the
+  store page, so `busy()` stops it while the editor is on screen or a stock
+  box is changed (tested: the order moved, the typed 9 stayed).
+- One-browser mode keeps a working editor over the overlay
+  (`backend-local.js` `catalogAdmin`), with no uploads.
+
+**Tested against the stand-in database** (a `fetch` stand-in mirroring the
+new SQL, in temporary pages since deleted): the shop reading the database
+with stock capped at 10; a price changed from the list; a product added
+with two uploaded photographs, a colour, five sizes with M at 0 and two
+details, every mistake named at its field first; that product on the shop
+-- its photograph, M struck through on the card and the page, "Only 1
+left" for XXL, the + stopping at 3; an order taking one L (3 → 2) with the
+line checked; the refusals for a changed price and a sold-out size; the
+Inventory grid; an item cancelled putting its piece back (4 → 5, once); an
+existing product renamed, a photograph moved with its colour following it,
+a stock change sent as [3, 9]; hidden and shown; phone and desktop widths;
+the step-11-not-run notices. **Not tested anywhere yet: the SQL itself on
+Postgres** -- `selftest.sql` section 15 is what proves it, when the owner
+runs step 11 -- and a real upload to the real bucket.
 
 ## Each item's own status (7 November 2026)
 
@@ -864,20 +1019,28 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 7. ◐ **Accounts**, so a parcel can be tracked from a second phone. Built, set up and switched on, 7 November 2026; the owner's first code arrived by email the same day. Left: signing in on a second phone (the Magic Link template), and seeing the orders and addresses there.
 8. ⬜ **The store view, locked**, behind `claim_staff()`. The page and its own link exist since 4 November 2026; what is left is the code check on the server and reading every phone's orders from the database.
 9. ⬜ **Returns** — the seven-day clock from `deliveredAt`.
-10. ⬜ **Real photographs**, whenever the owner can supply them. Stand-ins have been in place since 4 November 2026, and `data.pl` will not let `placeholder` go false while one is still shown.
+10. ◐ **Real photographs** — the products' arrived on 8 November 2026 and are on the shop (*The catalogue in the database*), with the store able to add more. Left: the two home-page workshop pictures, still stand-ins (`data.pl` will not let `placeholder` go false while either is shown).
 
 ---
 
 ## Open, and owned by the user
 
-- ⚠️ **The server does not check prices or coupons** (see *The
-  database*). Before real customers: give it the catalogue's prices — a
-  table generated from `catalog.json`, or one the store page refreshes —
-  and have `place_order` price each line itself. Stock belongs there too,
-  so two phones cannot both buy the last one.
+- ⚠️ **db/SETUP.md step 11 is not run yet** (8 November 2026). Until it
+  is, the store cannot change a product and the server checks no price or
+  stock; the shop shows `catalog.json`. Then `selftest.sql` section 15 is
+  the first time the new SQL runs on Postgres at all.
+- ⚠️ **The server does not check coupons** (see *The database*): prices
+  and stock it checks since step 11; the codes are in `shop.json`.
+  Before real customers: give the database the coupons too, and have
+  `place_order` work out the discount itself.
+- ⚠️ **The product details carry no material or care** — nobody has said
+  what the cloth is, and the photographs cannot. The owner adds them in
+  the store's editor (Details); a "Material" row waits in every new
+  product.
 - ⚠️ **`placeholder` is `true`, and `data.pl` FAILS while it is.** The
-  brand name, the brand story, the year, every contact field and all
-  three prices are **invented** — realistic, not real. The owner has not
+  brand name, the brand story, the year, every contact field, the size
+  charts and **every price and stock count** are **invented** — the
+  prices random, on the owner's word, until they set their own. The owner has not
   chosen a name. That flag makes shipping them impossible rather than
   merely inadvisable.
 
@@ -905,37 +1068,28 @@ Steps 1–5 are the demo. 6–10 make it a shop.
   "never required BY THE SERVER" — checkout asks for it, `place_order()`
   still takes a guest.
 
-- ⚠️ **The photographs are stand-ins, and that is still the biggest risk
-  to the whole idea.** Since 4 November 2026 every product, both category
-  tiles and both hero panels show photographs from Unsplash, chosen
-  because the drawn garments looked "too kiddish" to the owner. They are
-  of other people's garments: on a real shop a stand-in is a picture of
-  a garment the customer will not receive. So every one is marked
-  `stock: true` in `shop.json` `photos`, the Preview bar says "photos",
-  and `data.pl` FAILS if `placeholder` goes false while any stock
-  photograph is still shown.
+- **The products' photographs are the owner's own since 8 November 2026**
+  (*The catalogue in the database*); from 4 to 8 November they were
+  Unsplash stand-ins, of other people's garments. **The two home-page
+  workshop pictures still are** — `stock: true` in `shop.json` `photos`,
+  credited on the About page, and `data.pl` FAILS if `placeholder` goes
+  false while either is shown. ⚠️ The owner's photographs look like a
+  brand's studio shoot, with models; if any were taken by a label the
+  owner makes for, the owner should be sure the shop may use them.
 
-  How they are laid out, so the real shoot can drop straight in:
-  - **Four photographs per product**, `img[0..3]`. Each colour's `img`
-    index points at its own photograph; the remaining slot is a close-up.
-    `viewCount()` follows the length of `img`, so more photographs simply
-    mean more thumbnails.
-  - **4:5 for products, 3:4 for category tiles, 4:5 for the hero**, at
-    1000 px wide. Unsplash crops and sizes on its own servers, so each
-    entry's `fetched` URL is the exact crop -- fetch it again with another
-    `w`/`h` and nothing else changes.
-  - **Every colour name and swatch was taken from its photograph.** The
-    swatch hex is the median of a patch of plain cloth in the image, so
-    the dot under a card matches the photo above it. The shirt is
-    short-sleeved in its photographs, so its size chart's Sleeve column
-    is short-sleeve lengths now.
-  - **No faces where it could be helped.** The shirts hang on a branch,
-    the kurtis are on a dress form, the dresses are cropped below the
-    chin, the tiles and hero are rails and machines. A model's face on a
-    shop that is not theirs reads as an endorsement nobody gave.
+  How the photographs are laid out:
+  - **As many per product as it has**; each colour's `img` index points
+    at its own first photograph; `viewCount()` follows the length of `img`.
+  - **4:5 for products** (1024 × 1280, and the store makes every upload
+    the same), 3:4 for category tiles (a product photograph, cropped by
+    CSS), 4:5 for the hero.
+  - **Every colour's swatch was taken from its photograph** -- the median
+    of a patch of plain cloth -- so the dot under a card matches the photo
+    above it.
   - **Credits are owed even where the licence does not demand them.**
     The About page lists them from the same `photos` list the check
-    reads, so a photograph cannot be added without its credit.
+    reads, so a stand-in cannot be added without its credit; the shop's
+    own photographs are declared by folder (`ownPhotos`).
 
 - **The palette is still DEVI's** — warm ivory, antique gold,
   terracotta, light-only, 67 tokens. It survives the move to apparel

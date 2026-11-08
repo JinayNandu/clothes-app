@@ -70,7 +70,13 @@ router.registerScreen('product', async (host, r) => {
     return c && c.img != null && c.img < views ? c.img : 0;
   };
   let view = colourView(sel.colour);
-  const max = p.kind === 'voucher' ? 99 : p.stock;
+  // ⚠️ STOCK IS BY COLOUR AND SIZE (8 November 2026). How many there can be
+  // in the bag is how many there are of THIS colour in THIS size -- read
+  // when it is needed, because a colour or a size tapped changes it.
+  const maxNow = () => D.skuStock(p, variant());
+  /** A size with none left in the colour now chosen. */
+  const sizeOut = (id) => !out && sizes.length > 1
+    && D.skuStock(p, { colour: sel.colour, size: id }) === 0;
 
   // ⚠️ An ESTIMATE, computed live, and that is correct HERE and nowhere else.
   // This screen answers "if I order today, when does it arrive" — a question
@@ -147,9 +153,12 @@ router.registerScreen('product', async (host, r) => {
         </div>` : ''}
 
       ${out ? notice('bad', '<b>Sold out.</b> We buy in small batches, so this '
-            + 'stays out until the next one — usually a few weeks.')
-        : low ? notice('warn', `<b>Only ${p.stock} left.</b> The next batch is a few weeks away.`)
-        : ''}
+            + 'stays out until the next one — usually a few weeks.') : ''}
+      <!-- How many are left of the colour and size chosen, once a size is
+           (8 November 2026); paintCta() keeps it up to date. -->
+      <div data-stock-note>${!out && low && !sel.size && sizes.length > 1
+        ? notice('warn', `<b>Only ${p.stock} left</b> across every size. The next batch is a few weeks away.`)
+        : ''}</div>
 
       ${p.kind === 'voucher' ? notice('info',
         '<b>Issued by hand.</b> There is no automatic voucher system behind this '
@@ -165,13 +174,13 @@ router.registerScreen('product', async (host, r) => {
           aria-pressed="${wished}">${icon('heart', 16)} ${wished ? 'Saved' : 'Save'}</button>
       </div>
 
-      <div>
+      ${(p.specs || []).length ? `<div>
         <h2 class="t-h3" style="margin-bottom:var(--s2)">Specifications</h2>
         <dl class="spec">
           ${p.specs.map((s) => `<div class="spec-row">
             <dt>${esc(s.k)}</dt><dd>${esc(s.v)}</dd></div>`).join('')}
         </dl>
-      </div>
+      </div>` : ''}
 
       <div>
         <h2 class="t-h3" style="margin-bottom:var(--s2)">Delivery and returns</h2>
@@ -231,11 +240,38 @@ router.registerScreen('product', async (host, r) => {
         // alternate colourway render.
         setView(colourView(sel.colour));
         paintColour();
+        paintSizes();
         paintCta();
       });
     }
   }
   paintColour();
+
+  /** Strike through the sizes with none left in the colour chosen. A size
+   *  chosen that has none left in a new colour is let go -- unless it is
+   *  in the bag, where the bar still shows it and − still works. */
+  function paintSizes() {
+    for (const b of host.querySelectorAll('[data-size]')) {
+      const gone = sizeOut(b.dataset.size);
+      const label = sizes.find((s) => s.id === b.dataset.size);
+      b.classList.toggle('is-out', gone);
+      b.disabled = gone;
+      b.title = gone ? 'Sold out in this colour' : '';
+      b.setAttribute('aria-label', `${label ? label.label : b.dataset.size}${gone ? ', sold out' : ''}`);
+    }
+    if (sel.size && sizeOut(sel.size)) {
+      const key = keyNow();
+      store.cart.lines().then((lines) => {
+        if (lines.some((l) => D.lineKey(l) === key) || key !== keyNow()) return;
+        sel.size = null;
+        for (const x of host.querySelectorAll('[data-size]')) x.classList.remove('on');
+        $('[data-price]').innerHTML = priceBlock(p, sel, true);
+        const fh = host.querySelector('[data-fithint]');
+        if (fh) fh.innerHTML = hintFor(null);
+        paintCta();
+      });
+    }
+  }
 
   function setView(i) {
     view = i;
@@ -342,10 +378,16 @@ router.registerScreen('product', async (host, r) => {
     return v;
   };
   const keyNow = () => D.lineKey({ pid: p.id, variant: variant() });
-  const fullTitle = (n) => (n >= max ? `Only ${max} in stock` : '');
+  const fullTitle = (n) => (n >= maxNow() ? `Only ${maxNow()} in stock` : '');
+  /** A size is chosen, or there is none to choose. */
+  const chosen = () => !!sel.size || sizes.length <= 1;
 
   function ctaHtml(line) {
     if (out) return '<button class="btn btn-primary btn-block" disabled>Sold out</button>';
+    if (!line && chosen() && maxNow() === 0) {
+      return `<button class="btn btn-primary btn-block" disabled>Sold out in this ${
+        sizes.length > 1 ? 'size' : 'colour'}</button>`;
+    }
     if (!line) return '<button type="button" class="btn btn-primary btn-block" data-buy>Add to bag</button>';
     const s = sizes.length > 1 ? sizes.find((x) => x.id === sel.size) : null;
     return `<div class="bag-step bag-step-lg" role="group" data-pdp-line="${esc(keyNow())}"
@@ -354,8 +396,18 @@ router.registerScreen('product', async (host, r) => {
       <span class="bag-step-n" aria-live="polite">${s ? `<b>${esc(s.label)}</b> · ` : ''}<span
         data-n>${line.qty}</span> in bag</span>
       <button type="button" data-pdp-more aria-label="One more" title="${fullTitle(line.qty)}"
-        ${line.qty >= max ? 'disabled' : ''}>${icon('plus', 18)}</button>
+        ${line.qty >= maxNow() ? 'disabled' : ''}>${icon('plus', 18)}</button>
     </div>`;
+  }
+
+  /** How many are left of the colour and size chosen, when it is few. */
+  function paintStockNote() {
+    const note = $('[data-stock-note]');
+    if (!note || out || !chosen() || p.kind === 'voucher') return;
+    const left = maxNow();
+    note.innerHTML = left > 0 && left <= (shop.lowStockAt || 0)
+      ? notice('warn', `<b>Only ${left} left</b> in this ${sizes.length > 1 ? 'size' : 'colour'}. The next batch is a few weeks away.`)
+      : '';
   }
 
   /** Repaint the button or the bar from the bag. The same line keeps its bar
@@ -367,21 +419,27 @@ router.registerScreen('product', async (host, r) => {
     const key = keyNow();
     const line = (await store.cart.lines()).find((l) => D.lineKey(l) === key);
     if (key !== keyNow()) return;          // the selection moved while reading
+    paintStockNote();
     const step = box.querySelector('.bag-step');
     if (line && step && step.dataset.pdpLine === key) {
       step.querySelector('[data-n]').textContent = line.qty;
       const more = step.querySelector('[data-pdp-more]');
-      more.disabled = line.qty >= max;
+      more.disabled = line.qty >= maxNow();
       more.title = fullTitle(line.qty);
       return;
     }
-    if (!line && !step && box.firstElementChild) return;
+    // The same button for the same state, so focus stays put. A sold-out
+    // size and Add to bag are both buttons; only Add to bag has data-buy.
+    const wantBuy = !out && !(chosen() && maxNow() === 0);
+    if (!line && !step && box.firstElementChild
+        && box.firstElementChild.hasAttribute('data-buy') === wantBuy) return;
     const had = box.contains(document.activeElement);
     box.innerHTML = ctaHtml(line);
     const next = box.querySelector('[data-pdp-more]:not(:disabled), [data-buy]')
       || box.querySelector('[data-pdp-less]');
     if (had && next) next.focus();
   }
+  paintSizes();
   await paintCta();
   router.onLeave(store.live.subscribe('cart', paintCta));
 
@@ -422,7 +480,7 @@ router.registerScreen('product', async (host, r) => {
       const key = keyNow();
       const line = (await store.cart.lines()).find((l) => D.lineKey(l) === key);
       if (more) {
-        if (!line || line.qty < max) await addOne(more);
+        if (!line || line.qty < maxNow()) await addOne(more);
       } else if (line) {
         await store.cart.setQty(key, line.qty - 1);
         if (line.qty === 1) toast('Removed from your bag');

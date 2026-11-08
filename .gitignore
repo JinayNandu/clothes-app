@@ -19,6 +19,11 @@ docs/
 # the Windows account name, and this repository is public.
 PROMPT.md
 
+# The owner's photographs as they arrived, on WhatsApp (8 November 2026).
+# Copied into app/img/products/ under product names; these originals stay on
+# this machine so the repository does not carry every photograph twice.
+Catalogue images/
+
 # The notes on what was borrowed from two other projects to get this one
 # started. This is a separate shop with its own links, its own storage and,
 # later, its own database; the notes are for whoever builds it, here.

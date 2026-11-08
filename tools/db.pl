@@ -146,11 +146,13 @@ for my $t (@tables) {
 ok(scalar(@tables) . ' tables, each with row-level security and revoked before any grant') unless $tbad;
 
 # Nothing granted to anon -- a customer has a session before they order --
-# but what EVERYBODY may read of the reviews (8 November 2026): the schema,
-# and the two functions a product page calls with no session. Each must be
-# STABLE, and neither may so much as name a customer's column.
+# but what EVERYBODY may read (8 November 2026): the schema, the two review
+# readers a product page calls with no session, and the catalogue itself
+# (catalogue(), which builds each product in product_json()). Each must be
+# STABLE, and none may so much as name a customer's column.
 my %ANON_OK = map { $_ => 1 } ('usage on schema public',
-  'execute on function product_reviews(text)', 'execute on function rating_summary()');
+  'execute on function product_reviews(text)', 'execute on function rating_summary()',
+  'execute on function catalogue()');
 my @anon_bad;
 while ($sqlc =~ /grant\s+([^;]*?)\s+to\s+([^;]*)/g) {
   my ($what, $who) = ($1, $2);
@@ -158,7 +160,7 @@ while ($sqlc =~ /grant\s+([^;]*?)\s+to\s+([^;]*)/g) {
   (my $w = lc $what) =~ s/\s+/ /g;
   push @anon_bad, $w unless $ANON_OK{$w};
 }
-for my $fn (qw(product_reviews rating_summary)) {
+for my $fn (qw(product_reviews rating_summary catalogue product_json)) {
   my ($head, $body) = $sqlc =~ /function\s+\Q$fn\E\s*\(([^)]*\).*?)\$fn\$(.*?)\$fn\$/s;
   if (!defined $body) { push @anon_bad, "$fn() is missing"; next; }
   push @anon_bad, "$fn() is not STABLE" unless $head =~ /\bstable\b/;
@@ -166,7 +168,7 @@ for my $fn (qw(product_reviews rating_summary)) {
     if $body =~ /\b(user_id|cust_\w+|addr|pin|mobile|email|order_id|line_id)\b/;
 }
 if (@anon_bad) { fail("anon may reach more than the public reviews: $_") for @anon_bad; }
-else { ok('anon reaches only the public reviews: product_reviews() and rating_summary(), both read-only and nameless'); }
+else { ok('anon reaches only what everybody may read: the reviews and the catalogue, read-only and nameless'); }
 
 # ---------------------------------------------------------------------------
 # 5. Every function revoked from everybody, and every SECURITY DEFINER one
@@ -345,6 +347,45 @@ if (-e "$root/db/reset.sql") {
   }
   ok("reset.sql keeps the store code, changes no table or rule, refuses after its latch date, "
      . "and refuses any database whose orders are not $want-") unless $rbad;
+}
+
+# ---------------------------------------------------------------------------
+# 10. THE CATALOGUE (8 November 2026). The first catalogue at the end of
+#     schema.sql is app/data/catalog.json as data.pl passed it (tools/seed.pl
+#     writes it, and fails on any difference), and it goes into an empty
+#     table only -- a second run of schema.sql must never write over what
+#     the store has changed since. Every write to a product checks
+#     is_staff() before anything else, and the price and stock checks are
+#     still in the order's way.
+# ---------------------------------------------------------------------------
+{
+  my $rc = system($^X, "$root/tools/seed.pl");
+  fail('the first catalogue in schema.sql is not catalog.json -- see above') if $rc != 0;
+  # The seed's own INSERT -- `select v.* from (values ...) as v(...)` -- not
+  # the one inside save_product(), which adds a single product on purpose.
+  my ($guard) = $sqlc =~ /insert\s+into\s+products\s*\([^)]*\)\s*select\s+v\.\*\s+from\s*\(\s*values\b.*?\)\s*as\s+v\s*\([^)]*\)\s*(where\s+[^;]*;)/s;
+  if (!defined $guard) { fail('schema.sql never puts a first catalogue into products'); }
+  elsif ($guard !~ /\Awhere\s+not\s+exists\s*\(\s*select\s+1\s+from\s+products\s*\)\s*;\z/) {
+    fail('the first catalogue does not stop at a products table that already has rows -- '
+       . 'a second run of schema.sql would write over the store\'s own prices and stock');
+  }
+  my $cbad = 0;
+  for my $fn (qw(store_products save_product set_price set_stock set_hidden)) {
+    my ($body) = $sqlc =~ /function\s+\Q$fn\E\s*\([^)]*\).*?\$fn\$(.*?)\$fn\$/s;
+    if (!defined $body) { $cbad++; fail("could not find $fn() in schema.sql"); next; }
+    unless ($body =~ /^\s*(?:declare\b.*?)?begin\s+if\s+not\s+is_staff\(\)\s+then\s+raise\s+exception\s+'NOT_STAFF'/s) {
+      $cbad++; fail("$fn() does not check is_staff() before anything else");
+    }
+  }
+  my ($po) = $sqlc =~ /function\s+place_order\s*\(.*?\$fn\$(.*?)\$fn\$/s;
+  my ($tl) = $sqlc =~ /function\s+take_lines\s*\(.*?\$fn\$(.*?)\$fn\$/s;
+  if (!defined $po || $po !~ /\btake_lines\s*\(/) {
+    $cbad++; fail('place_order() no longer checks its lines against the catalogue (take_lines)');
+  } elsif (!defined $tl || $tl !~ /PRICE_CHANGED/ || $tl !~ /OUT_OF_STOCK/ || $tl !~ /\bfor\s+update\b/) {
+    $cbad++; fail('take_lines() no longer checks the price, the stock, or locks the row it takes stock from');
+  }
+  ok('every write to a product is the store\'s, and every order is checked against today\'s prices and stock')
+    unless $cbad;
 }
 
 print "\n";

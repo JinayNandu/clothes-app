@@ -169,6 +169,23 @@ const readOverlay = () => {
   return ov && typeof ov === 'object' && ov.patch ? ov : null;
 };
 
+// ⚠️ THE DATABASE'S CATALOGUE, WHEN THERE IS ONE (8 November 2026). With a
+// database behind the page the products come from it -- the store page
+// changes them there -- and store.js hands them in here, so every read below
+// answers from them exactly as it did from the file. The file is then only
+// what a page shows when the database cannot be reached. The overlay is NOT
+// laid over the database's products: it is this browser's edits to the
+// FILE, and in database mode the store's edits go to the database.
+let DB = null;
+
+/** The products the database answered with (store.js, at load and after the
+ *  store changes one). Null goes back to the file. */
+export function useCatalogue(list) {
+  DB = Array.isArray(list) ? list : null;
+  if (SHIPPED) recompute();
+  bus.emit('catalog');
+}
+
 /**
  * Rebuild what the shop sees. Called at load and after every admin edit.
  *
@@ -176,12 +193,20 @@ const readOverlay = () => {
  * patches written against the old one are held back until a human has looked
  * at them -- reverting the shop to the reviewed file, which is the safe
  * direction. The admin shows the review; overlay.js explains why.
+ *
+ * Every product leaves here with its total `stock`, worked out from the
+ * stock of its sizes (domain.js withStock) -- never read from anywhere.
  */
 function recompute() {
+  if (DB) {
+    CAT = DB.map(D.withStock);
+    CATS = SHIPPED_CATS.slice();
+    return 'none';
+  }
   const ov = readOverlay();
   const state = O.overlayState(SHIPPED.rev, ov);
   const live = state === 'current';
-  CAT = live ? O.applyOverlay(SHIPPED.products, ov) : SHIPPED.products.slice();
+  CAT = (live ? O.applyOverlay(SHIPPED.products, ov) : SHIPPED.products.slice()).map(D.withStock);
   CATS = live ? O.applyCatOverlay(SHIPPED_CATS, ov) : SHIPPED_CATS.slice();
   return state;
 }
@@ -207,6 +232,8 @@ const byIdSync = (id) => CAT.find((p) => p.id === id);
 const shippedById = (id) => SHIPPED.products.find((p) => p.id === id);
 
 export const catalog = {
+  /** Where the products on show came from: 'database' or 'file'. */
+  async source() { return DB ? 'database' : 'file'; },
   async all() { return clone(CAT); },
   async byId(id) { return clone(byIdSync(id)); },
   async bySlug(slug) { return clone(CAT.find((p) => p.slug === slug)); },
@@ -425,6 +452,67 @@ export const catalog = {
       };
     });
   },
+};
+
+// ---------------------------------------------------------------------------
+// THE STORE'S CATALOGUE, IN ONE BROWSER (8 November 2026). The same calls as
+// backend-supabase.js catalogAdmin, so the store page has one editor: here
+// they write the overlay above, and are seen in this browser only. No
+// photograph can be uploaded -- localStorage is about 5 MB, and four JPEGs
+// would fill it -- so the editor keeps the photographs a product has.
+// ---------------------------------------------------------------------------
+const everyProduct = () => {
+  const ov = readOverlay();
+  const retired = new Set((ov && ov.retired) || []);
+  const live = O.overlayState(SHIPPED.rev, ov) === 'current';
+  const list = live ? O.applyOverlay(SHIPPED.products, { ...ov, retired: [] }) : SHIPPED.products.slice();
+  return list.map((p) => D.withStock({ ...p, hidden: retired.has(p.id) }));
+};
+
+export const catalogAdmin = {
+  /** Null when the store can edit products; otherwise why not. */
+  async unavailable() { return null; },
+  /** Whether a photograph can be uploaded from this page. */
+  uploads: false,
+  async all() { return clone(everyProduct()); },
+
+  /** A new product (no id) or a change to one. Returns it as saved. */
+  async save(product) {
+    const { id, hidden, stock, ...fields } = clone(product);
+    const known = id && everyProduct().some((p) => p.id === id);
+    let pid = id;
+    if (known) await catalog.patch(id, fields);
+    else pid = (await catalog.addProduct({ kind: 'goods', shipClass: 'std', popularity: 50,
+                                           addedOn: D.istDate(), badges: [], ...fields })).id;
+    if (hidden != null) await catalogAdmin.setHidden(pid, hidden);
+    return clone(everyProduct().find((p) => p.id === pid));
+  },
+
+  async setPrice(pid, price, mrp) {
+    await catalog.patch(pid, { price, mrp });
+    return clone(everyProduct().find((p) => p.id === pid));
+  },
+
+  /** `changes` is { key: [what the page showed, what was typed] }; the
+   *  difference is applied, as on the server. */
+  async setStock(pid, changes) {
+    const p = everyProduct().find((x) => x.id === pid);
+    if (!p) throw new Error('NO_SUCH_PRODUCT');
+    const skus = { ...(p.skus || {}) };
+    for (const [k, [was, typed]] of Object.entries(changes || {})) {
+      if (!D.skuKeys(p.variants).includes(k)) throw new Error('BAD_STOCK');
+      skus[k] = Math.max(0, (Number(skus[k]) || 0) + typed - was);
+    }
+    await catalog.patch(pid, { skus });
+    return clone(everyProduct().find((x) => x.id === pid));
+  },
+
+  async setHidden(pid, hidden) {
+    if (hidden) await catalog.retire(pid); else await catalog.unretire(pid);
+    return clone(everyProduct().find((p) => p.id === pid));
+  },
+
+  async uploadPhoto() { throw new Error('NO_UPLOADS_HERE'); },
 };
 
 // ---------------------------------------------------------------------------

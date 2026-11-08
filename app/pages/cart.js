@@ -97,8 +97,10 @@ async function paint(host) {
     const key = D.lineKey(l);
     const label = D.variantLabel(p, l.variant);
     const unit = D.variantPrice(p, l.variant);
-    const max = p.kind === 'voucher' ? 99 : p.stock;
-    const over = p.kind !== 'voucher' && l.qty > p.stock;
+    // The stock of THIS colour in THIS size (8 November 2026), not the
+    // product's total: there may be ten shirts and one of them an XL.
+    const max = D.skuStock(p, l.variant);
+    const over = p.kind !== 'voucher' && l.qty > max;
 
     return `<div class="cart-line" data-key="${esc(key)}">
       <a class="cart-thumb" href="#/p/${esc(p.slug)}">${art(p, 0)}</a>
@@ -108,7 +110,8 @@ async function paint(host) {
         <div class="price"><span class="price-now">${D.rupees(unit)}</span>
           <span class="t-micro dim">each</span></div>
         ${over ? `<div class="t-micro" style="color:var(--alert-ink)">
-          Only ${p.stock} left — reduce the quantity before checking out.</div>` : ''}
+          ${max ? `Only ${max} left in this ${label ? 'size' : 'style'} — reduce the quantity before checking out.`
+            : `Sold out in this ${label ? 'size' : 'style'} — remove it before checking out.`}</div>` : ''}
       </div>
       <div class="cart-right">
         ${qtyStepper(key, l.qty, max)}

@@ -92,7 +92,9 @@ my $ncat = scalar keys %cat_ids;
 # you should be adding or removing a category on purpose.
 # ---------------------------------------------------------------------------
 my $EXPECT_CATS = 2;    # Men, Women
-my $EXPECT_SUBS = 3;    # Shirts | Kurtis, Dresses
+my $EXPECT_SUBS = 5;    # Shirts | Dresses, Tops and shirts, Trousers and shorts,
+                        # Jumpsuits and sets -- the owner's own photographs,
+                        # 8 November 2026, had no kurtis in them
 
 # Printed, not just counted: a dropped subcategory should be VISIBLE rather
 # than silently making a sidebar one row shorter.
@@ -167,13 +169,37 @@ for my $p (@{ $cl->{products} }) {
   fail("$id: shipClass '" . ($p->{shipClass} // '') . "' is not std or bulky")
     unless ($p->{shipClass} // '') =~ /^(std|bulky)$/;
 
-  # A voucher has no stock, because there is nothing to run out of. Goods must
-  # declare it, because a missing stock field renders as sold out.
+  # A voucher has no stock, because there is nothing to run out of. Goods
+  # declare the stock of EACH COLOUR IN EACH SIZE (8 November 2026): a shop
+  # that knows only "24 shirts" sells an XXL it does not have. `stock` itself
+  # is their sum, worked out as the catalogue loads (domain.js withStock), so
+  # it must NOT be stored -- a stored total disagrees with its sizes the first
+  # time either is edited.
+  fail("$id: `stock` is derived from skus and must not be stored") if exists $p->{stock};
   if (($p->{kind} // '') eq 'voucher') {
-    fail("$id: a voucher must not declare stock") if exists $p->{stock};
+    fail("$id: a voucher must not declare skus") if exists $p->{skus};
   } else {
-    fail("$id: goods must declare stock")
-      unless defined $p->{stock} && $p->{stock} =~ /^\d+$/;
+    # The keys, exactly as domain.js skuKey() makes them: colour/size, the one
+    # axis alone, or `one` for a product with neither.
+    my @cs = map { $_->{id} } @{ ($p->{variants} || {})->{colour} || [] };
+    my @ss = map { $_->{id} } @{ ($p->{variants} || {})->{size} || [] };
+    my @want = @cs && @ss ? (map { my $c = $_; map { "$c/$_" } @ss } @cs)
+             : @cs ? @cs : @ss ? @ss : ('one');
+    my $sk = $p->{skus};
+    if (ref $sk ne 'HASH') {
+      fail("$id: goods must declare skus, the stock of each colour and size");
+    } else {
+      my %want = map { $_ => 1 } @want;
+      for my $k (@want) {
+        fail("$id: skus has no '$k' -- every colour and size is listed, 0 when there is none")
+          unless exists $sk->{$k};
+      }
+      for my $k (sort keys %$sk) {
+        fail("$id: skus '$k' is not a colour/size this product sells") unless $want{$k};
+        fail("$id: skus '$k' is '" . ($sk->{$k} // '') . "', not a whole number of pieces")
+          unless defined $sk->{$k} && $sk->{$k} =~ /^\d+$/;
+      }
+    }
   }
 
   # Badges hold only what a human chose.
@@ -448,6 +474,11 @@ if ($logo eq '') {
 # customer will not receive, the one image a shop must never show.
 {
   my $ph = $shop->{photos} || {};
+  # The owner's own photographs (8 November 2026), declared once by folder: a
+  # file there needs no credit of its own and is never stock. See
+  # ownPhotosNote in shop.json for why a stand-in must never go in it.
+  my $own = ($shop->{ownPhotos} || {})->{dir} // '';
+  my $isOwn = sub { length $own && index($_[0], $own) == 0 };
   my (%used, $bad);
   for my $p (@{ $cl->{products} || [] }) {
     $used{$_} //= "product $p->{id}" for grep { defined && length } @{ $p->{img} || [] };
@@ -459,10 +490,14 @@ if ($logo eq '') {
     if ($path !~ m{^img/[A-Za-z0-9_./-]+\.(?:jpe?g|png|webp|avif)$}) {
       $bad++; fail("$who: '$path' must be a relative path under img/ -- a leading slash breaks on GitHub Pages");
     } elsif (!-f "$APP/$path") { $bad++; fail("$who: photograph '$path' is not on disk at app/$path") }
-    unless ($ph->{$path}) { $bad++; fail("$who: '$path' has no entry in shop.json photos -- every photograph shown needs its credit") }
+    unless ($ph->{$path} || $isOwn->($path)) { $bad++; fail("$who: '$path' has no entry in shop.json photos -- every photograph shown needs its credit") }
+  }
+  if (length $own && ($own !~ m{^img/[a-z0-9-]+/$} || !-d "$APP/$own")) {
+    $bad++; fail("ownPhotos.dir '$own' must be a folder under img/, ending in a slash");
   }
   for my $path (sort keys %$ph) {
     my $e = $ph->{$path};
+    if ($isOwn->($path)) { $bad++; fail("photos: '$path' is credited to someone, but it is in ownPhotos.dir -- a borrowed photograph does not go in the shop's own folder") }
     unless ($used{$path}) { $bad++; fail("photos: '$path' is credited but nothing shows it") }
     for my $f (qw(what by source license)) { unless (($e->{$f} // '') ne '') { $bad++; fail("photos: '$path' has no $f") } }
     if (($e->{source} // '') !~ m{^https://}) { $bad++; fail("photos: '$path' source is not an https link") }

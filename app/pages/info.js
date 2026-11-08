@@ -59,9 +59,14 @@ function block(b, shop, pageKey, bulky = []) {
       const bySource = new Map();
       for (const v of all) if (!bySource.has(v.source)) bySource.set(v.source, v);
       if (!bySource.size) return '';
+      // The clothes are photographed by the shop itself (shop.json
+      // ownPhotos, since 8 November 2026) and need no credit; what is
+      // listed here is everything else.
+      const own = shop.ownPhotos && shop.ownPhotos.dir
+        ? 'The photographs of our clothes are our own. ' : '';
       const intro = all.some((v) => v.stock)
-        ? `<p>Every photograph here is a stand-in until our own are taken, used under
-           the <a href="https://unsplash.com/license" target="_blank" rel="noopener">Unsplash
+        ? `<p>${own}The others on this site are stand-ins until we take our own, used
+           under the <a href="https://unsplash.com/license" target="_blank" rel="noopener">Unsplash
            License</a>. With thanks to:</p>` : '';
       return `${intro}<ul>${[...bySource.values()].map((v) => `<li>${esc(v.what.replace(/, close up$/, ''))}:
         <a href="${esc(v.source)}" target="_blank" rel="noopener">${esc(v.by)}</a></li>`).join('')}</ul>`;

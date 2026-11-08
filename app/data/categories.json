@@ -4,7 +4,7 @@
       "blurb": "Shirts cut on our own tables, in the fabrics we already buy by the roll for other people's labels.",
       "icon": "shirt",
       "id": "men",
-      "img": "img/site/cat-men.jpg",
+      "img": "img/products/men-camp-shirt-white-1.jpg",
       "name": "Men",
       "order": 1,
       "slug": "men",
@@ -18,29 +18,41 @@
       ]
     },
     {
-      "blurb": "Kurtis and dresses in cotton and cotton blends, graded S to XXL on the same block we grade for export.",
-      "icon": "kurti",
+      "blurb": "Dresses, shirts, trousers and sets, graded S to XXL on the same blocks we grade for export.",
+      "icon": "dress",
       "id": "women",
-      "img": "img/site/cat-women.jpg",
+      "img": "img/products/dress-flutter-midi-rust-1.jpg",
       "name": "Women",
       "order": 2,
       "slug": "women",
       "sub": [
         {
-          "id": "women-kurtis",
-          "name": "Kurtis",
-          "order": 1,
-          "slug": "kurtis"
-        },
-        {
           "id": "women-dresses",
           "name": "Dresses",
-          "order": 2,
+          "order": 1,
           "slug": "dresses"
+        },
+        {
+          "id": "women-tops",
+          "name": "Tops and shirts",
+          "order": 2,
+          "slug": "tops"
+        },
+        {
+          "id": "women-bottoms",
+          "name": "Trousers and shorts",
+          "order": 3,
+          "slug": "trousers-shorts"
+        },
+        {
+          "id": "women-sets",
+          "name": "Jumpsuits and sets",
+          "order": 4,
+          "slug": "jumpsuits-sets"
         }
       ]
     }
   ],
   "note": "The sidebar tree. `order` is display order; `icon` names a glyph in icons.js. Nested two levels because the tree IS two levels: a department, then a garment type. MEN HAS EXACTLY ONE CHILD ON PURPOSE -- sidebar.js must render a one-child group (and a zero-child one) as a plain link, never as a disclosure, because an expand arrow that reveals a single row reads as a broken menu. Keeping a live one-child category in the skeleton is what stops that branch rotting unnoticed while the catalogue is small. A product in a category with NO subcategories carries no `sub` key at all -- data.pl requires `sub` exactly when the category has children and forbids it when it does not. There is no such category today; both have children.",
-  "rev": 1
+  "rev": 2
 }

@@ -51,7 +51,7 @@ router.registerScreen('home', async (host) => {
            wrong. The split is defensive: a one-sentence tagline renders as
            one line rather than losing half of itself. -->
       <h1 class="t-hero">${tagline(shop)}</h1>
-      <p class="t-tagline">Shirts, kurtis and dresses, graded S to XXL on the
+      <p class="t-tagline">Dresses, shirts, trousers and sets, graded S to XXL on the
         same blocks we grade for export. No distributor, no retailer margin —
         the price here is what the garment costs to make and send.</p>
       <div class="hero-cta">

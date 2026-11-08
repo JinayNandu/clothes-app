@@ -212,18 +212,31 @@ $BY{'t-bulky'}   = { id => 't-bulky',   price => 4000, mrp => 4000,
 $BY{'t-voucher'} = { id => 't-voucher', price => 1000, mrp => 1000,
                      kind => 'voucher', shipClass => 'std'   };
 
+# Three SIZED synthetic garments, for the named cases below (8 November 2026).
+# They aimed at real products until the store page could change a price: a
+# case built on "the kurti costs 999" breaks the day the owner reprices it,
+# and one built on a product the owner retires dies with it. The arithmetic
+# under test is the same for any garment, so the garments are made up here.
+my @SIZED = ({ id => 's', delta => 0 }, { id => 'm', delta => 0 }, { id => 'xxl', delta => 100 });
+$BY{'t-top'}   = { id => 't-top',   price => 999,  mrp => 1499, kind => 'goods', shipClass => 'std',
+                   variants => { size => [ @SIZED ] } };
+$BY{'t-dress'} = { id => 't-dress', price => 1899, mrp => 2599, kind => 'goods', shipClass => 'std',
+                   variants => { size => [ @SIZED ] } };
+$BY{'t-shirt'} = { id => 't-shirt', price => 1299, mrp => 1799, kind => 'goods', shipClass => 'std',
+                   variants => { size => [ @SIZED ] } };
+
 # (a) THE ONE THAT MATTERS. A basket just over the threshold, with a percentage
 #     coupon that drops the payable BELOW it. Free shipping must survive --
 #     the customer had already earned it before the code was applied.
 #
-#     Two SIZES of the kurti: 1099 (XXL, +100) + 999 (S) = 2098, which clears
+#     Two SIZES of the synthetic top: 1099 (XXL, +100) + 999 (S) = 2098, which clears
 #     the synthetic 1999 on items. VASTRA10 takes 210 off, so the payable is
 #     1888 -- back under. That straddle is the whole test; a basket that does
 #     not cross back under proves nothing.
 {
   my $c10 = (grep { $_->{code} eq 'VASTRA10' } @codes)[0];
-  my $t = totals([{ pid => 'p-wk-bagru-straight', qty => 1, size => 'xxl' },
-                  { pid => 'p-wk-bagru-straight', qty => 1, size => 's'   }],
+  my $t = totals([{ pid => 't-top', qty => 1, size => 'xxl' },
+                  { pid => 't-top', qty => 1, size => 's'   }],
                  $c10, $SYNTH);
   my $payable = $t->{items} - $t->{discount};
   if ($t->{items} >= $SYNTH->{freeOver} && $payable < $SYNTH->{freeOver}
@@ -241,7 +254,7 @@ $BY{'t-voucher'} = { id => 't-voucher', price => 1000, mrp => 1000,
 {
   my $c10 = (grep { $_->{code} eq 'VASTRA10' } @codes)[0];
   # 3 x 1899 = 5697; 10% = 570, which must be capped to maxOff 500.
-  my $t = totals([{ pid => 'p-wd-tiered-midi', qty => 3 }], $c10);
+  my $t = totals([{ pid => 't-dress', qty => 3 }], $c10);
   if ($t->{discount} == $c10->{maxOff}) {
     ok("(b) 10% of $t->{items} capped to maxOff $c10->{maxOff}");
   } else {
@@ -253,8 +266,8 @@ $BY{'t-voucher'} = { id => 't-voucher', price => 1000, mrp => 1000,
 #     unlock itself.
 {
   my $fest = (grep { $_->{code} eq 'FESTIVE15' } @codes)[0];
-  my $under = totals([{ pid => 'p-wd-tiered-midi', qty => 1 }], $fest); # 1899 < 3000
-  my $over  = totals([{ pid => 'p-wd-tiered-midi', qty => 2 }], $fest); # 3798 >= 3000
+  my $under = totals([{ pid => 't-dress', qty => 1 }], $fest); # 1899 < 3000
+  my $over  = totals([{ pid => 't-dress', qty => 2 }], $fest); # 3798 >= 3000
   if (!$under->{couponOk} && $under->{discount} == 0 && $over->{couponOk}) {
     ok("(c) minItems $fest->{minItems}: $under->{items} rejected, "
      . "$over->{items} accepted");
@@ -269,10 +282,10 @@ $BY{'t-voucher'} = { id => 't-voucher', price => 1000, mrp => 1000,
 #     one sale into one return.
 {
   my $two = totals([
-    { pid => 'p-ms-indigo-dobby', qty => 1, size => 's'   },
-    { pid => 'p-ms-indigo-dobby', qty => 1, size => 'xxl' },
+    { pid => 't-shirt', qty => 1, size => 's'   },
+    { pid => 't-shirt', qty => 1, size => 'xxl' },
   ]);
-  my $p = $BY{'p-ms-indigo-dobby'};
+  my $p = $BY{'t-shirt'};
   my $want = unit_price($p, 's') + unit_price($p, 'xxl');
   if ($two->{items} == $want) {
     ok("(d) two sizes of one shirt total $want, not " . (2 * $p->{price}));

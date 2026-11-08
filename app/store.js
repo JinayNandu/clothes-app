@@ -47,15 +47,39 @@ export let addresses = null;
 /** Ratings and reviews (8 November 2026). Null in one-browser mode: with no
  *  server, a review would reach nobody, so nothing asks for one. */
 export let reviews = null;
+/** The store's catalogue: every product, and the calls that add one and
+ *  change its price, stock and photographs (8 November 2026). On the
+ *  database with one; in one browser, the overlay of backend-local.js. */
+export let catalogAdmin = local.catalogAdmin;
 
 let server = null;
 
+/**
+ * ⚠️ THE CATALOGUE IS ASKED FOR BESIDE THE SHOP'S OWN FILES, not after them
+ * (8 November 2026): one plain request with the publishable key, no session,
+ * no supabase-js download, so browsing costs no more time than it did. If
+ * the database cannot be reached -- or db/SETUP.md step 11 has not been run
+ * -- the shop shows app/data/catalog.json, and an order is still checked
+ * against the database's prices when it is placed.
+ */
 export async function ready() {
-  await local.ready();
-  if (!shared()) return;
+  const files = local.ready();
+  if (!shared()) { await files; return; }
   server = await import('./backend-supabase.js');
-  ({ orders, live, clearEverything, staff, reviews } = server);
+  ({ orders, live, clearEverything, staff, reviews, catalogAdmin } = server);
   if (SIGN_IN) ({ account, addresses } = server);
+  const [, list] = await Promise.all([files, server.loadCatalogue().catch((e) => {
+    console.warn('[vastra] the catalogue is not in the database; showing the file', e);
+    return null;
+  })]);
+  if (list) local.useCatalogue(list);
+}
+
+/** Read the catalogue from the database again -- after an order is refused
+ *  because a price or the stock moved since this page loaded. */
+export async function refreshCatalogue() {
+  if (!server) return false;
+  try { local.useCatalogue(await server.loadCatalogue()); return true; } catch (e) { return false; }
 }
 
 /** A session, made if there is none: the store page needs one before it can

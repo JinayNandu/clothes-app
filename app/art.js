@@ -509,10 +509,18 @@ function build(id, group, view) {
 // preserveAspectRatio="slice" against the <img>'s object-fit:cover, so the two
 // crop identically and swapping one for the other shifts nothing.
 // ---------------------------------------------------------------------------
+// ⚠️ ESCAPED, BOTH OF THEM (8 November 2026). A photograph's address used to
+// come only from catalog.json, written and checked here; it now comes from
+// the database, where the store page puts it. The server checks it is this
+// shop's own file or its storage, and this escapes it all the same: a quote
+// in an address must never be able to end the attribute.
+const attr = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
 export function art(product, view = 0) {
   const src = product.img && product.img[view];
   if (src) {
-    return `<img src="${src}" alt="${(product.name || '').replace(/"/g, '&quot;')}"
+    return `<img src="${attr(src)}" alt="${attr(product.name)}"
        loading="lazy" decoding="async">`;
   }
   const key = `${product.id}:${view}`;
@@ -543,7 +551,7 @@ export function viewCount(product) {
 // One photograph, the same markup everywhere. `eager` is for the one image a
 // page opens on: lazy-loading the hero only delays the first thing seen.
 const photo = (src, alt, eager = false) =>
-  `<img src="${src}" alt="${String(alt || '').replace(/"/g, '&quot;')}" `
+  `<img src="${attr(src)}" alt="${attr(alt)}" `
   + `${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
 
 export function categoryArt(cat) {

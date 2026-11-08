@@ -1,13 +1,14 @@
 -- =====================================================================
 --  Vastra Apparel -- a self-test of each item's status, cancelling one
---  item, refunds, going back a step and reviews, run ON THE REAL
---  DATABASE, and saving NOTHING.
+--  item, refunds, going back a step, reviews and the catalogue (its
+--  prices, its stock, and the checks every order now passes), run ON
+--  THE REAL DATABASE, and saving NOTHING.
 --
 --  Paste the whole file into the Supabase SQL editor and run it, AFTER
 --  schema.sql. It acts as the store -- the first phone let in with the
---  store code -- makes six test orders of its own, walks them through
---  every rule below, and then undoes all of it by ending in an error on
---  purpose. The message you want is:
+--  store code -- makes seven test orders and one test product of its
+--  own, walks them through every rule below, and then undoes all of it
+--  by ending in an error on purpose. The message you want is:
 --
 --      ALL GOOD -- every check passed, and nothing was saved
 --
@@ -29,6 +30,9 @@ declare
   o4 uuid := gen_random_uuid();
   o5 uuid := gen_random_uuid();
   o6 uuid := gen_random_uuid();
+  o7 uuid := gen_random_uuid();
+  pj jsonb;
+  base jsonb;
   rv bigint;
   r  record;
   n  int;
@@ -319,6 +323,227 @@ begin
   assert n = 0, 'SELFTEST FAILED: a hidden review is still in the shop';
   select count(*) into n from rating_summary() where pid = 't9';
   assert n = 0, 'SELFTEST FAILED: a hidden review still counts in the average';
+
+  -- 15. THE CATALOGUE (8 November 2026). A stranger may change nothing.
+  --     The store adds a product, prices it, counts its stock and hides
+  --     it -- and every order is checked against all of it, through
+  --     take_lines(), which is what place_order() calls for its lines.
+  perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid(),
+          'role', 'authenticated')::text, true);
+  begin
+    perform store_products();
+    raise exception 'SELFTEST FAILED: a stranger read the store''s products';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform save_product('{"name": "x", "slug": "x"}'::jsonb);
+    raise exception 'SELFTEST FAILED: a stranger added a product';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform set_price('p-anything', 1, 1);
+    raise exception 'SELFTEST FAILED: a stranger changed a price';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform set_stock('p-anything', '{}'::jsonb);
+    raise exception 'SELFTEST FAILED: a stranger changed the stock';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  begin
+    perform set_hidden('p-anything', true);
+    raise exception 'SELFTEST FAILED: a stranger hid a product';
+  exception when others then
+    if sqlerrm <> 'NOT_STAFF' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', boss::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', boss,
+          'role', 'authenticated')::text, true);
+
+  -- A new product: blue only, in M and XL (XL 50 more), 12 and 1 in stock.
+  base := jsonb_build_object(
+    'name', 'Self Test Shirt', 'slug', 'selftest-shirt', 'cat', 'men', 'sub', 'men-shirts',
+    'price', 1000, 'mrp', 1500, 'shortDesc', 'A test.', 'desc', 'A test shirt.',
+    'specs', jsonb_build_array(jsonb_build_object('k', 'Fit', 'v', 'Test')),
+    'img', jsonb_build_array('img/products/men-camp-shirt-sage-1.jpg'),
+    'variants', jsonb_build_object(
+      'colour', jsonb_build_array(jsonb_build_object('id', 'blue', 'label', 'Blue',
+                                                     'swatch', '#223344', 'img', 0)),
+      'size', jsonb_build_array(jsonb_build_object('id', 'm', 'label', 'M', 'delta', 0),
+                                jsonb_build_object('id', 'xl', 'label', 'XL', 'delta', 50))),
+    'skus', jsonb_build_object('blue/m', 12, 'blue/xl', 1));
+  pj := save_product(base);
+  assert pj->>'id' = 'p-selftest-shirt', 'SELFTEST FAILED: the new product is ' || coalesce(pj->>'id', 'missing');
+  assert (pj->'skus'->>'blue/m')::int = 12, 'SELFTEST FAILED: a new product did not take its stock';
+  -- Everybody sees it, and its stock only up to 10.
+  select x into pj from jsonb_array_elements(catalogue()) as t(x) where x->>'id' = 'p-selftest-shirt';
+  assert pj is not null, 'SELFTEST FAILED: a new product is not in the shop';
+  assert (pj->'skus'->>'blue/m')::int = 10,
+    'SELFTEST FAILED: the shop shows ' || (pj->'skus'->>'blue/m') || ' in stock, not 10';
+  assert not (pj ? 'hidden'), 'SELFTEST FAILED: the shop is told what is hidden';
+
+  -- What the store may not save.
+  begin
+    perform save_product(base || '{"slug": "selftest-two", "price": 1600}'::jsonb);
+    raise exception 'SELFTEST FAILED: a price above the MRP was saved';
+  exception when others then
+    if sqlerrm <> 'BAD_MRP' then raise; end if;
+  end;
+  begin
+    perform save_product(jsonb_set(base, '{variants,colour,0,swatch}', '"red"') || '{"slug": "selftest-two"}');
+    raise exception 'SELFTEST FAILED: a swatch that is not a colour was saved';
+  exception when others then
+    if sqlerrm <> 'BAD_COLOUR' then raise; end if;
+  end;
+  begin
+    perform save_product(jsonb_set(base, '{variants,colour,0,delta}', '50') || '{"slug": "selftest-two"}');
+    raise exception 'SELFTEST FAILED: a colour that moves the price was saved';
+  exception when others then
+    if sqlerrm <> 'BAD_COLOUR' then raise; end if;
+  end;
+  begin
+    perform save_product(base || '{"slug": "selftest-two", "img": ["https://example.com/x.jpg"]}'::jsonb);
+    raise exception 'SELFTEST FAILED: a photograph from somebody else''s site was saved';
+  exception when others then
+    if sqlerrm <> 'BAD_PHOTOS' then raise; end if;
+  end;
+  begin
+    perform save_product(jsonb_set(base, '{variants,colour,0,img}', 'null')
+                         || '{"slug": "selftest-two", "img": []}'::jsonb);
+    raise exception 'SELFTEST FAILED: a product with no photograph went on show';
+  exception when others then
+    if sqlerrm <> 'NEEDS_A_PHOTO' then raise; end if;
+  end;
+  begin
+    perform save_product(base);
+    raise exception 'SELFTEST FAILED: two products were given one link';
+  exception when others then
+    if sqlerrm <> 'SLUG_TAKEN' then raise; end if;
+  end;
+
+  -- The price, alone; never above the MRP.
+  pj := set_price('p-selftest-shirt', 1100, 1500);
+  assert (pj->>'price')::int = 1100, 'SELFTEST FAILED: the price did not change';
+  begin
+    perform set_price('p-selftest-shirt', 1600, 1500);
+    raise exception 'SELFTEST FAILED: set_price put a price above the MRP';
+  exception when others then
+    if sqlerrm <> 'BAD_MRP' then raise; end if;
+  end;
+
+  -- Stock, by the difference: the page showed 12, the owner typed 15, and
+  -- one was sold meanwhile -- 14, not 15.
+  update products set skus = jsonb_set(skus, '{blue/m}', '11') where id = 'p-selftest-shirt';
+  pj := set_stock('p-selftest-shirt', '{"blue/m": [12, 15]}'::jsonb);
+  assert (pj->'skus'->>'blue/m')::int = 14,
+    'SELFTEST FAILED: the stock should be 14 (11 + 15 - 12), is ' || (pj->'skus'->>'blue/m');
+  begin
+    perform set_stock('p-selftest-shirt', '{"red/m": [0, 5]}'::jsonb);
+    raise exception 'SELFTEST FAILED: stock was set for a colour the product does not have';
+  exception when others then
+    if sqlerrm <> 'BAD_STOCK' then raise; end if;
+  end;
+  begin
+    perform set_stock('p-selftest-shirt', '{"blue/m": [14, -1]}'::jsonb);
+    raise exception 'SELFTEST FAILED: the stock was set below nothing';
+  exception when others then
+    if sqlerrm <> 'BAD_STOCK' then raise; end if;
+  end;
+
+  -- Saving the product again keeps the stock the database has -- an order
+  -- may have taken some -- and a size added takes what it is given.
+  pj := save_product(jsonb_set(base, '{variants,size}', '[{"id": "m", "label": "M", "delta": 0},
+          {"id": "l", "label": "L", "delta": 0}, {"id": "xl", "label": "XL", "delta": 50}]')
+        || '{"id": "p-selftest-shirt", "name": "Self Test Shirt Two", "price": 1100,
+             "skus": {"blue/m": 99, "blue/l": 5, "blue/xl": 99}}'::jsonb);
+  assert pj->>'name' = 'Self Test Shirt Two', 'SELFTEST FAILED: the product was not changed';
+  assert (pj->'skus'->>'blue/m')::int = 14 and (pj->'skus'->>'blue/xl')::int = 1,
+    'SELFTEST FAILED: saving the product wrote its stock over: ' || (pj->>'skus');
+  assert (pj->'skus'->>'blue/l')::int = 5, 'SELFTEST FAILED: a new size did not take its stock';
+
+  -- The order's checks. The right price takes the stock off.
+  perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "m"},
+                        "qty": 2, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+  select (skus->>'blue/m')::int into n from products where id = 'p-selftest-shirt';
+  assert n = 12, 'SELFTEST FAILED: an order of 2 left ' || n || ' of 14';
+  -- XL is 50 more, so the M price for it is refused.
+  begin
+    perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "xl"},
+                          "qty": 1, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+    raise exception 'SELFTEST FAILED: an XL was sold at the price of an M';
+  exception when others then
+    if sqlerrm <> 'PRICE_CHANGED p-selftest-shirt' then raise; end if;
+  end;
+  -- Two XL with one left is refused, saying how many there are -- and a
+  -- refused order takes nothing, not even its first line.
+  begin
+    perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "m"},
+                          "qty": 1, "unitPrice": 1100, "unitMrp": 1500},
+                         {"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "xl"},
+                          "qty": 2, "unitPrice": 1150, "unitMrp": 1550}]'::jsonb);
+    raise exception 'SELFTEST FAILED: two were sold when one was left';
+  exception when others then
+    if sqlerrm <> 'OUT_OF_STOCK p-selftest-shirt blue/xl 1' then raise; end if;
+  end;
+  select (skus->>'blue/m')::int into n from products where id = 'p-selftest-shirt';
+  assert n = 12, 'SELFTEST FAILED: a refused order still took stock (' || n || ' left of 12)';
+  -- A size it does not sell, and a colour left out.
+  begin
+    perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "s"},
+                          "qty": 1, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+    raise exception 'SELFTEST FAILED: a size the product does not have was sold';
+  exception when others then
+    if sqlerrm <> 'BAD_LINE' then raise; end if;
+  end;
+  begin
+    perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"size": "m"},
+                          "qty": 1, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+    raise exception 'SELFTEST FAILED: an order line with no colour was sold';
+  exception when others then
+    if sqlerrm <> 'BAD_LINE' then raise; end if;
+  end;
+
+  -- A cancelled item puts its stock back, once; so does a cancelled order.
+  insert into orders (id, seq, user_id, status, cust_name, cust_mobile, addr, city, state, pin,
+                      items_total, mrp_total, saved, discount, discount_placed, shipping, bulky,
+                      grand, pay_method, arrives_from, arrives_to, history)
+  values (o7, 9007, boss, 'sent', 'Self Test', '9000000000', '1 Test Street, Nowhere',
+          'Bengaluru', 'Karnataka', '560001', 3350, 4550, 1200, 0, 0, 0, 0, 3350, 'upi',
+          today + 5, today + 10, jsonb_build_array(jsonb_build_object('at', iso_now(), 'to', 'sent')));
+  insert into order_lines (id, order_id, pid, name, variant, qty, unit_price, unit_mrp, line_total,
+                           checked, stock_taken)
+  values (9000000071, o7, 'p-selftest-shirt', 'Self Test Shirt', '{"colour": "blue", "size": "m"}',
+          2, 1100, 1500, 2200, true, true),
+         (9000000072, o7, 'p-selftest-shirt', 'Self Test Shirt', '{"colour": "blue", "size": "xl"}',
+          1, 1150, 1550, 1150, true, true);
+  perform advance_line(9000000071, 'cancelled');
+  select (skus->>'blue/m')::int into n from products where id = 'p-selftest-shirt';
+  assert n = 14, 'SELFTEST FAILED: a cancelled item of 2 left the stock at ' || n || ', not 14';
+  select count(*) into n from order_lines where id = 9000000071 and stock_taken;
+  assert n = 0, 'SELFTEST FAILED: a cancelled item still says its stock is taken';
+  perform advance_order(o7, 'cancelled');
+  select * into r from products where id = 'p-selftest-shirt';
+  assert (r.skus->>'blue/xl')::int = 2 and (r.skus->>'blue/m')::int = 14,
+    'SELFTEST FAILED: cancelling the order put back ' || r.skus::text;
+
+  -- Hidden: out of the shop and out of every order, still in the store.
+  pj := set_hidden('p-selftest-shirt', true);
+  select count(*) into n from jsonb_array_elements(catalogue()) as t(x) where x->>'id' = 'p-selftest-shirt';
+  assert n = 0, 'SELFTEST FAILED: a hidden product is still in the shop';
+  select count(*) into n from jsonb_array_elements(store_products()) as t(x) where x->>'id' = 'p-selftest-shirt';
+  assert n = 1, 'SELFTEST FAILED: the store lost a hidden product';
+  begin
+    perform take_lines('[{"pid": "p-selftest-shirt", "variant": {"colour": "blue", "size": "m"},
+                          "qty": 1, "unitPrice": 1100, "unitMrp": 1500}]'::jsonb);
+    raise exception 'SELFTEST FAILED: a hidden product was sold';
+  exception when others then
+    if sqlerrm <> 'GONE_FROM_CATALOGUE p-selftest-shirt' then raise; end if;
+  end;
 
   raise exception 'ALL GOOD -- every check passed, and nothing was saved';
 end $test$;

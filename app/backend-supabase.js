@@ -10,17 +10,22 @@
 //  unsubscribe.
 //
 //  ---------------------------------------------------------------
-//  WHAT STAYS IN THIS BROWSER: the catalogue, which is static JSON and
-//  the same for everybody; the bag; the wishlist; a guest's details that
-//  fill checkout in. A bag is a thing on one phone in one sitting --
+//  THE CATALOGUE COMES FROM HERE TOO since 8 November 2026 (catalogue(),
+//  read with no session, and the store's catalogAdmin below); store.js
+//  hands it to backend-local.js, whose reads answer every screen.
+//
+//  WHAT STAYS IN THIS BROWSER: the bag; the wishlist; a guest's details
+//  that fill checkout in. A bag is a thing on one phone in one sitting --
 //  syncing it would let a half-built bag on a laptop rewrite the one on
-//  a phone. store.js takes orders, live, clearEverything and staff from
-//  here, and account and addresses once config.js SIGN_IN is on.
+//  a phone. store.js takes orders, live, clearEverything, staff, reviews
+//  and catalogAdmin from here, and account and addresses once config.js
+//  SIGN_IN is on.
 //
 //  EVERY WRITE IS A FUNCTION ON THE SERVER: place_order, advance_order,
-//  set_paid, claim_staff, and for an account save_address and its two
-//  siblings and the hand-over pair. No table takes a write from here
-//  directly; the top of db/schema.sql says why that is the point.
+//  set_paid, claim_staff, the store's save_product, set_price, set_stock
+//  and set_hidden, and for an account save_address and its two siblings
+//  and the hand-over pair. No table takes a write from here directly;
+//  the top of db/schema.sql says why that is the point.
 //
 //  SNAKE_CASE STOPS AT toApp(). A database row never reaches a screen.
 // =====================================================================
@@ -174,6 +179,9 @@ const toApp = (r) => ({
     variantLabel: l.variant_label || '', qty: l.qty,
     unitPrice: l.unit_price, unitMrp: l.unit_mrp, lineTotal: l.line_total,
     status: l.status, history: l.history || [], shipment: l.shipment || null,
+    // The server checked this line's price as it was placed (8 November
+    // 2026), so the store board does not hold it against today's.
+    checked: !!l.checked,
   })),
   itemsTotal: r.items_total, mrpTotal: r.mrp_total, saved: r.saved,
   coupon: r.coupon, discount: r.discount, shipping: r.shipping,
@@ -608,6 +616,100 @@ async function publicRpc(fn, args = {}) {
   if (!res.ok) throw new Error(`${fn} ${res.status}`);
   return res.json();
 }
+
+// ---------------------------------------------------------------------
+// THE CATALOGUE (8 November 2026). The products live in the database,
+// where the store page adds them and changes their prices and stock.
+//
+// Everybody reads them as reviews are read: catalogue(), with the
+// publishable key alone and no session (store.js asks once per page
+// load, beside the shop's own files). It shows each size's stock up to
+// 10, which is all a page needs. The store reads store_products() --
+// every piece, hidden products too -- and writes through four functions
+// that each check the store's session first. After a write the shop's own
+// copy is read again, so every screen on the store page agrees with it.
+//
+// Photographs go to this project's storage (bucket product-photos, public
+// to read, the store alone may add one). The page makes each one a 4:5
+// JPEG before it is sent; see admin-catalog.js shrinkPhoto().
+// ---------------------------------------------------------------------
+export async function loadCatalogue() {
+  const list = await publicRpc('catalogue');
+  if (!Array.isArray(list)) throw new Error('catalogue: not a list');
+  return list;
+}
+
+async function refreshShop() {
+  try { local.useCatalogue(await loadCatalogue()); } catch (e) {
+    console.warn('[vastra] the shop\'s copy of the catalogue could not be read again', e);
+  }
+}
+
+/** The database has no catalogue yet: db/SETUP.md step 11 was not run. */
+const notSetUp = (e) => /PGRST202|Could not find the function|catalogue 404|store_products/
+  .test(String((e && (e.code || '')) + ' ' + ((e && e.message) || e)));
+
+/** What the editor knows that the server does not keep. */
+const forSave = (p) => {
+  const { stock, updatedAt, ...rest } = p || {};
+  return rest;
+};
+
+export const catalogAdmin = {
+  uploads: true,
+
+  /** Every product, hidden ones too, with all of its stock. NOT_SET_UP
+   *  while the database has no catalogue. */
+  async all() {
+    try {
+      return ((await rpc('store_products')) || []).map(D.withStock);
+    } catch (e) {
+      if (notSetUp(e)) throw new Error('NOT_SET_UP');
+      throw e;
+    }
+  },
+
+  /** A new product (no id) or a change to one. Returns it as saved. */
+  async save(product) {
+    const p = await rpc('save_product', { p: forSave(product) });
+    await refreshShop();
+    return D.withStock(p);
+  },
+
+  async setPrice(pid, price, mrp) {
+    const p = await rpc('set_price', { p_pid: pid, p_price: price, p_mrp: mrp });
+    await refreshShop();
+    return D.withStock(p);
+  },
+
+  /** `changes` is { key: [what the page showed, what was typed] }: the
+   *  server applies the difference, so an order placed meanwhile stands. */
+  async setStock(pid, changes) {
+    const p = await rpc('set_stock', { p_pid: pid, p_changes: changes });
+    await refreshShop();
+    return D.withStock(p);
+  },
+
+  async setHidden(pid, hidden) {
+    const p = await rpc('set_hidden', { p_pid: pid, p_hidden: !!hidden });
+    await refreshShop();
+    return D.withStock(p);
+  },
+
+  /** One photograph, already a JPEG; returns the address it is shown at.
+   *  Named by the product and a random id, never overwritten. */
+  async uploadPhoto(blob, pid) {
+    const sb = await client();
+    const folder = String(pid || 'new').replace(/[^a-z0-9-]/g, '') || 'new';
+    const path = `${folder}/${crypto.randomUUID()}.jpg`;
+    const bucket = sb.storage.from('product-photos');
+    const { error } = await bucket.upload(path, blob, {
+      contentType: 'image/jpeg', cacheControl: '31536000', upsert: false,
+    });
+    oops(error);
+    return bucket.getPublicUrl(path).data.publicUrl;
+  },
+};
 
 const reviewToApp = (r) => ({
   id: r.id, lineId: r.line_id, orderId: r.order_id, pid: r.pid,

@@ -193,7 +193,9 @@ function wireChrome() {
         return;
       }
       closeSizes(false);   // another card's panel, if one is open
-      await addOne(card, p, { colour: box.dataset.colour, size: sizes.length ? sizes[0].id : '' });
+      const only = { colour: box.dataset.colour, size: sizes.length ? sizes[0].id : '' };
+      if (!D.skuStock(p, only)) { toast('Sold out in this colour'); return; }
+      await addOne(card, p, only);
       return;
     }
 
@@ -237,7 +239,8 @@ function wireChrome() {
       if (!line) return;
       if (more) {
         const p = await store.catalog.byId(line.pid);
-        if (p) await addOne(more.closest('.card'), p, line.variant);
+        // No more than there is of that colour in that size.
+        if (p && line.qty < D.skuStock(p, line.variant)) await addOne(more.closest('.card'), p, line.variant);
       } else {
         await store.cart.setQty(key, line.qty - 1);
         if (line.qty === 1) toast('Removed from your bag');
@@ -265,11 +268,12 @@ let sizesOpen = null;      // { panel, add, p }
 
 function openSizes(card, add, p, shop) {
   closeSizes(false);
-  card.insertAdjacentHTML('beforeend', sizePanel(p, shop));
+  const box = card.querySelector('[data-cta]');
+  card.insertAdjacentHTML('beforeend', sizePanel(p, shop, (box && box.dataset.colour) || ''));
   const panel = card.lastElementChild;
   sizesOpen = { panel, add, p };
   add.setAttribute('aria-expanded', 'true');
-  const first = panel.querySelector('[data-pick]');
+  const first = panel.querySelector('[data-pick]:not(:disabled)');
   if (first) first.focus({ preventScroll: true });
 }
 

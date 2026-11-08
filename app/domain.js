@@ -239,6 +239,48 @@ export const variantMrp = (p, sel) => {
   return p.mrp + (s ? (s.delta || 0) : 0);
 };
 
+// ---------------------------------------------------------------------------
+// STOCK, BY COLOUR AND SIZE (8 November 2026). A product carries `skus`, the
+// pieces of each colour in each size, keyed "sage/m" -- or by its one axis
+// alone, or "one" when it has neither. ⚠️ THE SAME KEYS AS sku_key() and
+// sku_keys() in db/schema.sql and the rule in tools/data.pl; change one and
+// change all three. `stock` is their sum, worked out here as the catalogue
+// loads and never stored, so the badge and the sizes cannot disagree.
+// ---------------------------------------------------------------------------
+
+/** The stock key of a chosen colour and size. */
+export const skuKey = (p, sel) => {
+  const v = (p && p.variants) || {};
+  const parts = [];
+  if ((v.colour || []).length) parts.push((sel && sel.colour) || '');
+  if ((v.size || []).length) parts.push((sel && sel.size) || '');
+  return parts.length ? parts.join('/') : 'one';
+};
+
+/** Every stock key a product's variants make: each colour in each size. */
+export const skuKeys = (variants) => {
+  const cs = ((variants && variants.colour) || []).map((c) => c.id);
+  const ss = ((variants && variants.size) || []).map((s) => s.id);
+  if (cs.length && ss.length) return cs.flatMap((c) => ss.map((s) => `${c}/${s}`));
+  return cs.length ? cs : ss.length ? ss : ['one'];
+};
+
+/** How many of this colour in this size there are. A voucher never runs
+ *  out; a product from before per-size stock answers with its total. */
+export const skuStock = (p, sel) => {
+  if (!p) return 0;
+  if (p.kind === 'voucher') return 99;
+  if (!p.skus || typeof p.skus !== 'object') return Math.max(0, Number(p.stock) || 0);
+  return Math.max(0, Math.floor(Number(p.skus[skuKey(p, sel)]) || 0));
+};
+
+/** The product with its total `stock` worked out from its sizes. */
+export const withStock = (p) => {
+  if (!p || !p.skus || typeof p.skus !== 'object') return p;
+  const stock = Object.values(p.skus).reduce((n, v) => n + Math.max(0, Math.floor(Number(v) || 0)), 0);
+  return { ...p, stock };
+};
+
 /** ⚠️ Line identity is pid|colour|size, NOT pid. Two colours of one shirt
  *  are two lines. Without this, adding Indigo then Ecru silently increments
  *  the first and the customer receives two of the wrong thing. */
@@ -282,6 +324,18 @@ export const matchCoupon = (code, coupons) => {
  * Vouchers are excluded from shipping entirely — there is nothing to ship.
  * bulkySurcharge applies once per BULKY LINE, not per unit.
  */
+/** What a coupon takes off `items` -- rounded ONCE, on the total, capped at
+ *  maxOff and at the items themselves. The caller checks minItems. One
+ *  function, so the basket and the store's check of a placed order (below)
+ *  cannot work a coupon out two ways. */
+export function couponDiscount(coupon, items) {
+  let discount = coupon.percent
+    ? Math.round(items * coupon.percent / 100)
+    : (coupon.flat || 0);
+  if (coupon.maxOff) discount = Math.min(discount, coupon.maxOff);
+  return Math.min(discount, items);
+}
+
 export function totals(lines, byId, rules, coupon) {
   let items = 0, mrpTotal = 0, bulky = 0, physical = 0;
 
@@ -299,15 +353,8 @@ export function totals(lines, byId, rules, coupon) {
   }
 
   // Rule 4, then rules 2 and 3.
-  let discount = 0, couponOk = false;
-  if (coupon && items >= (coupon.minItems || 0)) {
-    couponOk = true;
-    discount = coupon.percent
-      ? Math.round(items * coupon.percent / 100)
-      : (coupon.flat || 0);
-    if (coupon.maxOff) discount = Math.min(discount, coupon.maxOff);
-    discount = Math.min(discount, items);
-  }
+  const couponOk = !!coupon && items >= (coupon.minItems || 0);
+  const discount = couponOk ? couponDiscount(coupon, items) : 0;
 
   // Rule 1 — `items`, not `items - discount`.
   const freeShip = physical === 0 || items >= rules.freeOver;
@@ -487,7 +534,7 @@ export const ROUTES = [
 // FAIL in routes.pl, which also checks this list against TABS in admin.js.
 export const OWNER_ROUTES = [
   { re: /^\/?$/,                     screen: 'admin',    keys: [] },
-  { re: /^\/(overview|orders|reviews|catalogue|inventory|categories|data)$/, screen: 'admin', keys: ['tab'] },
+  { re: /^\/(overview|orders|reviews|catalogue|inventory)$/, screen: 'admin', keys: ['tab'] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -710,14 +757,24 @@ export const ACTION_LABEL = {
 export const ORDER_ENDS = ['cancelled', 'returned', 'abandoned'];
 
 /**
- * What an order says it costs, against what the catalogue says TODAY: each
- * line's unit price, and any discount against the coupon it names. The store
- * board shows the result on every order, because the server cannot check
- * prices it has never seen. Empty means nothing to say.
+ * What an order says it costs that nobody checked: the store board shows the
+ * result on every order, and empty means nothing to say.
+ *
+ * PRICES: since 8 November 2026 the server checks each line against the
+ * catalogue as the order is placed (take_lines in db/schema.sql), and the
+ * line says so (`checked`); a line it did not check -- placed before that,
+ * or in one browser -- is held against today's catalogue, which is why
+ * those words say "today". A checked line is never held against today: the
+ * owner changes prices now, and last week's order was right at last week's.
+ *
+ * THE COUPON the server still cannot check (the codes are in shop.json), so
+ * it is checked here -- against the order's OWN prices as placed, with the
+ * rule the basket uses, so a price changed since cannot make it look wrong.
  */
 export function checkOrderPrices(o, byId, shop) {
   const out = [];
   for (const l of (o && o.lines) || []) {
+    if (l.checked) continue;
     const p = byId(l.pid);
     const what = `${l.name}${l.variantLabel ? ' (' + l.variantLabel + ')' : ''}`;
     if (!p) { out.push(`${what} is no longer in the catalogue`); continue; }
@@ -726,15 +783,16 @@ export function checkOrderPrices(o, byId, shop) {
       out.push(`${what}: ${rupees(l.unitPrice)} on the order, ${rupees(want)} today`);
     }
   }
-  if (o && o.discount) {
+  const given = o ? (o.discountPlaced != null ? o.discountPlaced : o.discount) : 0;
+  if (given) {
     const c = matchCoupon(o.coupon || '', shop.coupons);
+    const placed = (o.lines || []).reduce((n, l) => n + l.unitPrice * l.qty, 0);
     if (!c) {
-      out.push(`${rupees(o.discount)} off with no coupon this shop knows`);
+      out.push(`${rupees(given)} off with no coupon this shop knows`);
     } else {
-      const t = totals(o.lines.map((l) => ({ pid: l.pid, qty: l.qty, variant: l.variant })),
-        byId, shop.shipping, c);
-      if (t.discount !== o.discount) {
-        out.push(`coupon ${c.code}: ${rupees(o.discount)} off on the order, ${rupees(t.discount)} by today's rule`);
+      const want = placed >= (c.minItems || 0) ? couponDiscount(c, placed) : 0;
+      if (want !== given) {
+        out.push(`coupon ${c.code}: ${rupees(given)} off on the order, ${rupees(want)} by its rule`);
       }
     }
   }

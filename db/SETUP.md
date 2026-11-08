@@ -266,6 +266,33 @@ product shows one; the store's Reviews tab says what to run.
 
    > ALL GOOD -- every check passed, and nothing was saved
 
+## 11. Products, prices, stock and photographs — 2 min
+
+Since 8 November 2026 the products live in the database, and the store
+page adds them, changes their prices and photographs, and keeps the
+stock of every colour in every size: the **Products** and **Inventory**
+tabs. Until this is run the shop shows the products from the site's own
+file, and those two tabs say what to run.
+
+1. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new)
+   → paste **all** of [`db/schema.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/schema.sql)
+   → **Run** → *"Success. No rows returned."* It adds the products
+   table and puts the 11 products from your photographs into it — once:
+   run again later, it leaves every product as the store left it. It
+   makes a storage bucket, `product-photos`, that anybody may look at and
+   only the store may add to, and from then on **every order is checked
+   against today's prices and stock**, and takes its pieces off.
+2. A new SQL tab → paste **all** of
+   [`db/selftest.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/selftest.sql)
+   → **Run**. It now also adds a test product, tries everything the
+   store and a stranger might do to it, and places test orders against
+   it — and ends in the same error on purpose, saving nothing:
+
+   > ALL GOOD -- every check passed, and nothing was saved
+
+3. Open the store page → **Products**: your 11 products. Change one
+   price, then look at it in the shop.
+
 ## Starting again with no data — 3 min
 
 To clear out every test order and account and begin as a new customer
@@ -325,13 +352,16 @@ fortnight of testing will hit it, a shop taking orders daily will not.
 
 ## What is still true afterwards
 
-- **The server re-adds every total but does not know the prices.** The
-  catalogue lives in `app/data/`, not in the database, so a request made
-  by hand could name its own price. The store page flags any order whose
-  prices differ from the catalogue. A price check on the server comes
-  before taking money from strangers.
+- **The server re-adds every total and, since step 11, checks every
+  price and the stock** against the products table, taking the pieces
+  off as the order is placed and putting them back when the store
+  cancels an item. ⚠️ **It does not check the coupon**: the coupons are
+  in `app/data/shop.json`, which the database has never seen, so a
+  request made by hand could name its own discount. The store page flags
+  an order whose discount its coupon would not give.
+- **A returned item's stock is not put back by itself** — somebody looks
+  at it first, then adds it in the store's Inventory.
 - **`paid` is a note a person makes**, after looking at the bank. UPI
   sends nothing back to a web page.
 - **A customer sees their orders only in the browser they ordered from**,
   unless they sign in (step 7). Signed in, every phone shows them.
-- **Stock is not taken off** when an order is placed.

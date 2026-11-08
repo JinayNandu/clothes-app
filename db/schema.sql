@@ -9,13 +9,16 @@
 --  the project are this shop's alone.
 --
 --  ---------------------------------------------------------------
---  WHAT IS NOT HERE
+--  WHAT IS HERE, AND WHAT IS NOT
 --
---  The catalogue. Products, prices, sizes, coupons and the delivery
---  rule stay in app/data/*.json, in git, checked by tools/data.pl and
---  the same for everybody. What is here is only what moves per person:
---  orders, their lines, a signed-in customer's addresses, and who may
---  run the store.
+--  What moves per person -- orders, their lines, a signed-in customer's
+--  addresses, reviews, who may run the store -- and, since 8 November
+--  2026, THE CATALOGUE: products, their prices, the stock of each colour
+--  in each size, and their photographs, which the store page changes.
+--  The first catalogue is app/data/catalog.json, copied into an empty
+--  products table at the end of this file (tools/seed.pl writes that
+--  part). Categories, size charts, coupons and the delivery rule stay in
+--  app/data/*.json, in git, checked by tools/data.pl.
 --
 --  ---------------------------------------------------------------
 --  NOBODY WRITES A TABLE DIRECTLY
@@ -28,11 +31,12 @@
 --  writes the order and its lines in ONE transaction, and re-adds every
 --  total rather than trusting the page's arithmetic.
 --
---  ⚠️ WHAT IT DOES NOT YET CHECK: the PRICES themselves. The server has
---  no copy of the catalogue, so a forged request could name its own
---  unit prices and coupon. The store page flags any order whose prices
---  differ from the catalogue; a price check on the server comes before
---  this shop takes money from strangers. See CLAUDE.md, *Open*.
+--  Since 8 November 2026 it also checks every line against TODAY'S
+--  catalogue -- the price for that size, a colour and size it sells, in
+--  stock -- and takes the stock off. ⚠️ WHAT IT STILL DOES NOT CHECK: the
+--  COUPON. The coupons are in shop.json, which this database has never
+--  seen, so a forged request could still name its own discount. The
+--  store page flags one; see CLAUDE.md, *Open*.
 --
 --  ---------------------------------------------------------------
 --  THE ADDRESS IS COPIED INTO THE ORDER, never referenced. An address
@@ -216,6 +220,530 @@ create policy line_read on order_lines for select using (
           and (o.user_id = auth.uid() or is_staff()))
 );
 
+-- =====================================================================
+--  THE CATALOGUE (8 November 2026) -- products, the stock of each colour
+--  in each size, and their photographs, which the store page now changes
+--  itself. Until today they were JSON in git, and the owner could not
+--  change a price without somebody editing a file.
+--
+--  NOBODY READS OR WRITES THE TABLE DIRECTLY, like every table here. Two
+--  functions read it -- catalogue() for everybody, with no session, and
+--  store_products() for the store -- and four write it, each the store's
+--  alone: save_product, set_price, set_stock and set_hidden.
+--
+--  ⚠️ place_order() READS IT TOO, and that is the point. Before today the
+--  server had never seen a price, so a hand-made order could name its
+--  own. Now every line must carry today's price for its size, and the
+--  stock of that colour and size is taken off as the order is placed --
+--  the row locked first, so two phones cannot both buy the last one. A
+--  cancelled item puts its stock back (restock_line).
+--
+--  A PRODUCT IS NEVER DELETED, only hidden: it may sit in somebody's bag,
+--  wishlist or order, and all three find it by id.
+--
+--  The JSON the app knows is made in ONE place, product_json(), so the
+--  table's snake_case never leaves this file.
+-- =====================================================================
+create table if not exists products (
+  id          text primary key check (id ~ '^p-[a-z0-9-]{1,60}$'),
+  slug        text not null unique check (slug ~ '^[a-z0-9-]{1,80}$'),
+  name        text not null check (length(name) between 1 and 120),
+  cat         text not null,
+  sub         text,
+  price       int  not null check (price > 0),
+  mrp         int  not null,
+  short_desc  text not null default '',
+  descr       text not null default '',
+  specs       jsonb not null default '[]'::jsonb,
+  variants    jsonb not null default '{}'::jsonb,
+  img         jsonb not null default '[]'::jsonb,
+  -- The stock of each colour in each size: {"sage/m": 4}. A product with
+  -- one axis keys by it alone, one with neither by "one" (sku_key).
+  skus        jsonb not null default '{}'::jsonb,
+  badges      jsonb not null default '[]'::jsonb,
+  tags        jsonb not null default '[]'::jsonb,
+  size_chart  text,
+  kind        text not null default 'goods' check (kind in ('goods', 'voucher')),
+  ship_class  text not null default 'std'   check (ship_class in ('std', 'bulky')),
+  popularity  int  not null default 50 check (popularity between 0 and 100),
+  added_on    date not null default ((now() at time zone 'Asia/Kolkata')::date),
+  hidden      boolean not null default false,
+  -- The order the shop lists them in; a new product goes last.
+  list_order  int  not null default 0,
+  updated_at  timestamptz not null default now(),
+  check (mrp >= price)
+);
+-- Row-level security on and NO policy: no role sees a row except through
+-- the functions below, which run as their owner.
+alter table products enable row level security;
+
+-- What the server checked as an order was placed, line by line: today's
+-- price (`checked`), and whether its stock was taken off (`stock_taken`,
+-- false again once a cancellation has put it back). An item placed before
+-- 8 November 2026 has neither, and the store board still checks it.
+alter table order_lines add column if not exists checked     boolean not null default false;
+alter table order_lines add column if not exists stock_taken boolean not null default false;
+
+-- A whole number from JSON, or NULL: 12.5, "12" and true are not.
+create or replace function whole(j jsonb) returns int
+  language sql immutable set search_path = public as $fn$
+  select case when jsonb_typeof(j) = 'number' and j::text ~ '^[0-9]{1,9}$' then j::text::int end;
+$fn$;
+
+-- The stock key of a chosen variant -- the same as domain.js skuKey().
+create or replace function sku_key(sel jsonb) returns text
+  language sql immutable set search_path = public as $fn$
+  select coalesce(nullif(concat_ws('/', nullif(sel->>'colour', ''), nullif(sel->>'size', '')), ''), 'one');
+$fn$;
+
+-- Every stock key a product's variants make, colour by colour, size by size.
+create or replace function sku_keys(v jsonb) returns text[]
+  language sql immutable set search_path = public as $fn$
+  select case
+    when n.nc > 0 and n.ns > 0 then array(
+      select (c.e->>'id') || '/' || (s.e->>'id')
+        from jsonb_array_elements(v->'colour') with ordinality as c(e, i)
+       cross join jsonb_array_elements(v->'size') with ordinality as s(e, j)
+       order by c.i, s.j)
+    when n.nc > 0 then array(
+      select c.e->>'id' from jsonb_array_elements(v->'colour') with ordinality as c(e, i) order by c.i)
+    when n.ns > 0 then array(
+      select s.e->>'id' from jsonb_array_elements(v->'size') with ordinality as s(e, j) order by s.j)
+    else array['one'] end
+  from (select jsonb_array_length(coalesce(v->'colour', '[]'::jsonb)) as nc,
+               jsonb_array_length(coalesce(v->'size', '[]'::jsonb)) as ns) as n;
+$fn$;
+
+-- A product as the app knows it. `exact` is the store's view: every
+-- piece of stock, and whether it is hidden. Everybody else sees stock up
+-- to 10 -- enough to say "Only 2 left" and to stop the bag at what there
+-- is (an order takes at most 10 of a line) -- and not the warehouse.
+create or replace function product_json(p products, exact boolean) returns jsonb
+  language sql stable set search_path = public as $fn$
+  select jsonb_strip_nulls(jsonb_build_object(
+    'id', p.id, 'slug', p.slug, 'name', p.name, 'cat', p.cat, 'sub', p.sub,
+    'price', p.price, 'mrp', p.mrp, 'shortDesc', p.short_desc, 'desc', p.descr,
+    'specs', p.specs, 'variants', p.variants, 'img', p.img,
+    'skus', case when exact then p.skus else (
+              select coalesce(jsonb_object_agg(e.k, least(e.v::int, 10)), '{}'::jsonb)
+                from jsonb_each_text(p.skus) as e(k, v)) end,
+    'badges', p.badges, 'tags', p.tags, 'sizeChart', p.size_chart,
+    'kind', p.kind, 'shipClass', p.ship_class, 'popularity', p.popularity,
+    'addedOn', to_char(p.added_on, 'YYYY-MM-DD'),
+    'hidden', case when exact then p.hidden end));
+$fn$;
+
+-- What everybody may read: the products on show, in the shop's order.
+-- Granted to anon -- a page with no session -- like the public reviews.
+create or replace function catalogue() returns jsonb
+  language sql stable security definer set search_path = public as $fn$
+  select coalesce(jsonb_agg(product_json(p, false) order by p.list_order, p.id), '[]'::jsonb)
+    from products p where not p.hidden;
+$fn$;
+
+-- The store's view: every product, hidden ones too, with all its stock.
+create or replace function store_products() returns jsonb
+  language plpgsql stable security definer set search_path = public as $fn$
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  return (select coalesce(jsonb_agg(product_json(p, true) order by p.list_order, p.id), '[]'::jsonb)
+            from products p);
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  save_product(p) -- add a product (no id) or change one (its id).
+--  Staff only. Every field is checked HERE as well as on the page: the
+--  page's checks are for the owner's convenience, these are the rules.
+--
+--  ⚠️ IT DOES NOT CHANGE STOCK THAT EXISTS. An order may have taken some
+--  while the editor was open; writing the editor's numbers back would
+--  undo it. A NEW product takes the stock it is given, a colour or size
+--  added to one takes what it is given (none, if nothing), and stock
+--  already there is changed by set_stock() alone.
+-- ---------------------------------------------------------------------
+create or replace function save_product(p jsonb) returns jsonb
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  pid    text := nullif(trim(coalesce(p->>'id', '')), '');
+  cur    products;
+  done   products;
+  cols   jsonb;
+  sizes  jsonb;
+  v      jsonb;
+  imgs   jsonb := coalesce(p->'img', '[]'::jsonb);
+  v_specs  jsonb := coalesce(p->'specs', '[]'::jsonb);
+  v_badges jsonb := coalesce(p->'badges', '[]'::jsonb);
+  v_tags   jsonb := coalesce(p->'tags', '[]'::jsonb);
+  v_skus   jsonb := '{}'::jsonb;
+  hid    boolean;
+  e      jsonb;
+  k      text;
+  n      int;
+  pr     int;
+  mr     int;
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  if jsonb_typeof(p) is distinct from 'object' then raise exception 'BAD_PRODUCT'; end if;
+  if pid is not null then
+    select * into cur from products where id = pid for update;
+    if not found then raise exception 'NO_SUCH_PRODUCT'; end if;
+  end if;
+
+  -- What it is, and where it is filed.
+  if length(trim(coalesce(p->>'name', ''))) not between 1 and 120 then raise exception 'BAD_NAME'; end if;
+  if coalesce(p->>'slug', '') !~ '^[a-z0-9]+(-[a-z0-9]+)*$' then raise exception 'BAD_SLUG'; end if;
+  if length(p->>'slug') > 56 then raise exception 'BAD_SLUG'; end if;
+  if exists (select 1 from products where slug = p->>'slug' and id is distinct from pid) then
+    raise exception 'SLUG_TAKEN';
+  end if;
+  if coalesce(p->>'cat', '') !~ '^[a-z0-9-]{1,40}$' then raise exception 'BAD_CATEGORY'; end if;
+  if coalesce(p->>'sub', '') !~ '^([a-z0-9-]{1,40})?$' then raise exception 'BAD_CATEGORY'; end if;
+  if length(coalesce(p->>'shortDesc', '')) > 300 then raise exception 'TOO_LONG'; end if;
+  if length(coalesce(p->>'desc', '')) > 4000 then raise exception 'TOO_LONG'; end if;
+  if coalesce(p->>'sizeChart', '') !~ '^([a-z0-9-]{1,40})?$' then raise exception 'BAD_SIZE_CHART'; end if;
+
+  -- Money: whole rupees, the price at or under the MRP.
+  pr := whole(p->'price');
+  mr := whole(p->'mrp');
+  if pr is null or pr < 1 or pr > 100000 then raise exception 'BAD_PRICE'; end if;
+  if mr is null or mr < pr or mr > 100000 then raise exception 'BAD_MRP'; end if;
+
+  -- Photographs: this shop's own files, or ones uploaded to its storage.
+  if jsonb_typeof(imgs) is distinct from 'array' then raise exception 'BAD_PHOTOS'; end if;
+  if jsonb_array_length(imgs) > 12 then raise exception 'BAD_PHOTOS'; end if;
+  for e in select value from jsonb_array_elements(imgs) loop
+    if jsonb_typeof(e) <> 'string' then raise exception 'BAD_PHOTOS'; end if;
+    if position('..' in e #>> '{}') > 0 then raise exception 'BAD_PHOTOS'; end if;
+    if (e #>> '{}') !~ ('^(img/products/[A-Za-z0-9_.-]+|https://[a-z0-9]+\.supabase\.co/storage/v1/'
+                        || 'object/public/product-photos/[A-Za-z0-9_./-]+)\.(jpe?g|png|webp)$') then
+      raise exception 'BAD_PHOTOS';
+    end if;
+  end loop;
+
+  -- Variants: colours carry a label, a swatch and their photograph; only
+  -- sizes move the price (domain.js variantPrice, data.pl).
+  v := coalesce(p->'variants', '{}'::jsonb);
+  if jsonb_typeof(v) <> 'object' then raise exception 'BAD_VARIANTS'; end if;
+  cols  := coalesce(v->'colour', '[]'::jsonb);
+  sizes := coalesce(v->'size', '[]'::jsonb);
+  if jsonb_typeof(cols) <> 'array' or jsonb_typeof(sizes) <> 'array' then raise exception 'BAD_VARIANTS'; end if;
+  if jsonb_array_length(cols) > 12 or jsonb_array_length(sizes) > 12 then raise exception 'BAD_VARIANTS'; end if;
+  for e in select value from jsonb_array_elements(cols) loop
+    if jsonb_typeof(e) <> 'object' then raise exception 'BAD_COLOUR'; end if;
+    if coalesce(e->>'id', '') !~ '^[a-z0-9-]{1,30}$' then raise exception 'BAD_COLOUR'; end if;
+    if length(trim(coalesce(e->>'label', ''))) not between 1 and 40 then raise exception 'BAD_COLOUR'; end if;
+    if coalesce(e->>'swatch', '') !~ '^#[0-9A-Fa-f]{6}$' then raise exception 'BAD_COLOUR'; end if;
+    if coalesce(e->'delta', '0'::jsonb) <> '0'::jsonb then raise exception 'BAD_COLOUR'; end if;
+    if coalesce(jsonb_typeof(e->'img'), 'null') <> 'null' then
+      n := whole(e->'img');
+      if n is null then raise exception 'BAD_COLOUR'; end if;
+      if n >= jsonb_array_length(imgs) then raise exception 'BAD_COLOUR'; end if;
+    end if;
+  end loop;
+  if (select count(distinct x->>'id') from jsonb_array_elements(cols) x) <> jsonb_array_length(cols) then
+    raise exception 'BAD_COLOUR';
+  end if;
+  for e in select value from jsonb_array_elements(sizes) loop
+    if jsonb_typeof(e) <> 'object' then raise exception 'BAD_SIZE'; end if;
+    if coalesce(e->>'id', '') !~ '^[a-z0-9-]{1,10}$' then raise exception 'BAD_SIZE'; end if;
+    if length(trim(coalesce(e->>'label', ''))) not between 1 and 10 then raise exception 'BAD_SIZE'; end if;
+    if jsonb_typeof(e->'delta') is distinct from 'number' then raise exception 'BAD_SIZE'; end if;
+    if (e->'delta')::text !~ '^-?[0-9]{1,5}$' then raise exception 'BAD_SIZE'; end if;
+    if pr + (e->>'delta')::int < 1 then raise exception 'BAD_SIZE'; end if;
+  end loop;
+  if (select count(distinct x->>'id') from jsonb_array_elements(sizes) x) <> jsonb_array_length(sizes) then
+    raise exception 'BAD_SIZE';
+  end if;
+  -- Rebuilt from what was checked, so nothing else rides along.
+  v := jsonb_build_object(
+    'colour', coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+                 'id', x->>'id', 'label', trim(x->>'label'), 'swatch', upper(x->>'swatch'),
+                 'delta', 0, 'img', whole(x->'img'))) order by i)
+               from jsonb_array_elements(cols) with ordinality as t(x, i)), '[]'::jsonb),
+    'size', coalesce((select jsonb_agg(jsonb_build_object(
+                 'id', x->>'id', 'label', trim(x->>'label'), 'delta', (x->>'delta')::int) order by i)
+               from jsonb_array_elements(sizes) with ordinality as t(x, i)), '[]'::jsonb));
+  if jsonb_array_length(v->'colour') = 0 then v := v - 'colour'; end if;
+  if jsonb_array_length(v->'size') = 0 then v := v - 'size'; end if;
+
+  -- The rest: specifications, search words, and what a person chose to
+  -- badge -- never a badge the shop works out for itself.
+  if jsonb_typeof(v_specs) is distinct from 'array' then raise exception 'BAD_SPECS'; end if;
+  if jsonb_array_length(v_specs) > 20 then raise exception 'BAD_SPECS'; end if;
+  for e in select value from jsonb_array_elements(v_specs) loop
+    if jsonb_typeof(e) <> 'object' then raise exception 'BAD_SPECS'; end if;
+    if length(trim(coalesce(e->>'k', ''))) not between 1 and 60 then raise exception 'BAD_SPECS'; end if;
+    if length(trim(coalesce(e->>'v', ''))) not between 1 and 300 then raise exception 'BAD_SPECS'; end if;
+  end loop;
+  v_specs := coalesce((select jsonb_agg(jsonb_build_object('k', trim(x->>'k'), 'v', trim(x->>'v')) order by i)
+                       from jsonb_array_elements(v_specs) with ordinality as t(x, i)), '[]'::jsonb);
+  if jsonb_typeof(v_tags) is distinct from 'array' then raise exception 'BAD_TAGS'; end if;
+  if jsonb_array_length(v_tags) > 20 then raise exception 'BAD_TAGS'; end if;
+  if exists (select 1 from jsonb_array_elements(v_tags) x
+              where jsonb_typeof(x) <> 'string' or length(x #>> '{}') not between 1 and 40) then
+    raise exception 'BAD_TAGS';
+  end if;
+  if jsonb_typeof(v_badges) is distinct from 'array' then raise exception 'BAD_BADGES'; end if;
+  if exists (select 1 from jsonb_array_elements(v_badges) x
+              where jsonb_typeof(x) <> 'string' or (x #>> '{}') !~ '^[a-z0-9-]{1,20}$'
+                 or (x #>> '{}') in ('new', 'sale', 'low-stock', 'sold-out')) then
+    raise exception 'BAD_BADGES';
+  end if;
+
+  -- On show needs a photograph: a shop does not sell a blank.
+  hid := coalesce((p->>'hidden')::boolean, coalesce(cur.hidden, false));
+  if not hid and jsonb_array_length(imgs) = 0 then raise exception 'NEEDS_A_PHOTO'; end if;
+
+  -- Stock: what the database holds for every colour and size still sold,
+  -- and what was given for one that is new.
+  for k in select unnest(sku_keys(v)) loop
+    if cur.id is not null and cur.skus ? k then
+      n := (cur.skus->>k)::int;
+    elsif coalesce(p->'skus', '{}'::jsonb) ? k then
+      n := whole(p->'skus'->k);
+      if n is null or n > 100000 then raise exception 'BAD_STOCK'; end if;
+    else
+      n := 0;
+    end if;
+    v_skus := v_skus || jsonb_build_object(k, n);
+  end loop;
+
+  if pid is null then
+    pid := 'p-' || (p->>'slug');
+    n := 1;
+    while exists (select 1 from products where id = pid) loop
+      n := n + 1;
+      pid := 'p-' || (p->>'slug') || '-' || n;
+    end loop;
+    insert into products (id, slug, name, cat, sub, price, mrp, short_desc, descr, specs,
+                          variants, img, skus, badges, tags, size_chart, hidden, list_order)
+    values (pid, p->>'slug', trim(p->>'name'), p->>'cat', nullif(p->>'sub', ''), pr, mr,
+            trim(coalesce(p->>'shortDesc', '')), trim(coalesce(p->>'desc', '')), v_specs,
+            v, imgs, v_skus, v_badges, v_tags, nullif(p->>'sizeChart', ''), hid,
+            coalesce((select max(list_order) from products), 0) + 1)
+    returning * into done;
+  else
+    update products set
+      slug = p->>'slug', name = trim(p->>'name'), cat = p->>'cat', sub = nullif(p->>'sub', ''),
+      price = pr, mrp = mr, short_desc = trim(coalesce(p->>'shortDesc', '')),
+      descr = trim(coalesce(p->>'desc', '')), specs = v_specs, variants = v, img = imgs,
+      skus = v_skus, badges = v_badges, tags = v_tags, size_chart = nullif(p->>'sizeChart', ''),
+      hidden = hid, updated_at = now()
+    where id = pid
+    returning * into done;
+  end if;
+  return product_json(done, true);
+end;
+$fn$;
+
+-- The price and the MRP alone: the store's quick change. Staff only.
+create or replace function set_price(p_pid text, p_price int, p_mrp int) returns jsonb
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  cur  products;
+  done products;
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  select * into cur from products where id = p_pid for update;
+  if not found then raise exception 'NO_SUCH_PRODUCT'; end if;
+  if p_price is null or p_price < 1 or p_price > 100000 then raise exception 'BAD_PRICE'; end if;
+  if p_mrp is null or p_mrp < p_price or p_mrp > 100000 then raise exception 'BAD_MRP'; end if;
+  -- No size may come to nothing: a size cheaper than the base price
+  -- carries a negative delta.
+  if exists (select 1 from jsonb_array_elements(coalesce(cur.variants->'size', '[]'::jsonb)) s
+              where p_price + coalesce((s->>'delta')::int, 0) < 1) then
+    raise exception 'BAD_PRICE';
+  end if;
+  update products set price = p_price, mrp = p_mrp, updated_at = now()
+   where id = p_pid returning * into done;
+  return product_json(done, true);
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  set_stock(pid, changes) -- the store changes the stock of some colours
+--  and sizes. Staff only. Each change is [what the page showed, what was
+--  typed], and the DIFFERENCE is applied, so an order placed while the
+--  page was open is not undone: the page said 10, five more came in and
+--  the owner typed 15, an order took one meanwhile -- 14, not 15.
+-- ---------------------------------------------------------------------
+create or replace function set_stock(p_pid text, p_changes jsonb) returns jsonb
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  cur   products;
+  done  products;
+  known text[];
+  k     text;
+  e     jsonb;
+  was   int;
+  typed int;
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  select * into cur from products where id = p_pid for update;
+  if not found then raise exception 'NO_SUCH_PRODUCT'; end if;
+  if jsonb_typeof(p_changes) is distinct from 'object' then raise exception 'BAD_STOCK'; end if;
+  known := sku_keys(cur.variants);
+  for k, e in select key, value from jsonb_each(p_changes) loop
+    if not (k = any(known)) then raise exception 'BAD_STOCK'; end if;
+    if jsonb_typeof(e) is distinct from 'array' then raise exception 'BAD_STOCK'; end if;
+    if jsonb_array_length(e) <> 2 then raise exception 'BAD_STOCK'; end if;
+    was   := whole(e->0);
+    typed := whole(e->1);
+    if was is null or typed is null or typed > 100000 then raise exception 'BAD_STOCK'; end if;
+    cur.skus := jsonb_set(cur.skus, array[k],
+      to_jsonb(greatest(0, coalesce((cur.skus->>k)::int, 0) + typed - was)));
+  end loop;
+  update products set skus = cur.skus, updated_at = now()
+   where id = p_pid returning * into done;
+  return product_json(done, true);
+end;
+$fn$;
+
+-- Off the shop, or back on it. Staff only. Back on needs a photograph.
+create or replace function set_hidden(p_pid text, p_hidden boolean) returns jsonb
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  cur  products;
+  done products;
+begin
+  if not is_staff() then raise exception 'NOT_STAFF'; end if;
+  if p_hidden is null then raise exception 'BAD_HIDDEN'; end if;
+  select * into cur from products where id = p_pid for update;
+  if not found then raise exception 'NO_SUCH_PRODUCT'; end if;
+  if not p_hidden and jsonb_array_length(cur.img) = 0 then raise exception 'NEEDS_A_PHOTO'; end if;
+  update products set hidden = p_hidden, updated_at = now()
+   where id = p_pid returning * into done;
+  return product_json(done, true);
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  take_lines(lines) -- an order's lines, checked against the catalogue
+--  and their stock taken off. Called by place_order() alone (granted to
+--  nobody), in its transaction: if anything after it fails, the stock
+--  comes back with the rest. Returns what the lines add up to.
+--
+--  Named refusals, each with what the page needs to say which item:
+--  GONE_FROM_CATALOGUE <pid>, PRICE_CHANGED <pid>, OUT_OF_STOCK <pid>
+--  <colour/size> <left>.
+-- ---------------------------------------------------------------------
+create or replace function take_lines(p_lines jsonb) returns jsonb
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  item  jsonb;
+  prod  products;
+  q     int;
+  up    int;
+  um    int;
+  col   text;
+  siz   text;
+  delta int;
+  k     text;
+  have  int;
+  items int := 0;
+  mrp   int := 0;
+begin
+  -- Two checks, not one with an OR: SQL does not promise to test the left
+  -- side first, and jsonb_array_length() of a non-array is an error of its
+  -- own rather than this refusal.
+  if jsonb_typeof(p_lines) is distinct from 'array' then raise exception 'BAD_LINES'; end if;
+  if jsonb_array_length(p_lines) not between 1 and 20 then raise exception 'BAD_LINES'; end if;
+
+  for item in select value from jsonb_array_elements(p_lines) loop
+    -- ⚠️ coalesce() before every test. A missing number is NULL, a test on
+    -- NULL is neither true nor false, and an IF reads "unknown" as false --
+    -- so without it a line with no price would walk past every check here.
+    q  := coalesce(whole(item->'qty'), 0);
+    up := coalesce(whole(item->'unitPrice'), 0);
+    um := coalesce(whole(item->'unitMrp'), 0);
+    if q not between 1 and 10 or up <= 0 or um < up then raise exception 'BAD_LINE'; end if;
+
+    select * into prod from products where id = item->>'pid' for update;
+    if not found then raise exception 'GONE_FROM_CATALOGUE %', item->>'pid'; end if;
+    if prod.hidden then raise exception 'GONE_FROM_CATALOGUE %', prod.id; end if;
+
+    -- A colour and a size it sells -- each exactly when it has them.
+    col := nullif(item->'variant'->>'colour', '');
+    siz := nullif(item->'variant'->>'size', '');
+    if (jsonb_array_length(coalesce(prod.variants->'colour', '[]'::jsonb)) > 0) <> (col is not null)
+       or (jsonb_array_length(coalesce(prod.variants->'size', '[]'::jsonb)) > 0) <> (siz is not null) then
+      raise exception 'BAD_LINE';
+    end if;
+    if col is not null and not exists (
+         select 1 from jsonb_array_elements(prod.variants->'colour') c where c->>'id' = col) then
+      raise exception 'BAD_LINE';
+    end if;
+    delta := 0;
+    if siz is not null then
+      select coalesce((s->>'delta')::int, 0) into delta
+        from jsonb_array_elements(prod.variants->'size') s where s->>'id' = siz;
+      if not found then raise exception 'BAD_LINE'; end if;
+    end if;
+
+    -- TODAY'S PRICE for that size, and its MRP.
+    if up <> prod.price + delta or um <> prod.mrp + delta then
+      raise exception 'PRICE_CHANGED %', prod.id;
+    end if;
+
+    -- And the stock of that colour in that size.
+    if prod.kind <> 'voucher' then
+      k := sku_key(item->'variant');
+      have := coalesce((prod.skus->>k)::int, 0);
+      if have < q then raise exception 'OUT_OF_STOCK % % %', prod.id, k, have; end if;
+      update products set skus = jsonb_set(skus, array[k], to_jsonb(have - q)), updated_at = now()
+       where id = prod.id;
+    end if;
+
+    items := items + up * q;
+    mrp   := mrp   + um * q;
+  end loop;
+  return jsonb_build_object('items', items, 'mrp', mrp);
+end;
+$fn$;
+
+-- An item's stock back on the shelf -- once, and only if it was taken
+-- (an order placed before 8 November 2026 took none). Called when an
+-- item is cancelled; granted to nobody. A returned item is NOT put back:
+-- somebody looks at it first, then adds it in the store's stock.
+create or replace function restock_line(p_line bigint) returns void
+  language plpgsql volatile security definer set search_path = public as $fn$
+declare
+  l order_lines;
+  k text;
+begin
+  select * into l from order_lines where id = p_line and stock_taken for update;
+  if not found then return; end if;
+  k := sku_key(l.variant);
+  -- Only to a colour and size still sold: one since removed has no shelf.
+  update products set skus = jsonb_set(skus, array[k], to_jsonb((skus->>k)::int + l.qty)),
+                      updated_at = now()
+   where id = l.pid and skus ? k;
+  update order_lines set stock_taken = false where id = p_line;
+end;
+$fn$;
+
+-- ---------------------------------------------------------------------
+--  PHOTOGRAPHS -- the store uploads a product's photographs to this
+--  project's storage, bucket product-photos. Anybody may look at them (a
+--  shop's photographs are for everybody, and the bucket is public); only
+--  the store may put one there. The page makes each one a 4:5 JPEG of at
+--  most 1024 by 1280 before it is sent, well under the 3 MB allowed.
+-- ---------------------------------------------------------------------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('product-photos', 'product-photos', true, 3145728,
+        array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = true,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists product_photos_add on storage.objects;
+create policy product_photos_add on storage.objects for insert to authenticated
+  with check (bucket_id = 'product-photos' and public.is_staff());
+drop policy if exists product_photos_read on storage.objects;
+create policy product_photos_read on storage.objects for select to authenticated
+  using (bucket_id = 'product-photos' and public.is_staff());
+
 -- ---------------------------------------------------------------------
 --  place_order(p) -- the customer's one write, and the only way an
 --  order comes into being.
@@ -231,12 +759,9 @@ create or replace function place_order(p jsonb) returns jsonb
   language plpgsql volatile security definer set search_path = public as $fn$
 declare
   c         jsonb := p->'customer';
-  item      jsonb;
-  q         int;
-  up        int;
-  um        int;
-  items     int := 0;
-  mrp       int := 0;
+  tl        jsonb;
+  items     int;
+  mrp       int;
   disc      int := coalesce((p->>'discount')::int, 0);
   ship      int := coalesce((p->>'shipping')::int, 0);
   bulk      int := coalesce((p->>'bulky')::int, 0);
@@ -256,23 +781,15 @@ begin
     raise exception 'TOO_MANY_ORDERS';
   end if;
 
-  -- Two checks, not one with an OR: SQL does not promise to test the left
-  -- side first, and jsonb_array_length() of a non-array is an error of its
-  -- own rather than this refusal.
-  if jsonb_typeof(p->'lines') is distinct from 'array' then raise exception 'BAD_LINES'; end if;
-  if jsonb_array_length(p->'lines') not between 1 and 20 then raise exception 'BAD_LINES'; end if;
-
-  -- ⚠️ coalesce() before every test. A missing number is NULL, a test on
-  -- NULL is neither true nor false, and an IF reads "unknown" as false -- so
-  -- without it a line with no price would walk past every check here.
-  for item in select value from jsonb_array_elements(p->'lines') loop
-    q  := coalesce((item->>'qty')::int, 0);
-    up := coalesce((item->>'unitPrice')::int, 0);
-    um := coalesce((item->>'unitMrp')::int, 0);
-    if q not between 1 and 10 or up <= 0 or um < up then raise exception 'BAD_LINE'; end if;
-    items := items + up * q;
-    mrp   := mrp   + um * q;
-  end loop;
+  -- The lines, against TODAY'S catalogue (8 November 2026): each its
+  -- product's price for that size and a colour and size it sells, in
+  -- stock -- and the stock taken off, in this transaction, so a refusal
+  -- below puts it back. take_lines() above says how, and names each
+  -- refusal: BAD_LINES, BAD_LINE, GONE_FROM_CATALOGUE, PRICE_CHANGED,
+  -- OUT_OF_STOCK.
+  tl    := take_lines(p->'lines');
+  items := (tl->>'items')::int;
+  mrp   := (tl->>'mrp')::int;
 
   -- Re-added, never taken on trust. `is distinct from`, so a total that is
   -- missing is refused rather than waved through as unknown.
@@ -307,12 +824,17 @@ begin
     jsonb_build_array(jsonb_build_object('at', stamp, 'to', 'sent', 'note', 'placed online')))
   returning id, code into new_id, new_code;
 
+  -- The name and the link are the catalogue's, not the page's: the order
+  -- must say what was actually sold. Every line was checked, and its
+  -- stock taken unless it is a voucher.
   insert into order_lines (order_id, pid, name, slug, variant, variant_label,
-                           qty, unit_price, unit_mrp, line_total)
-  select new_id, l->>'pid', l->>'name', l->>'slug', coalesce(l->'variant', '{}'::jsonb),
+                           qty, unit_price, unit_mrp, line_total, checked, stock_taken)
+  select new_id, l->>'pid', pr.name, pr.slug, coalesce(l->'variant', '{}'::jsonb),
          l->>'variantLabel', (l->>'qty')::int, (l->>'unitPrice')::int,
-         (l->>'unitMrp')::int, (l->>'unitPrice')::int * (l->>'qty')::int
-    from jsonb_array_elements(p->'lines') as t(l);
+         (l->>'unitMrp')::int, (l->>'unitPrice')::int * (l->>'qty')::int,
+         true, pr.kind <> 'voucher'
+    from jsonb_array_elements(p->'lines') as t(l)
+    join products pr on pr.id = l->>'pid';
 
   return jsonb_build_object('id', new_id, 'code', new_code);
 end;
@@ -362,6 +884,13 @@ begin
        select 1 from order_lines where order_id = p_oid
           and status in ('shipped', 'delivered', 'returned')) then
     raise exception 'SOME_ITEMS_SHIPPED';
+  end if;
+
+  -- Their stock back on the shelf, for every item this takes off its road
+  -- (8 November 2026). None had left the building.
+  if p_to in ('cancelled', 'abandoned') then
+    perform restock_line(l.id) from order_lines l
+     where l.order_id = p_oid and l.stock_taken and l.status in ('sent', 'confirmed', 'packed');
   end if;
 
   update orders set
@@ -535,6 +1064,9 @@ begin
   ) then
     raise exception 'BAD_TRANSITION % -> %', lcur, p_to;
   end if;
+
+  -- A cancelled item's stock goes back on the shelf (8 November 2026).
+  if p_to = 'cancelled' then perform restock_line(p_line); end if;
 
   update order_lines set
     status   = p_to,
@@ -1110,7 +1642,7 @@ end $pub$;
 --  revoke for every function in this file.
 -- =====================================================================
 revoke all on table staff, orders, order_lines, shop_secret, claim_attempts,
-                    addresses, handovers, reviews, delivery_ratings
+                    addresses, handovers, reviews, delivery_ratings, products
   from anon, authenticated;
 revoke all on sequence order_seq, order_lines_id_seq, reviews_id_seq from anon, authenticated;
 
@@ -1140,11 +1672,25 @@ revoke all on function rate_delivery(uuid, int, text)         from public, anon,
 revoke all on function product_reviews(text)                  from public, anon, authenticated;
 revoke all on function rating_summary()                       from public, anon, authenticated;
 revoke all on function hide_review(bigint, boolean)           from public, anon, authenticated;
+revoke all on function whole(jsonb)                          from public, anon, authenticated;
+revoke all on function sku_key(jsonb)                        from public, anon, authenticated;
+revoke all on function sku_keys(jsonb)                       from public, anon, authenticated;
+revoke all on function product_json(products, boolean)       from public, anon, authenticated;
+revoke all on function catalogue()                           from public, anon, authenticated;
+revoke all on function store_products()                      from public, anon, authenticated;
+revoke all on function save_product(jsonb)                   from public, anon, authenticated;
+revoke all on function set_price(text, int, int)             from public, anon, authenticated;
+revoke all on function set_stock(text, jsonb)                from public, anon, authenticated;
+revoke all on function set_hidden(text, boolean)             from public, anon, authenticated;
+revoke all on function take_lines(jsonb)                     from public, anon, authenticated;
+revoke all on function restock_line(bigint)                  from public, anon, authenticated;
 
 -- is_staff() runs inside the read policies, so the reader must be
 -- allowed to call it. The rest are the only writes there are.
--- signed_in() and roll_up_order() are granted to nobody: they are only
--- ever called from inside the functions above, which run as their owner.
+-- signed_in(), roll_up_order(), take_lines(), restock_line() and the four
+-- catalogue helpers (whole, sku_key, sku_keys, product_json) are granted
+-- to nobody: they are only ever called from inside the functions above,
+-- which run as their owner.
 grant execute on function is_staff()                            to authenticated;
 grant execute on function place_order(jsonb)                    to authenticated;
 grant execute on function advance_order(uuid, text, text, text) to authenticated;
@@ -1162,10 +1708,44 @@ grant execute on function step_back_line(bigint, text)          to authenticated
 grant execute on function submit_review(bigint, int, text)      to authenticated;
 grant execute on function rate_delivery(uuid, int, text)        to authenticated;
 grant execute on function hide_review(bigint, boolean)          to authenticated;
+-- The store's catalogue (8 November 2026): each checks is_staff() first.
+grant execute on function store_products()                      to authenticated;
+grant execute on function save_product(jsonb)                   to authenticated;
+grant execute on function set_price(text, int, int)             to authenticated;
+grant execute on function set_stock(text, jsonb)                to authenticated;
+grant execute on function set_hidden(text, boolean)             to authenticated;
 
--- ⚠️ THE ONE THING A PAGE WITH NO SESSION MAY CALL (8 November 2026): what
--- everybody may read of the reviews. A product page is open to anyone, and
--- browsing makes no session. tools/db.pl fails on any other grant to anon.
+-- ⚠️ WHAT A PAGE WITH NO SESSION MAY CALL (8 November 2026): what
+-- everybody may read of the reviews, and the catalogue itself -- the
+-- products on show, their prices and their stock up to 10. A product page
+-- is open to anyone, and browsing makes no session. tools/db.pl fails on
+-- any other grant to anon.
 grant usage on schema public to anon;
 grant execute on function product_reviews(text)                 to anon, authenticated;
 grant execute on function rating_summary()                      to anon, authenticated;
+grant execute on function catalogue()                            to anon, authenticated;
+
+-- =====================================================================
+--  THE FIRST CATALOGUE (8 November 2026). See tools/seed.pl.
+-- =====================================================================
+-- seed.pl BEGIN -- written by tools/seed.pl from app/data/catalog.json; never edit by hand
+--
+-- THE FIRST CATALOGUE: 11 products, into an EMPTY products table only.
+-- Once the store has products, this inserts nothing, so the store's own
+-- prices, stock and products survive every later run of this file.
+insert into products (id, slug, name, cat, sub, price, mrp, short_desc, descr, specs, variants, img, skus, badges, tags, size_chart, kind, ship_class, popularity, added_on, list_order)
+select v.* from (values
+  ('p-wd-flutter-midi', 'flutter-sleeve-midi-dress', 'Flutter-Sleeve Midi Dress', 'women', 'women-dresses', 1899, 2799, 'A V-neck, flutter sleeves and buttons all the way down, with pockets.', 'A V-neck midi with small flutter sleeves, buttons from the neckline to the hem and a seam at the natural waist. The skirt falls straight to mid-calf, and there are pockets in the side seams.', '[{"k":"Neckline","v":"V-neck"},{"k":"Sleeve","v":"Short, flutter"},{"k":"Closure","v":"Buttons down the front"},{"k":"Length","v":"Midi, to mid-calf"},{"k":"Pockets","v":"Two, in the side seams"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#989488"},{"delta":0,"id":"rust","img":2,"label":"Rust","swatch":"#653122"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-flutter-midi-sage-1.jpg","img/products/dress-flutter-midi-sage-2.jpg","img/products/dress-flutter-midi-rust-1.jpg","img/products/dress-flutter-midi-rust-2.jpg"]'::jsonb, '{"rust/l":3,"rust/m":10,"rust/s":11,"rust/xl":8,"rust/xxl":5,"sage/l":7,"sage/m":5,"sage/s":12,"sage/xl":4,"sage/xxl":12}'::jsonb, '[]'::jsonb, '["dress","midi","v-neck","flutter-sleeve","button-front","pockets"]'::jsonb, 'women-dress', 'goods', 'std', 84, date '2026-11-08', 1),
+  ('p-wd-short-button', 'button-front-short-dress', 'Button-Front Short Dress', 'women', 'women-dresses', 1599, 2299, 'A deep V, wide short sleeves and a buttoned waistband that ties at the back.', 'Wide short sleeves cut into the body and a deep V, gathered into a buttoned waistband that ties at the back, so the fit at the waist is yours to set. The skirt buttons down the front, flares a little and stops above the knee. Pockets in the side seams.', '[{"k":"Neckline","v":"Deep V-neck"},{"k":"Sleeve","v":"Short, cut into the body"},{"k":"Waist","v":"Buttoned band, ties at the back"},{"k":"Length","v":"Above the knee"},{"k":"Pockets","v":"Two, in the side seams"}]'::jsonb, '{"colour":[{"delta":0,"id":"rust","img":0,"label":"Rust","swatch":"#C48268"},{"delta":0,"id":"navy","img":1,"label":"Navy","swatch":"#1C2939"},{"delta":0,"id":"sage","img":3,"label":"Sage","swatch":"#ADAEA7"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-short-rust-1.jpg","img/products/dress-short-navy-1.jpg","img/products/dress-short-navy-2.jpg","img/products/dress-short-sage-1.jpg"]'::jsonb, '{"navy/l":14,"navy/m":10,"navy/s":9,"navy/xl":7,"navy/xxl":6,"rust/l":14,"rust/m":4,"rust/s":9,"rust/xl":3,"rust/xxl":12,"sage/l":13,"sage/m":4,"sage/s":14,"sage/xl":7,"sage/xxl":3}'::jsonb, '[]'::jsonb, '["dress","short","v-neck","button-front","tie-back","pockets"]'::jsonb, 'women-dress', 'goods', 'std', 78, date '2026-11-08', 2),
+  ('p-wd-popover', 'popover-shirt-dress', 'Popover Shirt Dress', 'women', 'women-dresses', 1799, 2499, 'A shirt collar, a half placket and long sleeves that roll up and button in place.', 'A shirt dress that goes on over the head: a collar, a placket that buttons halfway down, and long sleeves with a tab to hold them rolled. Straight and easy through the body, ending above the knee.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Closure","v":"Half placket, goes on over the head"},{"k":"Sleeve","v":"Long, with roll-up tabs"},{"k":"Fit","v":"Straight and relaxed"},{"k":"Length","v":"Above the knee"}]'::jsonb, '{"colour":[{"delta":0,"id":"olive","img":0,"label":"Olive","swatch":"#887C69"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#1B2737"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/dress-popover-olive-1.jpg","img/products/dress-popover-olive-2.jpg","img/products/dress-popover-navy-1.jpg","img/products/dress-popover-navy-2.jpg","img/products/dress-popover-navy-3.jpg"]'::jsonb, '{"navy/l":11,"navy/m":10,"navy/s":4,"navy/xl":6,"navy/xxl":10,"olive/l":12,"olive/m":9,"olive/s":11,"olive/xl":13,"olive/xxl":12}'::jsonb, '[]'::jsonb, '["dress","shirt-dress","popover","long-sleeve"]'::jsonb, 'women-dress', 'goods', 'std', 71, date '2026-11-08', 3),
+  ('p-wt-relaxed-shirt', 'relaxed-short-sleeve-shirt', 'Relaxed Short-Sleeve Shirt', 'women', 'women-tops', 999, 1499, 'A collared shirt with short sleeves cut into the body and a gathered back.', 'An easy collared shirt with short sleeves cut into the body, buttons all the way down and a yoke at the back, gathered for room. The hem curves, so it can be worn loose or tucked in.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Sleeve","v":"Short, cut into the body"},{"k":"Closure","v":"Buttons down the front"},{"k":"Back","v":"Gathered under a yoke"},{"k":"Hem","v":"Curved"}]'::jsonb, '{"colour":[{"delta":0,"id":"white","img":0,"label":"White","swatch":"#DEDEDE"},{"delta":0,"id":"rust","img":2,"label":"Rust","swatch":"#BE705F"},{"delta":0,"id":"navy","img":4,"label":"Navy","swatch":"#354153"},{"delta":0,"id":"sand","img":6,"label":"Sand","swatch":"#E1D6C8"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/top-relaxed-white-1.jpg","img/products/top-relaxed-white-2.jpg","img/products/top-relaxed-rust-1.jpg","img/products/top-relaxed-rust-2.jpg","img/products/top-relaxed-navy-1.jpg","img/products/top-relaxed-navy-2.jpg","img/products/top-relaxed-sand-1.jpg","img/products/top-relaxed-sand-2.jpg"]'::jsonb, '{"navy/l":9,"navy/m":9,"navy/s":8,"navy/xl":6,"navy/xxl":11,"rust/l":9,"rust/m":13,"rust/s":12,"rust/xl":8,"rust/xxl":4,"sand/l":13,"sand/m":6,"sand/s":5,"sand/xl":5,"sand/xxl":7,"white/l":10,"white/m":7,"white/s":3,"white/xl":4,"white/xxl":14}'::jsonb, '[]'::jsonb, '["shirt","top","short-sleeve","collar","relaxed"]'::jsonb, 'women-top', 'goods', 'std', 88, date '2026-11-08', 4),
+  ('p-wt-utility-shirt', 'utility-shirt', 'Utility Shirt', 'women', 'women-tops', 1399, 1999, 'Two flap pockets on the chest and long sleeves that roll up and button.', 'A long-sleeved shirt with two buttoned flap pockets on the chest and tabs to hold the sleeves rolled up. Cut loose and a little long, with a curved hem: over trousers, or open as a light layer.', '[{"k":"Collar","v":"Shirt collar"},{"k":"Pockets","v":"Two flap pockets on the chest"},{"k":"Sleeve","v":"Long, with roll-up tabs"},{"k":"Fit","v":"Relaxed"},{"k":"Hem","v":"Curved"}]'::jsonb, '{"colour":[{"delta":0,"id":"olive","img":0,"label":"Olive","swatch":"#7D7158"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#293345"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/top-utility-olive-1.jpg","img/products/top-utility-olive-2.jpg","img/products/top-utility-navy-1.jpg","img/products/top-utility-navy-2.jpg","img/products/top-utility-navy-3.jpg"]'::jsonb, '{"navy/l":12,"navy/m":7,"navy/s":11,"navy/xl":7,"navy/xxl":9,"olive/l":4,"olive/m":3,"olive/s":8,"olive/xl":14,"olive/xxl":11}'::jsonb, '[]'::jsonb, '["shirt","top","long-sleeve","utility","pockets"]'::jsonb, 'women-top', 'goods', 'std', 69, date '2026-11-08', 5),
+  ('p-wb-drawstring-shorts', 'drawstring-shorts', 'Drawstring Shorts', 'women', 'women-bottoms', 799, 1199, 'An elastic waist with a drawstring, pockets at the sides and patch pockets at the back.', 'Pull-on shorts with an elastic waistband and a drawstring to tighten it, pockets at the sides and two patch pockets at the back. A short, easy leg.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and two patch pockets at the back"},{"k":"Fit","v":"Relaxed"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"navy","img":0,"label":"Navy","swatch":"#1E293B"},{"delta":0,"id":"rust","img":1,"label":"Rust","swatch":"#954538"},{"delta":0,"id":"stone","img":3,"label":"Stone","swatch":"#CFC3B3"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/shorts-drawstring-navy-1.jpg","img/products/shorts-drawstring-rust-1.jpg","img/products/shorts-drawstring-rust-2.jpg","img/products/shorts-drawstring-stone-1.jpg"]'::jsonb, '{"navy/l":3,"navy/m":3,"navy/s":4,"navy/xl":6,"navy/xxl":14,"rust/l":10,"rust/m":6,"rust/s":3,"rust/xl":8,"rust/xxl":10,"stone/l":4,"stone/m":10,"stone/s":4,"stone/xl":13,"stone/xxl":8}'::jsonb, '[]'::jsonb, '["shorts","drawstring","elastic-waist","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 80, date '2026-11-08', 6),
+  ('p-ws-shirt-shorts-set', 'shirt-and-shorts-set', 'Shirt and Shorts Set', 'women', 'women-sets', 1999, 2899, 'A short-sleeved shirt and matching drawstring shorts, sold together.', 'Two pieces in one colour: a collared shirt with short sleeves and a gathered back, and pull-on shorts with an elastic drawstring waist and patch pockets at the back. Wear them together, or each with something else.', '[{"k":"In the set","v":"A shirt and a pair of shorts"},{"k":"Shirt","v":"Collar, short sleeves, buttons down the front"},{"k":"Shorts","v":"Elastic drawstring waist, patch pockets at the back"},{"k":"Fit","v":"Relaxed"}]'::jsonb, '{"colour":[{"delta":0,"id":"butter","img":0,"label":"Butter","swatch":"#E8D9BC"},{"delta":0,"id":"sage","img":3,"label":"Sage","swatch":"#767868"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/set-shirt-shorts-butter-1.jpg","img/products/set-shirt-shorts-butter-2.jpg","img/products/set-shirt-shorts-butter-3.jpg","img/products/set-shirt-shorts-sage-1.jpg"]'::jsonb, '{"butter/l":11,"butter/m":7,"butter/s":8,"butter/xl":11,"butter/xxl":10,"sage/l":8,"sage/m":13,"sage/s":14,"sage/xl":4,"sage/xxl":8}'::jsonb, '[]'::jsonb, '["set","co-ord","shirt","shorts","matching"]'::jsonb, 'women-set', 'goods', 'std', 74, date '2026-11-08', 7),
+  ('p-wb-cargo-trousers', 'cargo-trousers', 'Cargo Trousers', 'women', 'women-bottoms', 1499, 2199, 'A drawstring waist, cargo pockets on the thighs and a straight, ankle-length leg.', 'Pull-on trousers with an elastic drawstring waist, deep pockets at the sides and a flap cargo pocket on each thigh. The leg is straight and stops at the ankle.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and a flap cargo pocket on each thigh"},{"k":"Leg","v":"Straight, ankle length"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#97907B"},{"delta":0,"id":"stone","img":2,"label":"Stone","swatch":"#E0D3C6"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/trousers-cargo-sage-1.jpg","img/products/trousers-cargo-sage-2.jpg","img/products/trousers-cargo-stone-1.jpg","img/products/trousers-cargo-stone-2.jpg"]'::jsonb, '{"sage/l":13,"sage/m":11,"sage/s":3,"sage/xl":7,"sage/xxl":6,"stone/l":12,"stone/m":6,"stone/s":9,"stone/xl":9,"stone/xxl":10}'::jsonb, '[]'::jsonb, '["trousers","cargo","drawstring","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 76, date '2026-11-08', 8),
+  ('p-wb-wide-trousers', 'drawstring-wide-leg-trousers', 'Drawstring Wide-Leg Trousers', 'women', 'women-bottoms', 1299, 1899, 'An elastic drawstring waist and a wide, full-length leg, with pockets.', 'Easy pull-on trousers: an elastic waistband with a drawstring, pockets at the sides and one at the back, and a wide leg that falls straight to the floor.', '[{"k":"Waist","v":"Elastic, with a drawstring"},{"k":"Pockets","v":"At the sides, and one at the back"},{"k":"Leg","v":"Wide, full length"},{"k":"Closure","v":"Pulls on"}]'::jsonb, '{"colour":[{"delta":0,"id":"navy","img":0,"label":"Navy","swatch":"#202A3B"},{"delta":0,"id":"sage","img":5,"label":"Sage","swatch":"#887C66"},{"delta":0,"id":"stone","img":7,"label":"Stone","swatch":"#DDD3C6"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/trousers-wide-navy-1.jpg","img/products/trousers-wide-navy-2.jpg","img/products/trousers-wide-navy-3.jpg","img/products/trousers-wide-navy-4.jpg","img/products/trousers-wide-navy-5.jpg","img/products/trousers-wide-sage-1.jpg","img/products/trousers-wide-sage-2.jpg","img/products/trousers-wide-stone-1.jpg","img/products/trousers-wide-stone-2.jpg"]'::jsonb, '{"navy/l":13,"navy/m":6,"navy/s":8,"navy/xl":8,"navy/xxl":10,"sage/l":8,"sage/m":7,"sage/s":9,"sage/xl":9,"sage/xxl":7,"stone/l":11,"stone/m":8,"stone/s":6,"stone/xl":9,"stone/xxl":8}'::jsonb, '[]'::jsonb, '["trousers","wide-leg","drawstring","pockets"]'::jsonb, 'women-bottom', 'goods', 'std', 82, date '2026-11-08', 9),
+  ('p-ws-tie-jumpsuit', 'tie-waist-jumpsuit', 'Tie-Waist Jumpsuit', 'women', 'women-sets', 2199, 2999, 'A V-neck, short sleeves and a tie at the waist you set yourself.', 'A one-piece with a V-neck, short sleeves and a fabric tie at the waist, so the fit is yours to set. Easy through the body, with a tapered leg that ends at the ankle.', '[{"k":"Neckline","v":"V-neck"},{"k":"Sleeve","v":"Short"},{"k":"Waist","v":"A fabric tie"},{"k":"Leg","v":"Tapered, ankle length"},{"k":"Fit","v":"Easy through the body"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#AEA28C"},{"delta":0,"id":"black","img":2,"label":"Black","swatch":"#212023"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/jumpsuit-tie-waist-sage-1.jpg","img/products/jumpsuit-tie-waist-sage-2.jpg","img/products/jumpsuit-tie-waist-black-1.jpg","img/products/jumpsuit-tie-waist-black-2.jpg"]'::jsonb, '{"black/l":9,"black/m":3,"black/s":6,"black/xl":5,"black/xxl":5,"sage/l":10,"sage/m":11,"sage/s":5,"sage/xl":6,"sage/xxl":4}'::jsonb, '[]'::jsonb, '["jumpsuit","one-piece","tie-waist","v-neck"]'::jsonb, 'women-set', 'goods', 'std', 67, date '2026-11-08', 10),
+  ('p-ms-camp-collar', 'camp-collar-shirt', 'Camp-Collar Shirt', 'men', 'men-shirts', 1199, 1199, 'An open camp collar, short sleeves and a pocket on the chest.', 'A short-sleeved shirt with a flat, open camp collar, buttons down the front and one pocket on the chest. Straight at the hem, so it is meant to be worn out.', '[{"k":"Collar","v":"Camp collar, worn open"},{"k":"Sleeve","v":"Short"},{"k":"Pocket","v":"One, on the chest"},{"k":"Hem","v":"Straight, worn out"},{"k":"Fit","v":"Relaxed"}]'::jsonb, '{"colour":[{"delta":0,"id":"sage","img":0,"label":"Sage","swatch":"#857E6B"},{"delta":0,"id":"navy","img":2,"label":"Navy","swatch":"#242E3C"},{"delta":0,"id":"white","img":4,"label":"White","swatch":"#DAD7D5"}],"size":[{"delta":0,"id":"s","label":"S"},{"delta":0,"id":"m","label":"M"},{"delta":0,"id":"l","label":"L"},{"delta":50,"id":"xl","label":"XL"},{"delta":100,"id":"xxl","label":"XXL"}]}'::jsonb, '["img/products/men-camp-shirt-sage-1.jpg","img/products/men-camp-shirt-sage-2.jpg","img/products/men-camp-shirt-navy-1.jpg","img/products/men-camp-shirt-navy-2.jpg","img/products/men-camp-shirt-white-1.jpg","img/products/men-camp-shirt-white-2.jpg","img/products/men-camp-shirt-white-3.jpg"]'::jsonb, '{"navy/l":8,"navy/m":3,"navy/s":8,"navy/xl":6,"navy/xxl":11,"sage/l":6,"sage/m":13,"sage/s":7,"sage/xl":6,"sage/xxl":12,"white/l":12,"white/m":10,"white/s":11,"white/xl":7,"white/xxl":3}'::jsonb, '[]'::jsonb, '["shirt","camp-collar","short-sleeve","men"]'::jsonb, 'men-shirt', 'goods', 'std', 86, date '2026-11-08', 11)
+) as v(id, slug, name, cat, sub, price, mrp, short_desc, descr, specs, variants, img, skus, badges, tags, size_chart, kind, ship_class, popularity, added_on, list_order)
+where not exists (select 1 from products);
+-- seed.pl END

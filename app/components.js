@@ -93,6 +93,17 @@ function tileBadge(p, shop) {
 let bag = [];
 export function setBag(lines) { bag = lines; }
 
+// Every product a card was drawn for, by id: paintCtas() needs the stock of
+// the colour and size a card's line is in (8 November 2026), and the card
+// on screen is the one that knows which product it is.
+const known = new Map();
+
+/** How many more of this line there can be: its colour in its size. */
+const lineMax = (pid, line) => {
+  const p = known.get(pid);
+  return p && line ? D.skuStock(p, line.variant) : 0;
+};
+
 const sizesOf = (p) => (p && p.variants && p.variants.size) || [];
 const fullTitle = (qty, max) => (qty >= max ? `Only ${max} in stock` : '');
 
@@ -129,7 +140,7 @@ const labelsOf = (box) => (box.dataset.sizes ? JSON.parse(box.dataset.sizes) : {
 export function paintCtas(root = document) {
   for (const box of root.querySelectorAll('[data-cta]')) {
     const line = cardLine(box.dataset.cta, box.dataset.colour || '');
-    const max = Number(box.dataset.max);
+    const max = lineMax(box.dataset.cta, line);
     const step = box.querySelector('.bag-step');
     if (line && step && step.dataset.line === D.lineKey(line)) {
       // The same line: the number and nothing else, so the button just
@@ -154,15 +165,19 @@ export function paintCtas(root = document) {
 /** The panel a card's Add to bag opens on a product with sizes. Each chip
  *  names its size and, where it costs more, how much more: the card shows
  *  the S price, and XL is ₹50 over it because it takes more cloth. The fit
- *  line ("Fits a 40 in chest") rides on each chip as its tooltip. */
-export function sizePanel(p, shop) {
+ *  line ("Fits a 40 in chest") rides on each chip as its tooltip. A size
+ *  with none left in the colour the card shows is struck through and cannot
+ *  be picked (8 November 2026: stock is kept by colour and size). */
+export function sizePanel(p, shop, colour = '') {
   const chart = chartFor(p, shop);
   const chips = sizesOf(p).map((s) => {
     const fit = fitHint(p, shop, s.id).replace(/<[^>]+>/g, '');
-    return `<button type="button" class="chip" data-pick="${esc(s.id)}"
-      aria-label="Size ${esc(s.label)}${s.delta ? `, ${D.rupees(s.delta)} more` : ''}"
-      ${fit ? `title="${fit}"` : ''}>${esc(s.label)}${s.delta
-        ? `<small>+${D.rupees(s.delta)}</small>` : ''}</button>`;
+    const out = D.skuStock(p, { colour, size: s.id }) === 0;
+    return `<button type="button" class="chip${out ? ' is-out' : ''}" data-pick="${esc(s.id)}"
+      ${out ? 'disabled' : ''}
+      aria-label="Size ${esc(s.label)}${out ? ', sold out' : s.delta ? `, ${D.rupees(s.delta)} more` : ''}"
+      ${out ? 'title="Sold out in this colour"' : fit ? `title="${fit}"` : ''}>${esc(s.label)}${out
+        ? '<small>Sold out</small>' : s.delta ? `<small>+${D.rupees(s.delta)}</small>` : ''}</button>`;
   }).join('');
   // The size chart is a full-width line of its own under the chips, in words,
   // on every screen. It was an info icon in the corner, with its words only
@@ -213,12 +228,13 @@ export function productCard(p, shop, wished) {
   const colour = cols.length ? cols[0].id : '';
   const sizes = sizesOf(p);
   const labels = sizes.length > 1 ? Object.fromEntries(sizes.map((s) => [s.id, s.label])) : {};
-  const max = p.kind === 'voucher' ? 99 : p.stock;
+  known.set(p.id, p);
+  const line = cardLine(p.id, colour);
   const cta = out
     ? '<div><button class="btn btn-secondary btn-sm btn-block" disabled>Sold out</button></div>'
-    : `<div data-cta="${esc(p.id)}" data-colour="${esc(colour)}" data-max="${max}"
+    : `<div data-cta="${esc(p.id)}" data-colour="${esc(colour)}"
         ${sizes.length > 1 ? `data-sizes="${esc(JSON.stringify(labels))}"` : ''}>${
-      ctaInner(p.id, cardLine(p.id, colour), max, labels)}</div>`;
+      ctaInner(p.id, line, lineMax(p.id, line), labels)}</div>`;
 
   return `<article class="card" data-pid="${esc(p.id)}">
   <a class="card-tile" href="${href}" aria-label="${esc(p.name)}">

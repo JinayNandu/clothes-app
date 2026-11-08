@@ -652,6 +652,12 @@
 }
 .chip:hover{ border-color:var(--ink); color:var(--ink); }
 .chip.on{ background:var(--ink); color:var(--on-ink); border-color:var(--ink); }
+/* A size with none left in the colour chosen (8 November 2026: stock is kept
+   by colour and size). Dashed and dim, and it cannot be picked; the product
+   page strikes its name through, the card's panel says "Sold out" under it. */
+.chip.is-out{ color:var(--ink-dim); border-style:dashed; border-color:var(--edge-2); cursor:not-allowed; }
+.chip.is-out:hover{ color:var(--ink-dim); border-color:var(--edge-2); }
+.pdp-sizes .chip.is-out{ text-decoration:line-through; }
 
 .pill{
   display:inline-flex; align-items:center; gap:6px;

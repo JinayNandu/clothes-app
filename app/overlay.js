@@ -90,13 +90,13 @@ export const emptyOverlay = (rev) =>
 
 /** Every field the admin may patch. Anything else is structural, or derived. */
 export const EDITABLE = [
-  'name', 'slug', 'shortDesc', 'desc', 'price', 'mrp', 'stock', 'popularity',
+  'name', 'slug', 'shortDesc', 'desc', 'price', 'mrp', 'skus', 'popularity',
   'shipClass', 'kind', 'cat', 'sub', 'addedOn', 'badges', 'tags', 'specs',
-  'variants', 'img',
+  'variants', 'img', 'sizeChart',
 ];
 
 /** Numbers that must stay whole rupees, and whole counts. */
-export const INTEGER_FIELDS = ['price', 'mrp', 'stock', 'popularity'];
+export const INTEGER_FIELDS = ['price', 'mrp', 'popularity'];
 
 export function countEdits(ov) {
   if (!ov) return 0;

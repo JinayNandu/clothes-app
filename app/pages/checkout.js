@@ -311,8 +311,9 @@ router.registerScreen('checkout', async (host) => {
     // basket can sit open across a sell-out.
     for (let i = 0; i < lines.length; i++) {
       const p = products[i];
-      if (p && p.kind !== 'voucher' && lines[i].qty > p.stock) {
-        toast(`Only ${p.stock} of ${p.name} left — please adjust your bag.`);
+      const left = D.skuStock(p, lines[i].variant);
+      if (p && p.kind !== 'voucher' && lines[i].qty > left) {
+        toast(`Only ${left} of ${p.name}${D.variantLabel(p, lines[i].variant) ? ' (' + D.variantLabel(p, lines[i].variant) + ')' : ''} left — please adjust your bag.`);
         router.go('/cart');
         return;
       }
@@ -330,6 +331,15 @@ router.registerScreen('checkout', async (host) => {
     } catch (e) {
       btn.disabled = false;
       toast(whyNot(e));
+      // A price changed, or the stock ran out, since this page read the
+      // catalogue (8 November 2026: the server checks both now). Read it
+      // again, and back to the bag, which shows today's prices and what
+      // is left of each size.
+      if (/PRICE_CHANGED|OUT_OF_STOCK|GONE_FROM_CATALOGUE/.test(String((e && e.message) || e))) {
+        await store.refreshCatalogue();
+        router.go('/cart');
+        return;
+      }
       // The account this phone was signed in to no longer exists, and the
       // backend has taken it off: drawn again, the page asks to sign in.
       if (/ACCOUNT_GONE/.test(String((e && e.message) || e))) router.repaint();
@@ -386,6 +396,8 @@ function whyNot(e) {
   if (/ACCOUNT_GONE/.test(m)) return 'This phone was signed in to an account that no longer exists. Sign in again; your bag is still here.';
   if (/TOO_MANY_ORDERS/.test(m)) return 'That is a lot of orders in one hour. Please wait a while, or write to us.';
   if (/GONE_FROM_CATALOGUE/.test(m)) return 'Something in your bag is no longer sold. Please check your bag.';
+  if (/PRICE_CHANGED/.test(m)) return 'A price in your bag changed since you opened the shop. Your bag shows the new price now; please check it and order again.';
+  if (/OUT_OF_STOCK/.test(m)) return 'Some of your bag sold out while you were choosing. Please check your bag.';
   if (/fetch|network|BLOCKED|NO_SESSION|Load failed|anonymous/i.test(m)) {
     return 'We could not reach the shop just now. Your bag is still here; please try again.';
   }

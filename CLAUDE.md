@@ -452,15 +452,19 @@ their ratings; initially no ratings will be visible".
   `rating_summary` (200, after its CORS preflight), and no stars on its
   six cards; a product page asked `product_reviews` too and showed
   neither a rating line nor a reviews section; no supabase-js, no session.
-- **⚠️ Not yet seen on the real project: a signed-in customer's rating.**
-  The self-test skips grants and the probes above are anon's, so the
-  grants to `authenticated` are held statically instead: `db.pl` section
-  5b reads every function name the app hands to `rpc()`, `rpcOrGone()`
-  and `publicRpc()`, and fails if one is not granted to authenticated (a
+- **A signed-in customer's rating, seen on the real project the same
+  day**: the owner rated a delivered shirt, five stars with words, from
+  their phone. From outside, as a visitor: `rating_summary()` answers
+  `[{"pid":"p-ms-indigo-dobby","average":5.0,"ratings":1}]`, and
+  `product_reviews()` one review carrying only rating, words, author
+  and date; the shop's card shows "5.0 ★ | 1". The self-test skips
+  grants and a probe with no session is anon's, so the grants to
+  `authenticated` are also held statically: `db.pl` section 5b reads
+  every function name the app hands to `rpc()`, `rpcOrGone()` and
+  `publicRpc()`, and fails if one is not granted to authenticated (a
   `publicRpc()` one to anon as well) or if anything else is granted --
   proved by breaking it four ways (a grant removed, the anon half
-  removed, an extra grant, a misspelt call). The owner's first real
-  rating is the live proof.
+  removed, an extra grant, a misspelt call).
 
 ## Accounts (step 7)
 

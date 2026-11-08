@@ -205,6 +205,16 @@ export function returnsLine(shop) {
 const INR = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 export const rupees = (n) => '₹' + INR.format(Math.round(n || 0));
 
+/** How many, as a badge on a photo says it: 7 · 999 · 1.2k · 35.8k · 120k.
+ *  Rounded DOWN, so a count never shows bigger than it is. */
+export const fmtCount = (n) => {
+  const c = Math.max(0, Math.floor(Number(n) || 0));
+  if (c < 1000) return String(c);
+  return (c < 100000 ? String(Math.floor(c / 100) / 10) : String(Math.floor(c / 1000))) + 'k';
+};
+/** The same count in full, grouped as rupees() groups: 1,234 · 1,23,456. */
+export const fmtInt = (n) => INR.format(Math.round(n || 0));
+
 /** Derived, never stored: a stored percentage disagrees with the prices the
  *  moment anyone edits one. */
 export const discountPct = (p) =>

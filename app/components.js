@@ -224,6 +224,8 @@ export function productCard(p, shop, wished) {
   <a class="card-tile" href="${href}" aria-label="${esc(p.name)}">
     ${tileBadge(p, shop)}
     <div class="card-art" data-art>${art(p, 0)}</div>
+    <span class="rating-badge on-photo" data-rating-for="${esc(p.id)}" aria-hidden="true"
+      >${ratingBadge(ratingOf(p.id))}</span>
     ${out ? '<span class="badge-out">Sold out</span>' : ''}
     <span class="quick">View details</span>
   </a>
@@ -234,7 +236,8 @@ export function productCard(p, shop, wished) {
     <a href="${href}" class="card-name">${esc(p.name)}</a>
     <p class="card-desc">${esc(p.shortDesc)}</p>
     ${priceBlock(p, null)}
-    <div class="card-rating" data-rating-for="${esc(p.id)}">${ratingLine(p.id)}</div>
+    <span class="sr-only" data-rating-for="${esc(p.id)}" data-rating-as="words"
+      >${ratingWords(ratingOf(p.id))}</span>
     ${swatchRow(p, colour || null)}
     ${cta}
   </div>
@@ -249,8 +252,15 @@ export function productCard(p, shop, wished) {
 // `ratings` is every product's { average, ratings } as last read, set by
 // app.js once the shop has loaded -- the same pattern as `bag`: a card drawn
 // by any screen comes out with its rating, and paintRatings() fills the ones
-// already on screen when the numbers arrive. No rating, no line: a product
+// already on screen when the numbers arrive. No rating, no badge: a product
 // nobody has rated shows nothing, not "0 reviews".
+//
+// The SUMMARY is a badge -- "4.4 ★ | 12" -- on the bottom-left of a card's
+// photo and under the product page's name, the way Indian shops show it
+// (the owner sent one: "the review should be visible something like this").
+// On a card it is for the eye only: the photo is a link named by the
+// product, and that name hides whatever is inside it from a screen reader,
+// so the card's text carries the same in words (data-rating-as="words").
 // ---------------------------------------------------------------------------
 let ratings = {};
 export function setRatings(m) { ratings = m || {}; }
@@ -262,19 +272,25 @@ export function stars(value, size = 14) {
     `<span class="star${i <= n ? ' on' : ''}">${icon('star', size)}</span>`).join('')}</span>`;
 }
 
-/** "★★★★☆ 4.3 (12)" -- or nothing at all for a product nobody has rated. */
-function ratingLine(pid) {
-  const r = ratings[pid];
+/** "4.4 ★ | 12" ("12 ratings" with `words`), or '' when nobody has rated. */
+export function ratingBadge(r, words = false) {
   if (!r || !r.ratings) return '';
-  return `${stars(r.average, 13)}<span class="rating-n">${r.average.toFixed(1)}
-    <span class="dim">(${r.ratings})</span></span>
-    <span class="sr-only">Rated ${r.average.toFixed(1)} out of 5 by ${r.ratings}
-      ${r.ratings === 1 ? 'customer' : 'customers'}</span>`;
+  const many = words ? ` ${r.ratings === 1 ? 'rating' : 'ratings'}` : '';
+  return `<b>${r.average.toFixed(1)}</b>${icon('star', 11)}<span class="rb-sep"></span>`
+    + `<span>${D.fmtCount(r.ratings)}${many}</span>`;
+}
+
+/** The badge in words: "Rated 4.4 out of 5 by 12 customers". */
+export function ratingWords(r) {
+  if (!r || !r.ratings) return '';
+  return `Rated ${r.average.toFixed(1)} out of 5 by ${D.fmtInt(r.ratings)} `
+    + (r.ratings === 1 ? 'customer' : 'customers');
 }
 
 export function paintRatings(root = document) {
   for (const el of root.querySelectorAll('[data-rating-for]')) {
-    el.innerHTML = ratingLine(el.dataset.ratingFor);
+    const r = ratings[el.dataset.ratingFor];
+    el.innerHTML = el.dataset.ratingAs === 'words' ? ratingWords(r) : ratingBadge(r);
   }
 }
 

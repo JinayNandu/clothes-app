@@ -410,11 +410,20 @@ their ratings; initially no ratings will be visible".
   once something is delivered -- drawn ONCE into its own box, never by
   the live refresh, because it holds stars and words; Send, then what was
   given and Change. A product page shows nothing until its first review,
-  then the average under the name (a button to the reviews: the hash is
-  the router's) and "Customer reviews" further down, each "Verified
-  purchase". A card shows "★★★★☆ 4.0 (1)", from `rating_summary()`
-  fetched once at boot into `components.js` (`setRatings`, the pattern of
-  `setBag`). One-browser mode has no `store.reviews`: nobody to tell.
+  then a badge under the name, "4.8 ★ | 1.2k ratings" (a button to the
+  reviews: the hash is the router's), and "Customer reviews" further down,
+  each "Verified purchase". A card shows the same badge on its photo's
+  bottom-left, "4.0 ★ | 1" -- since 8 November 2026, after the owner's
+  example from a big shop's listing: "the review should be visible
+  something like this" (it was a row of stars under the price). On a
+  card the badge fades for the hover's "View details" bar, and is
+  `aria-hidden`: the photo's link is named by the product, which hides
+  what is inside it, so the card's text carries "Rated 4.0 out of 5 by 1
+  customer" (`data-rating-as="words"`). Counts: `D.fmtCount` on a badge
+  (1.2k, rounded down), `D.fmtInt` in full (1,234). From
+  `rating_summary()` fetched once at boot into `components.js`
+  (`setRatings`, the pattern of `setBag`). One-browser mode has no
+  `store.reviews`: nobody to tell.
 - **Before `schema.sql` is re-run** (db/SETUP.md step 10): no panel, no
   ratings on cards or product pages, and the store tab says what to run.
 - **The self-test** has a sixth order and rule 14: no review before

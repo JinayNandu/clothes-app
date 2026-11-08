@@ -11,7 +11,7 @@ import * as store from '../store.js';
 import * as router from '../router.js';
 import { esc, crumbs, toast, emptyState, notice, openSheet, flyToBag } from '../ui.js';
 import { priceBlock, swatchRow, productCard,
-         sizeChart, fitHint, chartFor, stars, ratingOf } from '../components.js';
+         sizeChart, fitHint, chartFor, stars, ratingOf, ratingBadge } from '../components.js';
 import { art, viewCount } from '../art.js';
 import { seal } from '../brand.js';
 import { icon } from '../icons.js';
@@ -112,9 +112,10 @@ router.registerScreen('product', async (host, r) => {
       <div>
         <div class="t-eyebrow" style="color:var(--gold-ink)">${esc(sub ? sub.name : '')}</div>
         <h1 class="t-h1">${esc(p.name)}</h1>
-        <!-- The average and how many, once anybody has rated it; a tap goes
-             to the reviews. A button, not a #link: the hash is the router's. -->
-        <button type="button" class="pdp-rating" data-rating-line hidden></button>
+        <!-- The cards' badge, "4.4 ★ | 12 ratings", once anybody has rated
+             it; a tap goes to the reviews. A button, not a #link: the hash
+             is the router's. -->
+        <button type="button" class="rating-badge pdp-rating" data-rating-line hidden></button>
       </div>
 
       <div data-price>${priceBlock(p, sel, true)}</div>
@@ -295,8 +296,8 @@ router.registerScreen('product', async (host, r) => {
     const sum = ratingOf(p.id);
     const avg = sum ? sum.average : list.reduce((n, x) => n + x.rating, 0) / list.length;
     const count = sum ? sum.ratings : list.length;
-    const many = `${count} ${count === 1 ? 'review' : 'reviews'}`;
-    line.innerHTML = `${stars(avg, 15)}<b>${avg.toFixed(1)}</b><span class="dim">· ${many}</span>`;
+    const many = `${D.fmtInt(count)} ${count === 1 ? 'rating' : 'ratings'}`;
+    line.innerHTML = ratingBadge({ average: avg, ratings: count }, true);
     line.setAttribute('aria-label', `Rated ${avg.toFixed(1)} out of 5, ${many}. See the reviews`);
     line.hidden = false;
     box.innerHTML = `

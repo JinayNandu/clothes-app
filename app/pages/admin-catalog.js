@@ -74,6 +74,7 @@ function said(e) {
   if (/BAD_COLOUR/.test(m)) return 'A colour needs a name and a colour, and only sizes may change the price.';
   if (/BAD_SIZE/.test(m)) return 'A size needs a short name, and its extra must be whole rupees.';
   if (/BAD_STOCK/.test(m)) return 'Stock must be whole numbers, 0 or more.';
+  if (/row-level security|Bucket not found/i.test(m)) return 'The photograph could not be stored: the photo storage is not set up yet. Run db/SETUP.md step 11 again, and see what selftest.sql says.';
   if (/Payload too large|exceeded the maximum|413/.test(m)) return 'That photograph is too large to upload.';
   if (/mime|not supported|invalid_mime/i.test(m)) return 'That file is not a photograph the shop can show (JPG, PNG or WebP).';
   if (/fetch|network|Load failed/i.test(m)) return 'The store could not reach its server. Check the connection and try again.';

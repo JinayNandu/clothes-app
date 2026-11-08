@@ -730,19 +730,30 @@ $fn$;
 --  the store may put one there. The page makes each one a 4:5 JPEG of at
 --  most 1024 by 1280 before it is sent, well under the 3 MB allowed.
 -- ---------------------------------------------------------------------
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('product-photos', 'product-photos', true, 3145728,
-        array['image/jpeg', 'image/png', 'image/webp'])
-on conflict (id) do update set public = true,
-  file_size_limit = excluded.file_size_limit,
-  allowed_mime_types = excluded.allowed_mime_types;
+--
+--  ⚠️ IN A BLOCK OF ITS OWN. These touch Supabase's own storage tables,
+--  which it owns and may one day tighten; refused, they must not take the
+--  rest of this file down with them (the editor runs it all or nothing).
+--  So a refusal here is a NOTICE, the products and every check still go
+--  in, and selftest.sql fails by name if the bucket or its rule is missing.
+do $photos$
+begin
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('product-photos', 'product-photos', true, 3145728,
+          array['image/jpeg', 'image/png', 'image/webp'])
+  on conflict (id) do update set public = true,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
 
-drop policy if exists product_photos_add on storage.objects;
-create policy product_photos_add on storage.objects for insert to authenticated
-  with check (bucket_id = 'product-photos' and public.is_staff());
-drop policy if exists product_photos_read on storage.objects;
-create policy product_photos_read on storage.objects for select to authenticated
-  using (bucket_id = 'product-photos' and public.is_staff());
+  drop policy if exists product_photos_add on storage.objects;
+  create policy product_photos_add on storage.objects for insert to authenticated
+    with check (bucket_id = 'product-photos' and public.is_staff());
+  drop policy if exists product_photos_read on storage.objects;
+  create policy product_photos_read on storage.objects for select to authenticated
+    using (bucket_id = 'product-photos' and public.is_staff());
+exception when others then
+  raise notice 'PHOTO STORAGE NOT SET UP (%): the products, prices and stock are in; uploading a photograph from the store needs this part. Tell Claude what it says.', sqlerrm;
+end $photos$;
 
 -- ---------------------------------------------------------------------
 --  place_order(p) -- the customer's one write, and the only way an

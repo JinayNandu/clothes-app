@@ -324,7 +324,18 @@ begin
   select count(*) into n from rating_summary() where pid = 't9';
   assert n = 0, 'SELFTEST FAILED: a hidden review still counts in the average';
 
-  -- 15. THE CATALOGUE (8 November 2026). A stranger may change nothing.
+  -- 15. THE CATALOGUE (8 November 2026). First, that the photographs
+  --     have somewhere to go: schema.sql sets the bucket and its rule up
+  --     in a block that only warns if Supabase refuses it.
+  if not exists (select 1 from storage.buckets where id = 'product-photos' and public) then
+    raise exception 'SELFTEST FAILED: the photo bucket product-photos is missing -- schema.sql printed why (PHOTO STORAGE NOT SET UP)';
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects'
+                  and policyname = 'product_photos_add') then
+    raise exception 'SELFTEST FAILED: nothing lets the store add a photograph -- schema.sql printed why (PHOTO STORAGE NOT SET UP)';
+  end if;
+
+  --     A stranger may change nothing.
   --     The store adds a product, prices it, counts its stock and hides
   --     it -- and every order is checked against all of it, through
   --     take_lines(), which is what place_order() calls for its lines.

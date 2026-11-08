@@ -360,9 +360,10 @@ from the SMTP one in step 7b.
      **Settings → Security → Authorized IPs**), then **Run** the tab again.
    - *Access denied for resource*: the key cannot send. Make another with
      **Transactional email → All**, put it in the tab, **Run** again.
-5. It came: delete that query from the editor's list on the left
-   (**⋯ → Delete query**). The key is in Supabase's Vault now; the saved
-   query is a plain copy of it.
+5. It came: close that tab **without saving** it, and if a saved copy is
+   in the editor's list on the left (*PRIVATE*), delete it there (**⋯ →
+   Delete query**). The key is in Supabase's Vault now; any copy left in
+   the editor is plain text. The same goes for step 3's store code.
 6. Run `db/selftest.sql` again: it should now end **"Emails: ready."** If
    it ends *"ready, sent while the store page is open"*, the every-minute
    job is off: **Integrations → Cron** → enable, then run `db/schema.sql`

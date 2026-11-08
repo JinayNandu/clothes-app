@@ -561,6 +561,17 @@ itself for nothing (WhatsApp and SMS need paid business accounts):
 - ⚠️ The extensions are switched on from the SQL editor in a block that
   only **warns** if refused -- the rest of `schema.sql` must not go down
   with them -- and `selftest.sql` ends by saying which is ready.
+- ⚠️ **The Brevo API key's own settings** (help.brevo.com articles
+  209467485, 40158277171474 and 5740111683858, read 9 November 2026):
+  Settings → SMTP & API → **API Keys & MCP** → Generate API key. **Expiry
+  must be "No expiration"** -- an expiring key stops every email on the
+  day, silently. **Access: Restricted, Transactional email → All** (that
+  resource has only None, Read and All, and Read cannot send); the MCP
+  toggle off. Brevo deactivates a key with no successful call for 90
+  days, and its IP blocking for API keys -- set apart from the SMTP
+  row's, which the owner left off -- turns itself on after 30 days with
+  no new address. Either shows as Brevo's answer in the Overview;
+  SETUP step 13 says what to do.
 
 **Store screens.** Products: filters (All, On sale, Disabled, Drafts,
 Deleted, each with its count), "N waiting" on a row, **Status and stock** (one

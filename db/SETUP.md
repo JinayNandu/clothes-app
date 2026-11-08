@@ -307,8 +307,10 @@ emailed once it is; every customer is emailed when their order moves.
    → **Run** → *"Success. No rows returned."* If it warns about a
    destructive operation, **Run this query**: it replaces the shop's own
    rules and deletes no data. It sets every product to *always in stock*.
-   A line beginning **EMAILS:** means a Supabase switch is off — do what it
-   says, then run the file again.
+   A red error instead means nothing changed — the file goes in whole or
+   not at all — so send Claude the error. A line beginning **EMAILS:**
+   means a Supabase switch is off — do what it says, then run the file
+   again.
 2. A new SQL tab → paste **all** of
    [`db/selftest.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/selftest.sql)
    → **Run**. The red box should begin:
@@ -316,7 +318,10 @@ emailed once it is; every customer is emailed when their order moves.
    > ALL GOOD -- every check passed, and nothing was saved.
 
    and end by saying whether emails are ready — *"not set up yet"* until
-   step 13.
+   step 13. *"Waiting customers not tested"* in it only means nobody has
+   signed in with an email yet.
+3. Reload the store page: every product now has **Status and stock**,
+   and says *Always in stock*.
 
 ## 13. Emails to customers — 5 min
 
@@ -324,25 +329,51 @@ The database sends them itself, through the same Brevo account that
 sends the sign-in codes. It needs a Brevo **API** key — a different key
 from the SMTP one in step 7b.
 
-1. [Brevo](https://app.brevo.com) → your name (top right) → **SMTP & API**
-   → **API Keys** tab → **Generate a new API key** → name it
-   `vastra-emails` → copy it. It starts with `xkeysib-`.
-2. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new)
+1. [Brevo → Settings → SMTP & API → **API Keys & MCP**](https://app.brevo.com/settings/keys/api)
+   → **Generate API key** → the code Brevo sends you → **Verify**. Then:
+
+   | | |
+   |---|---|
+   | Key name | `vastra-emails` |
+   | Expiry | **No expiration** — a key that expires stops every customer email that day, without a word |
+   | Access | **Restricted**, then **Transactional email → All**; everything else stays at None |
+   | Create MCP server API key | off |
+
+   Copy the key — it starts with `xkeysib-` and is shown **once** — then
+   **I've saved my key**. Never into the chat.
+2. The sender: [Supabase → Authentication → SMTP](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/auth/smtp)
+   → **Sender email** — the address the sign-in codes come from.
+3. [SQL Editor](https://supabase.com/dashboard/project/tquymsewhzfawjkyysax/sql/new)
    → paste **all** of [`db/email.sql`](https://github.com/JinayNandu/clothes-app/blob/main/db/email.sql).
    Then, **in the editor** (never in the file), replace the two
-   `CHANGE-ME`s: the key on the `api_key` line, and on the `sender` line
-   the address the sign-in codes come from. **Run.**
-3. It says *"Saved. A test email is on its way"*. Look in that inbox — and
-   its spam folder — for **"Customer emails are set up"**. Not there after a
-   few minutes? Open the store's **Overview**: under *Emails to customers*
-   the test shows Brevo's answer. If Brevo emailed you about an
-   **unrecognised IP address**, it has blocked the database: approve that
-   address in Brevo (**Security → Authorised IPs**), then run `db/email.sql`
+   `CHANGE-ME`s, keeping the quotes: the key on the `api_key` line, the
+   sender on the `sender` line. **Run** → *"Saved. A test email is on its
+   way"*. Keep this tab open until the test email comes.
+   - *NOTHING SAVED: …* says which line to fix.
+   - An error naming `net` or `http_post`: **Database → Extensions →
+     pg_net** → enable, run `db/schema.sql` again, then this tab again.
+4. Look in the sender's inbox — and its spam folder — for **"Customer
+   emails are set up"**. Not there after a few minutes? The store's
+   **Overview** → *Emails to customers* shows Brevo's answer to the test.
+   - Brevo emailed you about an **unauthorised IP address**: it has
+     blocked the database. Authorise it from that email (or Brevo →
+     **Settings → Security → Authorized IPs**), then **Run** the tab again.
+   - *Access denied for resource*: the key cannot send. Make another with
+     **Transactional email → All**, put it in the tab, **Run** again.
+5. It came: delete that query from the editor's list on the left
+   (**⋯ → Delete query**). The key is in Supabase's Vault now; the saved
+   query is a plain copy of it.
+6. Run `db/selftest.sql` again: it should now end **"Emails: ready."** If
+   it ends *"ready, sent while the store page is open"*, the every-minute
+   job is off: **Integrations → Cron** → enable, then run `db/schema.sql`
    again.
-4. Run `db/selftest.sql` again: it should now end **"Emails: ready."**
-5. The store's **Overview** shows every email sent, and Brevo's answer.
+7. The store's **Overview** shows every email sent, and Brevo's answer.
 
-To change the key or the address later, run `db/email.sql` again.
+Brevo switches off a key that sends nothing for 90 days, and once it has
+seen no new address for 30 days it blocks calls from any address it has
+not seen. Either way emails stop and the **Overview** shows Brevo's
+answer: make a new key, or authorise the address, and run `db/email.sql`
+again. To change the key or the address later, run `db/email.sql` again.
 
 ## Starting again with no data — 3 min
 

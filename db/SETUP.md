@@ -333,7 +333,12 @@ from the SMTP one in step 7b.
    `CHANGE-ME`s: the key on the `api_key` line, and on the `sender` line
    the address the sign-in codes come from. **Run.**
 3. It says *"Saved. A test email is on its way"*. Look in that inbox — and
-   its spam folder — for **"Customer emails are set up"**.
+   its spam folder — for **"Customer emails are set up"**. Not there after a
+   few minutes? Open the store's **Overview**: under *Emails to customers*
+   the test shows Brevo's answer. If Brevo emailed you about an
+   **unrecognised IP address**, it has blocked the database: approve that
+   address in Brevo (**Security → Authorised IPs**), then run `db/email.sql`
+   again.
 4. Run `db/selftest.sql` again: it should now end **"Emails: ready."**
 5. The store's **Overview** shows every email sent, and Brevo's answer.
 

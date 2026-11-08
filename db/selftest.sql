@@ -377,7 +377,7 @@ begin
     if sqlerrm <> 'NOT_STAFF' then raise; end if;
   end;
   begin
-    perform set_hidden('p-anything', true);
+    perform set_status('p-anything', 'hidden');
     raise exception 'SELFTEST FAILED: a stranger hid a product';
   exception when others then
     if sqlerrm <> 'NOT_STAFF' then raise; end if;
@@ -731,10 +731,16 @@ begin
 
   -- An order's news: a change owes its customer an email, two minutes on;
   -- the email says where it is now, and anything they typed is text.
-  insert into orders (id, seq, user_id, status, cust_name, cust_mobile, addr, city, state, pin,
-                      items_total, mrp_total, saved, discount, discount_placed, shipping, bulky,
-                      grand, pay_method, arrives_from, arrives_to, history)
-  values (o8, 9008, boss, 'sent', '<b>Self</b> & Test', '9000000000', '1 Test Street, Nowhere',
+  -- ⚠️ The order carries its own address. It is the store phone's order,
+  -- and a store phone signs in with no email, so without one send_notices()
+  -- would find nobody to write to and the count below would be 0 (the
+  -- owner's first run of this, 9 November 2026). The address is on a
+  -- domain that cannot exist, and no email leaves this test anyway.
+  insert into orders (id, seq, user_id, status, cust_name, cust_mobile, cust_email, addr, city,
+                      state, pin, items_total, mrp_total, saved, discount, discount_placed,
+                      shipping, bulky, grand, pay_method, arrives_from, arrives_to, history)
+  values (o8, 9008, boss, 'sent', '<b>Self</b> & Test', '9000000000', 'selftest@example.invalid',
+          '1 Test Street, Nowhere',
           'Bengaluru', 'Karnataka', '560001', 1000, 1500, 500, 0, 0, 0, 0, 1000, 'upi',
           today + 5, today + 10, jsonb_build_array(jsonb_build_object('at', iso_now(), 'to', 'sent')));
   insert into order_lines (id, order_id, pid, name, qty, unit_price, unit_mrp, line_total)

@@ -430,6 +430,39 @@ if (-e "$root/db/reset.sql") {
     unless $cbad;
 }
 
+# ---------------------------------------------------------------------------
+# 11. WHAT THE SELF-TEST CALLS IS THERE (9 November 2026). PL/pgSQL looks a
+#     function up only when its line runs, so a call to one schema.sql no
+#     longer makes passes everything here and stops the owner's self-test
+#     half-way -- as set_hidden() did, renamed set_status() that day. Every
+#     function selftest.sql performs or assigns from must be one schema.sql
+#     makes, or one of Postgres's own listed here; none may be one it drops.
+# ---------------------------------------------------------------------------
+{
+  my (%made, %dropped);
+  $made{lc $1}++    while $sqlc =~ /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?(\w+)\s*\(/gi;
+  $dropped{lc $1}++ while $sqlc =~ /drop\s+function\s+(?:if\s+exists\s+)?(?:public\.)?(\w+)\s*\(/gi;
+  my %pg = map { $_ => 1 } qw(coalesce gen_random_uuid jsonb_build_object set_config);
+  my $st = slurp("$root/db/selftest.sql");
+  # Comments and strings out in one pass, left to right, so a "--" inside a
+  # string and an apostrophe inside a comment are each taken for what they are.
+  $st =~ s/--[^\n]*|'(?:[^']|'')*'/ /g;
+  my %used;
+  $used{lc $1}++ while $st =~ /(?:\bperform|:=)\s+(\w+)\s*\(/gi;
+  my $sbad = 0;
+  for my $f (sort keys %used) {
+    if ($dropped{$f} && !$made{$f}) {
+      $sbad++; fail("selftest.sql calls $f(), which schema.sql drops -- the self-test would stop there");
+    } elsif (!$made{$f} && !$pg{$f}) {
+      $sbad++; fail("selftest.sql calls $f(), which schema.sql never makes -- a typo, or one of "
+                  . "Postgres's own to add to the list in db.pl section 11");
+    }
+  }
+  if (!%used) { $sbad++; fail('found no calls in selftest.sql -- this check has stopped reading it'); }
+  ok(scalar(keys %used) . " functions the self-test calls, each made by schema.sql or Postgres's own")
+    unless $sbad;
+}
+
 print "\n";
 if ($fails) { print "$fails FAILED\n"; exit 1; }
 print "all database checks passed\n";

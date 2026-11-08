@@ -7,7 +7,8 @@
 //
 // EVERY CHANGE GOES THROUGH store.catalogAdmin: on the database, functions
 // that check the store's session first and check every field again
-// (db/schema.sql save_product, set_price, set_stock, set_hidden), so a
+// (db/schema.sql save_product, set_price, set_stock, set_status,
+// set_stock_mode), so a
 // customer sees it on their next page; in one browser, the overlay of
 // backend-local.js. The checks below are the owner's convenience -- a
 // mistake named at the field -- and the server's are the rules.

@@ -33,9 +33,14 @@ a **draft**, or **deleted** (kept, and brought back); its stock is **always
 in stock** (every product, to begin with), **out of stock**, or **counted**;
 a signed-in customer can ask to be **told when something is back**; and
 customers are **emailed when their order moves** — by the database itself,
-through Brevo. ⚠️ Needs db/SETUP.md **step 12** (schema and self-test) and,
-for the emails, **step 13** (a Brevo API key) — neither run yet (*Disable,
-delete, stock modes and emails*).
+through Brevo. db/SETUP.md **step 12**'s `schema.sql` and **step 13**'s
+`email.sql` were run by the owner that night, reported successful. The
+self-test stopped half-way, on a call to `set_hidden()` (renamed
+`set_status()`), and would next have counted no order email: its test
+order belonged to the store phone, which has no address. Both fixed, and
+`db.pl` section 11 now fails on any call the self-test makes to a function
+`schema.sql` does not make. ⚠️ The self-test's re-run is still owed
+(*Disable, delete, stock modes and emails*).
 See *Where this is*, *Accounts* and *The order of work*.
 
 ---

@@ -22,8 +22,9 @@
 //  SIGN_IN is on.
 //
 //  EVERY WRITE IS A FUNCTION ON THE SERVER: place_order, advance_order,
-//  set_paid, claim_staff, the store's save_product, set_price, set_stock
-//  and set_hidden, and for an account save_address and its two siblings
+//  set_paid, claim_staff, the store's save_product, set_price, set_stock,
+//  set_status and set_stock_mode, and for an account save_address and its
+//  two siblings, register_interest and drop_interest,
 //  and the hand-over pair. No table takes a write from here directly;
 //  the top of db/schema.sql says why that is the point.
 //

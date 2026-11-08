@@ -33,14 +33,14 @@ a **draft**, or **deleted** (kept, and brought back); its stock is **always
 in stock** (every product, to begin with), **out of stock**, or **counted**;
 a signed-in customer can ask to be **told when something is back**; and
 customers are **emailed when their order moves** — by the database itself,
-through Brevo. db/SETUP.md **step 12**'s `schema.sql` and **step 13**'s
-`email.sql` were run by the owner that night, reported successful. The
-self-test stopped half-way, on a call to `set_hidden()` (renamed
-`set_status()`), and would next have counted no order email: its test
-order belonged to the store phone, which has no address. Both fixed, and
-`db.pl` section 11 now fails on any call the self-test makes to a function
-`schema.sql` does not make. ⚠️ The self-test's re-run is still owed
-(*Disable, delete, stock modes and emails*).
+through Brevo. db/SETUP.md **steps 12 and 13, run and proved on the real
+project** that night. The self-test first stopped half-way, on a call to
+`set_hidden()` (renamed `set_status()`), and would next have counted no
+order email -- its test order belonged to the store phone, which has no
+address. Both fixed (`db.pl` section 11 now fails on any call the
+self-test makes to a function `schema.sql` does not make), and the re-run
+said *"ALL GOOD -- every check passed, and nothing was saved. Emails:
+ready."* (*Disable, delete, stock modes and emails*).
 See *Where this is*, *Accounts* and *The order of work*.
 
 ---
@@ -495,8 +495,9 @@ changed, give that notification to the person who ordered"; "infinite stock
 ... initially mark all products as infinite stock"; and "keep 'infinite
 stock' 'out of stock' 'disable' 'delete' etc etc options for the back end".
 
-⚠️ **Built and tested against the stand-in; on the real database only once
-db/SETUP.md step 12 runs, and emails only after step 13.**
+**Built and tested against the stand-in, then proved on the real database
+on 9 November 2026** -- db/SETUP.md steps 12 and 13, the self-test ending
+*"ALL GOOD ... Emails: ready."*, and probed from outside (below).
 
 **A product's status** -- columns `disabled`, `deleted_at` and the old
 `hidden`, read as one word by `product_json()` (`status`):
@@ -599,6 +600,21 @@ Send now sending two; an order placed then confirmed before the send making
 one email, and a second send making none; phone widths; no console errors.
 And the live database before step 12: products with no stock mode keep
 counting, the ₹1,999 price shows, browsing makes no session.
+
+**On the real project after steps 12 and 13 (9 November 2026):** the
+self-test said *"ALL GOOD -- every check passed, and nothing was saved.
+Emails: ready."* -- no "Waiting customers not tested" note, so the
+notify-me checks ran against a real signed-in customer; the Vault key,
+pg_net and pg_cron's `vastra-notices` job are all in place. From outside,
+with the publishable key: `catalogue()` gives 11 products, every one
+`active` and `always`; `set_status`, `set_stock_mode`, `register_interest`,
+`drop_interest`, `mail_status` and `send_notices_now` answer 401
+*permission denied*; `set_hidden` answers 404 PGRST202 (dropped);
+`interest` and `notices` answer 401. The owner reported the rest of both
+steps successful. **Not yet seen:** an order's or a waiting customer's
+email reaching a real inbox through the minute job -- the self-test sends
+nothing, by design. A guest who leaves checkout's email box empty gets no
+order emails: there is no address to send to.
 
 ## Each item's own status (7 November 2026)
 
@@ -1162,15 +1178,11 @@ Steps 1–5 are the demo. 6–10 make it a shop.
 
 ## Open, and owned by the user
 
-- ⚠️ **db/SETUP.md steps 12 and 13 are not run yet** (9 November 2026).
-  Until step 12, the live shop keeps step 11's behaviour — every product
-  counted, no disable, delete or "notify me" — and the store's new buttons
-  say to run it. `selftest.sql` section 16 is the first time that SQL runs
-  on Postgres. Until step 13 no email leaves: each one owed waits, and goes
-  once the key is in. Not yet proved anywhere: that this project lets the
-  SQL editor switch on **pg_net** and **pg_cron** (a refusal prints an
-  `EMAILS:` notice and the store page sends instead while open), and a real
-  email arriving.
+- **db/SETUP.md steps 12 and 13 are done and proved** (9 November 2026;
+  see *Disable, delete, stock modes and emails*). Still unseen: an order's
+  or a waiting customer's email reaching a real inbox through the minute
+  job. The first order that moves shows it in the store's Overview, with
+  Brevo's answer.
 - ⚠️ **The server does not check coupons** (see *The database*): prices
   and stock it checks since step 11; the codes are in `shop.json`.
   Before real customers: give the database the coupons too, and have

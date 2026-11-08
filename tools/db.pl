@@ -12,8 +12,9 @@
 #
 # And it guards the edges that matter most on a public repository: every
 # table locked down, every function revoked from everybody before its one
-# grant, the store code never written into a file, and nothing in config.js
-# that is not a PUBLISHABLE key.
+# grant, those grants exactly the functions the app calls, the store code
+# never written into a file, and nothing in config.js that is not a
+# PUBLISHABLE key.
 # ---------------------------------------------------------------------------
 use strict;
 use warnings;
@@ -185,6 +186,50 @@ while ($sqlc =~ /create\s+or\s+replace\s+function\s+(\w+)\s*\(([^)]*)\)(.*?)\$fn
   }
 }
 ok(scalar(@fns) . ' functions, each revoked from everybody before its grant') unless $fbad;
+
+# ---------------------------------------------------------------------------
+# 5b. ...and granted back to exactly what the app calls (8 November 2026).
+#     A missing grant hides from everything else: the self-test runs with
+#     the SQL editor's rights, which skip grants, and a probe from outside
+#     with no session sees only what anon may do. Customers would find out
+#     first -- every rating, every order refused. So the names the app hands
+#     to rpc(), rpcOrGone() and publicRpc() are read from the app itself:
+#     each must be granted to authenticated, a publicRpc() one to anon too
+#     (a product page calls it with no session), and nothing else may be.
+# ---------------------------------------------------------------------------
+my %granted;   # function -> { role => 1 }
+while ($sqlc =~ /grant\s+execute\s+on\s+function\s+(\w+)\s*\([^)]*\)\s+to\s+([^;]*)/g) {
+  my ($fn, $who) = ($1, $2);
+  $granted{$fn}{$_} = 1 for $who =~ /\b(anon|authenticated)\b/g;
+}
+my (%calls, %public);
+for my $f (glob("$APP/*.js"), glob("$APP/pages/*.js")) {
+  my $t = slurp($f);
+  $t =~ s{/\*.*?\*/}{}gs;
+  $t =~ s{^[ \t]*//[^\n]*}{}gm;
+  $calls{$_}  = 1 for $t =~ /\b(?:rpc|rpcOrGone|publicRpc)\(\s*['"](\w+)['"]/g;
+  $public{$_} = 1 for $t =~ /\bpublicRpc\(\s*['"](\w+)['"]/g;
+}
+my $gbad = 0;
+for my $fn (sort keys %calls) {
+  unless ($granted{$fn}{authenticated}) {
+    $gbad++; fail("the app calls $fn() but schema.sql never grants it to authenticated -- "
+                . 'the database would refuse it to every signed-in customer and the store');
+  }
+  if ($public{$fn} && !$granted{$fn}{anon}) {
+    $gbad++; fail("a page with no session calls $fn() but schema.sql never grants it to anon -- "
+                . 'visitors would get nothing back');
+  }
+}
+for my $fn (sort keys %granted) {
+  next if $calls{$fn};
+  $gbad++; fail("$fn() is granted to " . join(' and ', sort keys %{ $granted{$fn} })
+              . ' but nothing in the app calls it -- take the grant away, or call it');
+}
+fail('found no function the app calls -- has the way backend-supabase.js calls the database changed?')
+  unless %calls;
+ok(scalar(keys %calls) . ' functions the app calls, each granted to the role that calls it, and nothing more')
+  unless $gbad || !%calls;
 
 # ---------------------------------------------------------------------------
 # 6. The store code is never in a file. store-code.sql must still say

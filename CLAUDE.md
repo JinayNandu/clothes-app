@@ -15,8 +15,11 @@ the shop's own sender and the code template, working on the real project.
 **sign in first** and saves their addresses; a **profile page** behind a
 person icon on every screen; an **order-details page** with the order's
 chain; **Size chart** in words under every card's sizes; and on the store,
-a **pop-up** in place of every second tap and **going back a step** —
-which needs `schema.sql` run again (db/SETUP.md step 9).
+a **pop-up** in place of every second tap and **going back a step**
+(db/SETUP.md step 9, run on the real project the same day). And
+**reviews**: once an item is delivered the customer rates the delivery
+and the item, and products show their average and reviews — db/SETUP.md
+step 10, run and proved on the real project the same day (*Reviews*).
 See *Where this is*, *Accounts* and *The order of work*.
 
 ---
@@ -223,7 +226,10 @@ Milan's patterns (`kirana/db/`), with two of Milan's holes closed.
   has RLS and is revoked before any grant; nothing is granted to `anon`
   but the schema and the two public review readers, which must be STABLE
   and may not name a customer's column (since 8 November 2026);
-  every function is revoked from public, anon and authenticated; every
+  every function is revoked from public, anon and authenticated, and
+  granted back to exactly the functions the app calls (section 5b, since
+  8 November 2026: a missing grant hides from the self-test and from a
+  probe with no session, and only customers would hit it); every
   SECURITY DEFINER pins its search_path; no hash, secret table or secret
   key in `app/`; `config.js` holds a publishable key or nothing (a
   legacy JWT is decoded and must say `anon`). Each proved by breaking it.
@@ -423,7 +429,29 @@ their ratings; initially no ratings will be visible".
   with its line break, the unrated shirt showing nothing; the dress card
   showing 4.0 (1); the store tab with both, one hidden and gone from the
   product page and its card; and the old-schema behaviour on all three
-  pages. ⚠️ Not yet on the real project: schema.sql and selftest.sql.
+  pages.
+- **Proved on the real database, 8 November 2026**: the owner re-ran
+  `schema.sql`, then `selftest.sql` answered `ALL GOOD -- every check
+  passed, and nothing was saved`, rule 14 with it. From outside, with the
+  publishable key alone and no session made (the database had just been
+  reset; a throwaway guest would have added an account to it):
+  `rating_summary()` and `product_reviews()` answer 200 `[]`;
+  `submit_review`, `rate_delivery` and `hide_review` answer 401,
+  permission denied -- there, and refused to a visitor; both tables 401;
+  a made-up function 404. Then the shop in the preview, on the real
+  project, with no session in the browser: the home page made one call,
+  `rating_summary` (200, after its CORS preflight), and no stars on its
+  six cards; a product page asked `product_reviews` too and showed
+  neither a rating line nor a reviews section; no supabase-js, no session.
+- **⚠️ Not yet seen on the real project: a signed-in customer's rating.**
+  The self-test skips grants and the probes above are anon's, so the
+  grants to `authenticated` are held statically instead: `db.pl` section
+  5b reads every function name the app hands to `rpc()`, `rpcOrGone()`
+  and `publicRpc()`, and fails if one is not granted to authenticated (a
+  `publicRpc()` one to anon as well) or if anything else is granted --
+  proved by breaking it four ways (a grant removed, the anon half
+  removed, an extra grant, a misspelt call). The owner's first real
+  rating is the live proof.
 
 ## Accounts (step 7)
 
